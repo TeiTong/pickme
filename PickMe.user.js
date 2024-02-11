@@ -292,7 +292,7 @@ NOTES:
             } else if (response.status == 400 || response.status == 401) { // invalid token
                 updateButtonIcon(5);
                 // Will prompt the user to enter a valid token
-                askForToken("missing/invalid").then((value) => {
+                askForToken("manquante/invalide").then((value) => {
                     API_TOKEN = value;
                     buttonHandler(); // retry the API request
                 }).catch((error) => {
