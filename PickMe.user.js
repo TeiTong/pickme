@@ -8,8 +8,8 @@
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=amazon.fr
-// @updateURL    https://raw.githubusercontent.com/teitong/pickme/master/PickMe.js
-// @downloadURL  https://raw.githubusercontent.com/teitong/pickme/master/PickMe.js
+// @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
+// @downloadURL  https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
