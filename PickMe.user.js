@@ -7,6 +7,7 @@
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
+// @exclude      https://www.amazon.fr/vine/vine-items?queue=potluck*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=amazon.fr
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @downloadURL  https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
