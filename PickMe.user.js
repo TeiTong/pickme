@@ -411,7 +411,7 @@ NOTES:
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.1,
+            version: 0.2,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
