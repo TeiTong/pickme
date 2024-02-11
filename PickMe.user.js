@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.2
 // @description  Aide pour discord AVFR
-// @author       lelouch_di_britannia (modifié par Tei Tong)
+// @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
