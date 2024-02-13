@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -47,6 +47,7 @@ NOTES:
 
     //PickMe add
     const urlParams = new URLSearchParams(window.location.search);
+    const productsCont = document.querySelectorAll('.vvp-item-product-title-container > a.a-link-normal');
     let valeurQueue = urlParams.get('queue');
     const valeurPn = parseInt(urlParams.get('pn'), 10) || 0; // Utilisez 0 comme valeur par défaut si pn n'est pas défini
     const valeurCn = parseInt(urlParams.get('cn'), 10) || 0; // Utilisez 0 comme valeur par défaut si cn n'est pas défini
@@ -61,6 +62,15 @@ NOTES:
     if (valeurCn > 0) {
         valeurPage = valeurCn.toString();
     }
+    const listElements = [];
+
+    productsCont.forEach(element => {
+        const urlComp = element.href;
+        listElements.push(urlComp);
+    });
+    //console.log(listElements);
+
+    sendDatasToAPI(listElements);
 
     const urlData = window.location.href.match(/(amazon\..+)\/vine\/vine-items(?:\?queue=)?(encore|last_chance|potluck)?.*?(?:&page=(\d+))?$/); // Country and queue type are extrapolated from this
     //End
@@ -302,7 +312,16 @@ NOTES:
                 updateButtonIcon(6);
             } else if (response.status == 429) { // too many requests
                 updateButtonIcon(3);
+			//PickMe add
+            } else if (response.status == 423) { // Ancien produit
+			    listOfItems[productData.asin] = {};
+                listOfItems[productData.asin].status = 'Posted';
+                listOfItems[productData.asin].queue = productData.queue;
+                listOfItems[productData.asin].date = new Date().getTime();
+                GM_setValue('config', listOfItems);
+                updateButtonIcon(7);
             }
+			//End
         }
 
     }
@@ -404,14 +423,20 @@ NOTES:
             discordBtn.innerHTML = `${btn_warning} Erreur`;
             discordBtn.disabled = false;
             discordBtn.style.cursor = 'pointer';
+        //PickMe Edit
+        } else if (type == 7) { // API: incorrect parameters
+            discordBtn.innerHTML = `${btn_warning} Trop ancien`;
+            discordBtn.disabled = true;
+            discordBtn.style.cursor = 'no-drop';
         }
+        //End
 
     }
     //PickMe edit
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.2,
+            version: 0.3,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -444,15 +469,47 @@ NOTES:
 
     }
 
+    //PickMe add
+    function sendDatasToAPI(data) {
+        const formData = new URLSearchParams({
+            version: '0.3',
+            token: API_TOKEN,
+            urls: JSON.stringify(data),
+            queue: valeurQueue,
+            page: valeurPage,
+        });
+
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: "https://apishyrka.alwaysdata.net/shyrka/products",
+                data: formData.toString(),
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                onload: function(response) {
+                    //console.log(response.status, response.responseText);
+                    resolve(response);
+                },
+                onerror: function(error) {
+                    //console.error(error);
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    //End
+
     // Determining the queue type from the HTML dom
     function d_queueType(text) {
         switch (text) {
             case "VENDOR_TARGETED":
-                return "2"; // RFY
+                return "potluck"; // RFY
             case "VENDOR_VINE_FOR_ALL":
-                return "0"; // AFA
+                return "last_chance"; // AFA
             case "VINE_FOR_ALL":
-                return "1"; // AI
+                return "encore"; // AI
             default:
                 return null;
         }
