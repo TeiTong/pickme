@@ -190,17 +190,21 @@ NOTES:
                 const etiquetteTemps = document.createElement('div');
                 etiquetteTemps.style.position = 'absolute';
                 etiquetteTemps.style.top = '5px';
-                etiquetteTemps.style.right = '5px';
+                etiquetteTemps.style.left = '5px'; // Position à gauche
                 etiquetteTemps.style.backgroundColor = 'rgba(255,255,255,0.7)';
                 etiquetteTemps.style.color = 'black';
                 etiquetteTemps.style.padding = '2px 5px';
                 etiquetteTemps.style.borderRadius = '5px';
                 etiquetteTemps.style.fontSize = '12px';
+                etiquetteTemps.style.whiteSpace = 'nowrap'; // Empêche le texte de passer à la ligne
                 etiquetteTemps.textContent = texteTempsEcoule;
 
                 // Ajouter l'étiquette de temps à l'image du produit
                 produit.querySelector('.vvp-item-tile-content').style.position = 'relative';
                 produit.querySelector('.vvp-item-tile-content').appendChild(etiquetteTemps);
+
+                // Ajuster la largeur du bandeau à celle du texte
+                etiquetteTemps.style.width = 'auto';
             }
         });
     }
