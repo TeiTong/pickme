@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  Aide pour discord AVFR
-// @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong)
+// @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
@@ -14,12 +14,13 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 /*
 
 NOTES:
-* Your API token is tied to your Discord username.
+* Votre clef API est lié à votre compte Discord
 
 */
 
@@ -28,6 +29,139 @@ NOTES:
 
     (GM_getValue("config")) ? GM_getValue("config") : GM_setValue("config", {}); // initialize the list of items that were posted to Discord
 
+    //PickMe add
+    // Initialiser ou lire la configuration existante
+    let highlightEnabled = GM_getValue("highlightEnabled", true); // Par défaut, la fonctionnalité est activée
+    let paginationEnabled = GM_getValue("paginationEnabled", true); // Par défaut, la fonctionnalité est activée
+
+    // Fonction pour demander à l'utilisateur s'il souhaite activer/désactiver la fonctionnalité
+    function askhighlightPreference() {
+        let userWantsHighlight = confirm("Voulez-vous activer la subrillance des nouveaux objets ? OK pour activer, Annuler pour désactiver.");
+        GM_setValue("highlightEnabled", userWantsHighlight);
+        return userWantsHighlight;
+    }
+
+    function askpaginationPreference() {
+        let userWantsPagination = confirm("Voulez-vous activer l'affichage des pages au dessus des produits ? OK pour activer, Annuler pour désactiver.");
+        GM_setValue("paginationEnabled", userWantsPagination);
+        return userWantsPagination;
+    }
+
+    var storedProducts = GM_getValue("storedProducts");
+
+    //S'assurer que storedProducts est un objet
+    if (!storedProducts) {
+        storedProducts = {};
+    } else {
+        try {
+            storedProducts = JSON.parse(storedProducts);
+        } catch (error) {
+            console.error("Erreur lors de la conversion de storedProducts en objet: ", error);
+            storedProducts = {};
+        }
+    }
+
+    //Navigation des pages avec les touches du clavier
+    document.addEventListener('keydown', function(e) {
+        // Touche Q ou flèche gauche
+        if (e.key === 'q' || e.key === 'ArrowLeft') {
+            naviguerPage(-1);
+        }
+        // Touche D ou flèche droite
+        else if (e.key === 'd' || e.key === 'ArrowRight') {
+            naviguerPage(1);
+        }
+    });
+
+    function naviguerPage(direction) {
+        // Extraire le numéro de page actuel de l'URL
+        const url = new URL(window.location);
+        const params = url.searchParams;
+        let page = parseInt(params.get('page') || '1', 10);
+
+        // Calculer la nouvelle page
+        page += direction;
+
+        // S'assurer que la page est au minimum à 1
+        if (page < 1) page = 1;
+
+        // Mettre à jour le paramètre de page dans l'URL
+        params.set('page', page);
+        url.search = params.toString();
+
+        // Naviguer vers la nouvelle page
+        window.location.href = url.toString();
+    }
+
+
+    // Fonction pour calculer et formater le temps écoulé
+    function formaterTempsEcoule(date) {
+        const maintenant = new Date();
+        const tempsEcoule = maintenant - new Date(date);
+        const secondes = tempsEcoule / 1000;
+        const minutes = secondes / 60;
+        const heures = minutes / 60;
+        const jours = heures / 24;
+
+        // Si moins d'une minute s'est écoulée
+        if (secondes < 60) {
+            return Math.round(secondes) + 's';
+        }
+        // Si moins d'une heure s'est écoulée
+        else if (minutes < 60) {
+            return Math.round(minutes) + 'm';
+        }
+        // Si moins d'un jour s'est écoulé
+        else if (heures < 24) {
+            // Convertir les décimales des heures en minutes arrondies
+            const heuresArrondies = Math.floor(heures);
+            const minutesRestantes = Math.round((heures - heuresArrondies) * 60);
+            return heuresArrondies + 'h ' + minutesRestantes + 'm';
+        }
+        // Si un ou plusieurs jours se sont écoulés
+        else {
+            // Convertir les décimales des jours en heures arrondies
+            const joursArrondis = Math.floor(jours);
+            const heuresRestantes = Math.round((jours - joursArrondis) * 24);
+            return joursArrondis + 'j ' + heuresRestantes + 'h';
+        }
+    }
+
+    // Fonction pour ajouter l'étiquette de temps à chaque produit
+    function ajouterEtiquetteTemps() {
+        const produits = document.querySelectorAll('.vvp-item-tile');
+
+        produits.forEach(produit => {
+            const asin = produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
+            const storedProducts = JSON.parse(GM_getValue("storedProducts", '{}'));
+
+            if (storedProducts.hasOwnProperty(asin)) {
+                const dateAjout = storedProducts[asin].dateAdded;
+                const texteTempsEcoule = formaterTempsEcoule(dateAjout);
+
+                // Créer l'étiquette de temps
+                const etiquetteTemps = document.createElement('div');
+                etiquetteTemps.style.position = 'absolute';
+                etiquetteTemps.style.top = '5px';
+                etiquetteTemps.style.right = '5px';
+                etiquetteTemps.style.backgroundColor = 'rgba(255,255,255,0.7)';
+                etiquetteTemps.style.color = 'black';
+                etiquetteTemps.style.padding = '2px 5px';
+                etiquetteTemps.style.borderRadius = '5px';
+                etiquetteTemps.style.fontSize = '12px';
+                etiquetteTemps.textContent = texteTempsEcoule;
+
+                // Ajouter l'étiquette de temps à l'image du produit
+                produit.querySelector('.vvp-item-tile-content').style.position = 'relative';
+                produit.querySelector('.vvp-item-tile-content').appendChild(etiquetteTemps);
+            }
+        });
+    }
+    if (highlightEnabled) {
+        // Appeler la fonction pour ajouter les étiquettes de temps
+        ajouterEtiquetteTemps();
+    }
+    //End
     var API_TOKEN = GM_getValue("apiToken");
 
     function addGlobalStyle(css) {
@@ -67,8 +201,27 @@ NOTES:
     productsCont.forEach(element => {
         const urlComp = element.href;
         listElements.push(urlComp);
+        if (highlightEnabled) {
+            const asin = element.href.split('/dp/')[1].split('/')[0]; // Extrait l'ASIN du produit
+            const parentDiv = element.closest('.vvp-item-tile'); // Trouver le div parent à mettre en surbrillance
+            // Vérifier si le produit existe déjà dans les données locales
+            if (!storedProducts.hasOwnProperty(asin)) {
+                // Si le produit n'existe pas, l'ajouter aux données locales avec la date courante
+                const currentDate = new Date().toISOString(); // Obtenir la date courante en format ISO
+                storedProducts[asin] = {
+                    added: true, // Marquer le produit comme ajouté
+                    dateAdded: currentDate // Stocker la date d'ajout
+                };
+
+                GM_setValue("storedProducts", JSON.stringify(storedProducts)); // Sauvegarder les changements
+
+                // Appliquer la mise en surbrillance au div parent
+                if (parentDiv) {
+                    parentDiv.style.backgroundColor = "rgba(255, 255, 0, 0.5)";
+                }
+            }
+        }
     });
-    //console.log(listElements);
 
     sendDatasToAPI(listElements);
 
@@ -76,7 +229,6 @@ NOTES:
     //End
     const MAX_COMMENT_LENGTH = 900;
     const ITEM_EXPIRY = 7776000000; // 90 days in ms
-
     // Icons for the Share button
     const btn_discordSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -15 130 130" style="height: 25px;width: 26px;margin-right: 4px;">
         <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" style="fill: #5865f2;"></path>
@@ -90,9 +242,69 @@ NOTES:
     // The modals related to error messages
     const errorMessages = document.querySelectorAll('#vvp-product-details-error-alert, #vvp-out-of-inventory-error-alert');
 
+    //PickMe add
+    function purgeStoredProducts(purgeAll = false) {
+        // Charger les produits stockés ou initialiser comme un objet vide si aucun produit n'est trouvé
+        var storedProducts = JSON.parse(GM_getValue("storedProducts", '{}'));
+        const currentDate = new Date().getTime(); // Obtenir la date et l'heure courantes en millisecondes
+
+        // Parcourir les clés (ASIN) dans storedProducts
+        for (const asin in storedProducts) {
+            if (storedProducts.hasOwnProperty(asin)) { // Vérification pour éviter les propriétés héritées
+                if (purgeAll) {
+                    // Purger le produit sans vérifier la date
+                    delete storedProducts[asin];
+                } else {
+                    // Purger le produit en fonction de la date d'expiration
+                    const productDateAdded = new Date(storedProducts[asin].dateAdded).getTime(); // Convertir la date d'ajout en millisecondes
+                    if (currentDate - productDateAdded >= ITEM_EXPIRY) { // Vérifier si le produit a expiré
+                        delete storedProducts[asin]; // Supprimer le produit expiré
+                    }
+                }
+            }
+        }
+
+        // Sauvegarder les modifications apportées à storedProducts
+        GM_setValue("storedProducts", JSON.stringify(storedProducts));
+    }
+
+    //On purge les anciens produits
+    purgeStoredProducts();
+
+    //On affiche les pages en haut si l'option est activé
+    if (paginationEnabled) {
+        // Sélection du contenu HTML du div source
+        const sourceContent = document.querySelector('.a-text-center').outerHTML;
+
+        // Création d'un nouveau div pour le contenu copié
+        const newDiv = document.createElement('div');
+        newDiv.innerHTML = sourceContent;
+        newDiv.style.textAlign = 'center'; // Centrer le contenu
+        newDiv.style.paddingBottom = '10px'; // Ajouter un petit espace après
+
+        // Sélection du div cible où le contenu sera affiché
+        const targetDiv = document.getElementById('vvp-items-grid-container');
+
+        // Insertion du nouveau div au début du div cible
+        targetDiv.insertBefore(newDiv, targetDiv.firstChild);
+    }
+
+    //Menu PickMe
+    GM_registerMenuCommand("Configurer la préférence de surbrillance", function() {
+        askhighlightPreference();
+    }, "h");
+    GM_registerMenuCommand("Configurer l'affichage des pages sur la partie haute", function() {
+        askpaginationPreference();
+    }, "i");
+    GM_registerMenuCommand("Supprimer les produits enregistrés pour la surbrillance", function() {
+        purgeStoredProducts(true);
+        alert("Tous les produits ont été supprimés.");
+    }, "j");
+    //End
     // Removes old products if they've been in stored for 90+ days
     function purgeOldItems() {
         const items = GM_getValue("config");
+        const storedProducts = JSON.parse(GM_getValue("storedProducts", '{}'));
         const date = new Date().getTime();
 
         for (const obj in items) {
@@ -101,7 +313,6 @@ NOTES:
         GM_setValue("config", items);
 
     }
-
     purgeOldItems();
 
     // Comment gets truncated by its lists, since the lengths of those are unknown, and we'll just say how many more there are at the end
@@ -128,7 +339,7 @@ NOTES:
             }
 
             for (let x=0; x<arr.length; x++) {
-                var split = arr[x].split('; ');
+                var split = arr[x].split(' ● ');
                 var fullArrayLength = arr.join('').length;
                 if (split.length > 1 && !variantQuantities[x]) {
                     variantQuantities[x] = split.length;
@@ -138,7 +349,7 @@ NOTES:
                     variantQuantities[x] = split.length - 1; // keep track of this index's array length
                     variantsRemoved[x] = (variantsRemoved.hasOwnProperty(x)) ? variantsRemoved[x]+1 : 1; // used for tracking the number of variants that were truncated
                     split.pop();
-                    arr[x] = split.join('; ');
+                    arr[x] = split.join(' ● ');
                     arr[x] += `** ... +${variantsRemoved[x]} more**`;
                 } else if (fullArrayLength <= MAX_COMMENT_LENGTH) {
                     break;
@@ -219,10 +430,10 @@ NOTES:
     }
 
     function variationFormatting(variations) {
-        var str = (Object.keys(variations).length > 1) ? '<:dropdown_options:1117467480860922018> Dropdowns' : '<:dropdown_options:1117467480860922018> Dropdown';
+        var str = (Object.keys(variations).length > 1) ? ':arrow_down: Dropdowns' : ':arrow_down: Dropdown';
         for (const type in variations) {
             const t = (variations[type].length > 1) ? `\n**${type.replace(/(y$)/, 'ie')}s (${variations[type].length}):** ` : `\n**${type}:** `; // plural, if multiple
-            str += t + variations[type].join('; ');
+            str += t + variations[type].join(' ● ');
         }
         return str;
     }
@@ -248,7 +459,8 @@ NOTES:
 
     function writeComment(productData) {
         var comment = [];
-        (productData.isLimited) ? comment.push("<:limited_ltd:1117538207362457611> Limited") : null;
+        (productData.seller) ? comment.push(`Vendeur: ${productData.seller}`) : null;
+        (productData.isLimited) ? comment.push(":hourglass: Limited") : null;
         (productData.variations) ? comment.push(variationFormatting(productData.variations)) : null;
 
         var notes = [];
@@ -277,8 +489,9 @@ NOTES:
         productData.isLimited = (document.querySelector('#vvp-product-details-modal--limited-quantity').style.display !== 'none') ? true : false;
         productData.asin = parentAsin;
         productData.differentChild = (parentAsin !== childAsin) ? true : false; // comparing the asin loaded in the modal to the one on the webpage
-        productData.etv = document.querySelector("#vvp-product-details-modal--tax-value-string")?.innerText.replace("$", "");
+        productData.etv = document.querySelector("#vvp-product-details-modal--tax-value-string")?.innerText.replace("€", "");
         productData.queue = queueType;
+        productData.seller = document.querySelector("#vvp-product-details-modal--by-line").innerText.replace(/^par /, '');
         productData.comments = writeComment(productData);
         // possibly more things to come...
 
@@ -297,6 +510,11 @@ NOTES:
                 updateButtonIcon(2);
             //PickMe add
             } else if (response.status == 201) {
+                listOfItems[productData.asin] = {};
+                listOfItems[productData.asin].status = 'Posted';
+                listOfItems[productData.asin].queue = productData.queue;
+                listOfItems[productData.asin].date = new Date().getTime();
+                GM_setValue('config', listOfItems);
                 updateButtonIcon(4);
             //End
             } else if (response.status == 400 || response.status == 401) { // invalid token
@@ -353,7 +571,9 @@ NOTES:
         var btnHeaders = document.querySelectorAll('.vvp-modal-footer');
         var filteredHeaders = Array.from(btnHeaders).map(function (modal) {
             var productDetailsHeader = modal.parentElement.parentElement.querySelector('.a-popover-header > .a-popover-header-content');
-            if (productDetailsHeader && productDetailsHeader.innerText.trim() === 'Product Details') {
+            //PickMe edit
+            if (productDetailsHeader && productDetailsHeader.innerText.trim() === "Détails de l'article") {
+            //End
                 return [modal, modal.parentElement.parentElement];
             }
             return null;
@@ -367,76 +587,66 @@ NOTES:
     }
 
     // Initialize the button
-    //PickMe edit
     function addShareButton() {
-        // Bouton Discord HTML
-        var discordBtn = `<button class="a-button-discord" aria-label="Partager sur discord" style="align-items: center; height: 31px;"></button>`;
+        var discordBtn = `<button class="a-button-discord a-button" style="align-items: center;"></button>`;
+        var modalElems = getCorrectModal(); // ensuring the button gets added to the correct modal
+        modalElems[0].insertAdjacentHTML('afterbegin', discordBtn);
+        productDetailsModal = modalElems[1];
 
-        // Sélectionner le conteneur du bouton "Retour"
-        var backButtonContainer = document.querySelector("#vvp-product-details-modal--back-btn").parentNode;
+        // Add observer to check if the modal gets resized
+        const resizeObserver = new ResizeObserver(updateButtonPosition);
+        resizeObserver.observe(productDetailsModal);
 
-        // Vérifier si le conteneur du bouton "Retour" existe
-        if (backButtonContainer) {
-            // Insérer le bouton Discord à gauche du bouton "Retour"
-            backButtonContainer.insertAdjacentHTML('beforebegin', discordBtn);
-
-            // Ajouter un observateur pour surveiller les modifications de taille du modal, si nécessaire
-            const productDetailsModal = document.querySelector("#vvp-product-details-modal--back-btn").closest('.a-popover'); // Assurez-vous que ce sélecteur cible bien le modal
-            if (productDetailsModal) {
-                const resizeObserver = new ResizeObserver(updateButtonPosition);
-                resizeObserver.observe(productDetailsModal);
-            } else {
-                console.error('Modal de détails du produit non trouvé pour observer les changements de taille.');
-            }
-        } else {
-            console.error('Le conteneur du bouton "Retour" n\'a pas été trouvé.');
-        }
     }
-    //End
 
     function updateButtonIcon(type) {
         var discordBtn = document.querySelector('.a-button-discord');
+        discordBtn.disabled = false;
+        discordBtn.classList.remove('a-button-disabled');
+
         if (type == 0) { // default
-            discordBtn.innerHTML = `${btn_discordSvg} Partager sur discord`;
-            discordBtn.disabled = false;
+            discordBtn.innerHTML = `${btn_discordSvg}<span class="a-button-text">Partager sur discord</span>`;
             discordBtn.style.cursor = 'pointer';
         } else if (type == 1) { // submit button is clicked and waiting for API result
-            discordBtn.innerHTML = `${btn_loadingAnim} Envoi en cours...`;
+            discordBtn.innerHTML = `${btn_loadingAnim}<span class="a-button-text">Envoi en cours...</span>`;
             discordBtn.disabled = true;
             discordBtn.style.cursor = 'no-drop';
         } else if (type == 2) { // API: success
-            discordBtn.innerHTML = `${btn_checkmark} OK`;
+            discordBtn.innerHTML = `${btn_checkmark}<span class="a-button-text">OK</span>`;
             discordBtn.disabled = true;
+            discordBtn.classList.add('a-button-disabled');
         } else if (type == 3) { // API: posting too quickly
-            discordBtn.innerHTML = `${btn_warning} Partage trop rapide !`;
-            discordBtn.disabled = false;
+            discordBtn.innerHTML = `${btn_warning}<span class="a-button-text">Partage trop rapide !</span>`;
             discordBtn.style.cursor = 'pointer';
         } else if (type == 4) { // Item was already posted to Discord
-            discordBtn.innerHTML = `${btn_info} Déjà posté`;
+            discordBtn.innerHTML = `${btn_info}<span class="a-button-text">Déjà posté</span>`;
             discordBtn.disabled = true;
+            discordBtn.classList.add('a-button-disabled');
             discordBtn.style.cursor = 'no-drop';
         } else if (type == 5) { // API: invalid token
-            discordBtn.innerHTML = `${btn_error} Clef API invalide`;
+            discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Clef API invalide</span>`;
             discordBtn.disabled = true;
+            discordBtn.classList.add('a-button-disabled');
             discordBtn.style.cursor = 'no-drop';
         } else if (type == 6) { // API: incorrect parameters
-            discordBtn.innerHTML = `${btn_warning} Erreur`;
-            discordBtn.disabled = false;
+            discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Erreur</span>`;
             discordBtn.style.cursor = 'pointer';
         //PickMe Edit
         } else if (type == 7) { // API: incorrect parameters
-            discordBtn.innerHTML = `${btn_warning} Trop ancien`;
+            discordBtn.innerHTML = `${btn_warning}<span class="a-button-text">Trop ancien</span>`;
             discordBtn.disabled = true;
+            discordBtn.classList.add('a-button-disabled');
             discordBtn.style.cursor = 'no-drop';
         }
         //End
 
     }
+
     //PickMe edit
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.3,
+            version: 0.4,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -472,7 +682,7 @@ NOTES:
     //PickMe add
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: '0.3',
+            version: 0.4,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
