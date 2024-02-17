@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.4
+// @version      0.41
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -33,6 +33,7 @@ NOTES:
     // Initialiser ou lire la configuration existante
     let highlightEnabled = GM_getValue("highlightEnabled", true); // Par défaut, la fonctionnalité est activée
     let paginationEnabled = GM_getValue("paginationEnabled", true); // Par défaut, la fonctionnalité est activée
+    let highlightColor = GM_getValue("highlightColor", "rgba(255, 255, 0, 0.5)");
 
     // Fonction pour demander à l'utilisateur s'il souhaite activer/désactiver la fonctionnalité
     function askhighlightPreference() {
@@ -45,6 +46,52 @@ NOTES:
         let userWantsPagination = confirm("Voulez-vous activer l'affichage des pages au dessus des produits ? OK pour activer, Annuler pour désactiver.");
         GM_setValue("paginationEnabled", userWantsPagination);
         return userWantsPagination;
+    }
+
+    function setHighlightColor() {
+        // Demander à l'utilisateur de choisir une couleur
+        const userInput = prompt("Veuillez saisir la couleur de surbrillance, soit par son nom, soit par sa valeur hexadécimale (exemple : Jaune (#FFFF00), Bleu (#0096FF), Rouge (#FF0000), Vert (#96FF96), etc..)", "").toLowerCase();
+
+        // Correspondance des noms de couleurs à leurs codes hexadécimaux
+        const colorMap = {
+            jaune: "#FFFF00",
+            bleu: "#0096FF",
+            rouge: "#FF0000",
+            vert: "#96FF96",
+            orange: "#FF9600",
+            violet: "#9600FF",
+            rose: "#FF00FF"
+        };
+
+        // Vérifier si l'entrée de l'utilisateur correspond à une couleur prédéfinie
+        const userColor = colorMap[userInput] || userInput;
+
+        // Vérifier si la couleur est une couleur hexadécimale valide (avec ou sans #)
+        const isValidHex = /^#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$/.test(userColor);
+
+        if (isValidHex) {
+            // Supprimer le '#' si présent et normaliser la saisie en format 6 caractères
+            let normalizedHex = userColor.replace('#', '');
+            if (normalizedHex.length === 3) {
+                normalizedHex = normalizedHex.split('').map(char => char + char).join('');
+            }
+
+            // Convertir hex en rgb
+            const r = parseInt(normalizedHex.substr(0, 2), 16);
+            const g = parseInt(normalizedHex.substr(2, 2), 16);
+            const b = parseInt(normalizedHex.substr(4, 2), 16);
+
+            // Format rgba avec 50% de transparence
+            const rgbaColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
+
+            // Stocker la couleur convertie
+            GM_setValue("highlightColor", rgbaColor);
+            alert("La couleur de surbrillance a été mise à jour à " + userInput);
+        } else {
+            // Utiliser couleur de fallback si saisie invalide
+            GM_setValue("highlightColor", 'rgba(255, 255, 0, 0.5)');
+            alert("La saisie n'est pas une couleur valide. La couleur de surbrillance a été réinitialisée à Jaune.");
+        }
     }
 
     var storedProducts = GM_getValue("storedProducts");
@@ -217,7 +264,7 @@ NOTES:
 
                 // Appliquer la mise en surbrillance au div parent
                 if (parentDiv) {
-                    parentDiv.style.backgroundColor = "rgba(255, 255, 0, 0.5)";
+                    parentDiv.style.backgroundColor = highlightColor;
                 }
             }
         }
@@ -293,13 +340,16 @@ NOTES:
     GM_registerMenuCommand("Configurer la préférence de surbrillance", function() {
         askhighlightPreference();
     }, "h");
+    GM_registerMenuCommand("Définir la couleur de surbrillance", function() {
+        setHighlightColor();
+    }, "i");
     GM_registerMenuCommand("Configurer l'affichage des pages sur la partie haute", function() {
         askpaginationPreference();
-    }, "i");
+    }, "j");
     GM_registerMenuCommand("Supprimer les produits enregistrés pour la surbrillance", function() {
         purgeStoredProducts(true);
         alert("Tous les produits ont été supprimés.");
-    }, "j");
+    }, "k");
     //End
     // Removes old products if they've been in stored for 90+ days
     function purgeOldItems() {
@@ -646,7 +696,7 @@ NOTES:
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.4,
+            version: 0.41,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -682,7 +732,7 @@ NOTES:
     //PickMe add
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.4,
+            version: 0.41,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
