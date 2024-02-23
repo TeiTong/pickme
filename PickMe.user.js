@@ -1,19 +1,19 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.41
+// @version      0.5
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
-// @exclude      https://www.amazon.fr/vine/vine-items?queue=potluck*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=amazon.fr
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @downloadURL  https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // ==/UserScript==
 
@@ -33,7 +33,10 @@ NOTES:
     // Initialiser ou lire la configuration existante
     let highlightEnabled = GM_getValue("highlightEnabled", true); // Par défaut, la fonctionnalité est activée
     let paginationEnabled = GM_getValue("paginationEnabled", true); // Par défaut, la fonctionnalité est activée
+    let hideEnabled = GM_getValue("hideEnabled", true); // Par défaut, la fonctionnalité est activée
     let highlightColor = GM_getValue("highlightColor", "rgba(255, 255, 0, 0.5)");
+    let taxValue = GM_getValue("taxValue", true);
+    let catEnabled = GM_getValue("catEnabled", true);
 
     // Fonction pour demander à l'utilisateur s'il souhaite activer/désactiver la fonctionnalité
     function askhighlightPreference() {
@@ -47,6 +50,27 @@ NOTES:
         GM_setValue("paginationEnabled", userWantsPagination);
         return userWantsPagination;
     }
+
+    function askhidePreference() {
+        let userWantsHide = confirm("Voulez-vous activer la possibilité de cacher des produits ? OK pour activer, Annuler pour désactiver.");
+        GM_setValue("hideEnabled", userWantsHide);
+        return userWantsHide;
+    }
+
+    function asktaxPreference() {
+        let userWantsTax = confirm("Voulez-vous remonter l'affichage de la valeur fiscale estimée ? OK pour activer, Annuler pour désactiver.");
+        GM_setValue("taxValue", userWantsTax);
+        return userWantsTax;
+    }
+
+    function askcatPreference() {
+        let userWantsCat = confirm("Voulez-vous afficher la différence de quantité dans les catégories ? OK pour activer, Annuler pour désactiver.");
+        GM_setValue("catEnabled", userWantsCat);
+        return userWantsCat;
+    }
+
+    const apiOk = GM_getValue("apiToken", false);
+    console.log(apiOk);
 
     function setHighlightColor() {
         // Demander à l'utilisateur de choisir une couleur
@@ -108,17 +132,44 @@ NOTES:
         }
     }
 
-    //Navigation des pages avec les touches du clavier
+    // Navigation des pages avec les touches du clavier
     document.addEventListener('keydown', function(e) {
-        // Touche Q ou flèche gauche
+        // Touche Q ou flèche gauche pour naviguer les pages
         if (e.key === 'q' || e.key === 'ArrowLeft') {
             naviguerPage(-1);
         }
-        // Touche D ou flèche droite
+        // Touche D ou flèche droite pour naviguer les pages
         else if (e.key === 'd' || e.key === 'ArrowRight') {
             naviguerPage(1);
         }
+        // Touche Z ou flèche du haut pour avancer dans la queue
+        else if (e.key === 'z' || e.key === 'ArrowUp') {
+            naviguerQueue(1);
+        }
+        // Touche S ou flèche du bas pour reculer dans la queue
+        else if (e.key === 's' || e.key === 'ArrowDown') {
+            naviguerQueue(-1);
+        }
     });
+
+    function naviguerQueue(direction) {
+        const queues = ['potluck', 'last_chance', 'encore'];
+        const url = new URL(window.location);
+        const params = url.searchParams;
+        let currentQueue = params.get('queue') || 'potluck';
+        let currentIndex = queues.indexOf(currentQueue);
+
+        if (direction === 1 && currentIndex < queues.length - 1) {
+            // Avancer dans la queue
+            params.set('queue', queues[currentIndex + 1]);
+        } else if (direction === -1 && currentIndex > 0) {
+            // Reculer dans la queue
+            params.set('queue', queues[currentIndex - 1]);
+        }
+
+        url.search = params.toString();
+        window.location.href = url.toString();
+    }
 
     function naviguerPage(direction) {
         // Extraire le numéro de page actuel de l'URL
@@ -139,7 +190,6 @@ NOTES:
         // Naviguer vers la nouvelle page
         window.location.href = url.toString();
     }
-
 
     // Fonction pour calculer et formater le temps écoulé
     function formaterTempsEcoule(date) {
@@ -208,11 +258,176 @@ NOTES:
             }
         });
     }
-    if (highlightEnabled) {
+
+    //Pour ajouter les boutons + la fonction pour cacher
+    function ajouterIconeEtFonctionCacher() {
+        const produits = document.querySelectorAll('.vvp-item-tile');
+        const conteneur = document.querySelector('#vvp-items-grid-container');
+        const resultats = document.querySelector('#vvp-items-grid-container > p'); // Modifiez ce sélecteur si nécessaire
+
+        // Ajout du style pour les boutons
+        const style = document.createElement('style');
+        style.textContent = `
+        .bouton-filtre {
+            background-color: #f0f0f0;
+            border: 1px solid #dcdcdc;
+            border-radius: 20px;
+            padding: 5px 15px;
+            margin-right: 5px;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+            color: #333;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .bouton-filtre:not(.active):hover {
+            background-color: #e8e8e8;
+        }
+
+        .bouton-filtre.active {
+            background-color: #007bff;
+            color: white;
+        }
+    `;
+
+        style.textContent += `
+		 .bouton-action {
+			background-color: #f7ca00; /* Vert pour indiquer l'action */
+			color: black; /* Texte blanc pour contraster avec le fond vert */
+			font-weight: bold;
+			text-decoration: none;
+			display: inline-block;
+			border: 1px solid #dcdcdc;
+			border-radius: 20px;
+			padding: 5px 15px;
+			margin-right: 5px;
+			cursor: pointer;
+			outline: none;
+		}
+		`;
+        document.head.appendChild(style);
+
+        // Création des boutons avec le nouveau style
+        const boutonVisibles = document.createElement('button');
+        boutonVisibles.textContent = 'Produits visibles';
+        boutonVisibles.classList.add('bouton-filtre', 'active'); // Ajout des classes pour le style
+
+        const boutonCaches = document.createElement('button');
+        boutonCaches.textContent = 'Produits cachés';
+        boutonCaches.classList.add('bouton-filtre'); // Ajout des classes pour le style
+
+        // Ajout des boutons pour cacher tout et tout afficher
+        const boutonCacherTout = document.createElement('button');
+        boutonCacherTout.textContent = 'Tout cacher';
+        boutonCacherTout.classList.add('bouton-action');
+
+        const boutonToutAfficher = document.createElement('button');
+        boutonToutAfficher.textContent = 'Tout afficher';
+        boutonToutAfficher.classList.add('bouton-action');
+
+        const divBoutons = document.createElement('div');
+        divBoutons.style.marginTop = '5px'; // Réduit l'espace au-dessus des boutons
+        divBoutons.style.marginBottom = '15px'; // Augmente l'espace en dessous des boutons
+        divBoutons.appendChild(boutonVisibles);
+        divBoutons.appendChild(boutonCaches);
+        divBoutons.appendChild(boutonCacherTout);
+        divBoutons.appendChild(boutonToutAfficher);
+
+        // Insertion des boutons après les résultats
+        resultats.after(divBoutons);
+
+        boutonVisibles.addEventListener('click', () => afficherProduits(true));
+        boutonCaches.addEventListener('click', () => afficherProduits(false));
+
+        // Fonction pour cacher ou afficher tous les produits
+        function toggleTousLesProduits(cacher) {
+            produits.forEach(produit => {
+                const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
+                const etatCacheKey = asin + '_cache';
+                localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: cacher }));
+            });
+            // Force la mise à jour de l'affichage selon le nouveau statut de visibilité
+            afficherProduits(!cacher);
+        }
+
+        // Gestion des clics sur les boutons Cacher tout et Tout afficher
+        boutonCacherTout.addEventListener('click', () => toggleTousLesProduits(false));
+        boutonToutAfficher.addEventListener('click', () => toggleTousLesProduits(true));
+
+        // Affiche les produits en fonction du filtre : visible ou caché
+        function afficherProduits(afficherVisibles) {
+            produits.forEach(produit => {
+                const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
+                const etatCacheKey = asin + '_cache';
+                let etatCache = JSON.parse(localStorage.getItem(etatCacheKey));
+                if (etatCache === null) {
+                    etatCache = { estCache: true }; // Définit la valeur par défaut
+                    localStorage.setItem(etatCacheKey, JSON.stringify(etatCache)); // Enregistre la valeur par défaut dans le stockage local
+                }
+                produit.style.display = (etatCache.estCache !== afficherVisibles) ? 'none' : '';
+            });
+            boutonVisibles.classList.toggle('active', afficherVisibles); // Active ou désactive le bouton des produits visibles
+            boutonCaches.classList.toggle('active', !afficherVisibles); // Active ou désactive le bouton des produits cachés
+            // Gestion de l'affichage des boutons "Cacher tout" et "Tout afficher"
+            boutonCacherTout.style.display = afficherVisibles ? '' : 'none';
+            boutonToutAfficher.style.display = !afficherVisibles ? '' : 'none';
+        }
+
+        produits.forEach(produit => {
+            const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
+            const etatCacheKey = asin + '_cache';
+            const urlIcone = 'https://i.ibb.co/1R6HWMw/314858-hidden-eye-icon.png';
+            const icone = document.createElement('img');
+
+            icone.setAttribute('src', urlIcone);
+            icone.style.cssText = 'position: absolute; top: 5px; right: 5px; cursor: pointer; width: 30px; height: 30px; z-index: 10;';
+
+            icone.addEventListener('click', () => {
+                const etatCache = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: false };
+                etatCache.estCache = !etatCache.estCache;
+                localStorage.setItem(etatCacheKey, JSON.stringify(etatCache));
+                afficherProduits(!boutonCaches.classList.contains('active'));
+            });
+
+            produit.style.position = 'relative';
+            produit.appendChild(icone);
+        });
+
+        // Initialisation de l'affichage par défaut à 'Produits Visibles'
+        afficherProduits(true);
+    }
+
+    if (hideEnabled && apiOk) {
+        // Appeler la fonction pour ajouter les étiquettes de temps
+        ajouterIconeEtFonctionCacher();
+    }
+    // Exécuter la fonction pour ajouter les icônes et les fonctionnalités de cacher
+    if (highlightEnabled && apiOk) {
         // Appeler la fonction pour ajouter les étiquettes de temps
         ajouterEtiquetteTemps();
+        //S'il y a eu un nouvel objet, alors on met l'image New
+    }
+    //Pour monter la valeur de la taxe
+    if (taxValue && apiOk) {
+        // Créez une balise <style>
+        var style = document.createElement('style');
+        // Assurez-vous que le style s'applique correctement en utilisant textContent
+        style.textContent = `
+		#vvp-product-details-modal--tax-value {
+			position: absolute !important;
+			top: 20px !important;
+			z-index: 101;
+			left: 18px;
+		}
+		`;
+        // Ajoutez la balise <style> au <head> de la page
+        document.head.appendChild(style);
     }
     //End
+
     var API_TOKEN = GM_getValue("apiToken");
 
     function addGlobalStyle(css) {
@@ -227,8 +442,9 @@ NOTES:
         head.appendChild(style);
     }
 
-    addGlobalStyle(`.a-button-discord-icon { background-image: url(https://m.media-amazon.com/images/S/sash/ZNt8quAxIfEMMky.png); content: ""; padding: 10px 10px 10px 10px; background-size: 512px 512px; background-repeat: no-repeat; margin-right: 5px; vertical-align: middle; }`)
-    addGlobalStyle(`.a-button-discord.mobile-vertical { margin-top: 7px; margin-left: 0px; }`)
+    addGlobalStyle(`.a-button-discord > .a-button-text { padding-left: 6px; }`);
+    addGlobalStyle(`.a-button-discord-icon { background-image: url(https://m.media-amazon.com/images/S/sash/Gt1fHP07TsoILq3.png); content: ""; padding: 10px 10px 10px 10px; background-size: 512px 512px; background-repeat: no-repeat; margin-left: 10px; vertical-align: middle; }`);
+    addGlobalStyle(`.a-button-discord.mobile-vertical { margin-top: 7px; margin-left: 0px; }`);
 
     //PickMe add
     const urlParams = new URLSearchParams(window.location.search);
@@ -249,10 +465,13 @@ NOTES:
     }
     const listElements = [];
 
+    //Variable pour savoir s'il y a eu un nouvel objet
+    let imgNew = false;
+
     productsCont.forEach(element => {
         const urlComp = element.href;
         listElements.push(urlComp);
-        if (highlightEnabled) {
+        if (highlightEnabled && apiOk) {
             const asin = element.href.split('/dp/')[1].split('/')[0]; // Extrait l'ASIN du produit
             const parentDiv = element.closest('.vvp-item-tile'); // Trouver le div parent à mettre en surbrillance
             // Vérifier si le produit existe déjà dans les données locales
@@ -269,6 +488,7 @@ NOTES:
                 // Appliquer la mise en surbrillance au div parent
                 if (parentDiv) {
                     parentDiv.style.backgroundColor = highlightColor;
+                    imgNew = true;
                 }
             }
         }
@@ -276,19 +496,106 @@ NOTES:
 
     sendDatasToAPI(listElements);
 
+    //Affichage de la différence des catégories
+    if (window.location.href.includes("queue=encore") && catEnabled && apiOk) {
+        // Fonction pour extraire le nombre d'éléments par catégorie
+        const extraireNombres = () => {
+            const categories = document.querySelectorAll('.parent-node');
+            const resultats = {};
+            categories.forEach(cat => {
+                const nom = cat.querySelector('a').textContent.trim();
+                const nombre = parseInt(cat.querySelector('span').textContent.trim().replace(/[()]/g, ''), 10);
+                resultats[nom] = nombre;
+            });
+            return resultats;
+        };
+
+        const extraireNombreTotal = () => {
+            const texteTotal = document.querySelector('#vvp-items-grid-container > p').textContent.trim();
+            const nombreTotal = parseInt(texteTotal.match(/sur (\d+[\s\u00A0\u202F\u2009]*\d*)/)[1].replace(/[\s\u00A0\u202F\u2009]/g, ''), 10);
+            console.log(nombreTotal);
+            return nombreTotal;
+        };
+
+        // Comparer le nombre total actuel avec celui stocké et mettre à jour l'affichage
+        const comparerEtAfficherTotal = (nouveauTotal) => {
+            const ancienTotal = parseInt(localStorage.getItem('nombreTotalRésultats') || '0', 10);
+            const differenceTotal = nouveauTotal - ancienTotal;
+            if (differenceTotal !== 0) {
+                const containerTotal = document.querySelector('#vvp-items-grid-container > p');
+                const spanTotal = document.createElement('span');
+                spanTotal.textContent = ` (${differenceTotal > 0 ? '+' : ''}${differenceTotal})`;
+                spanTotal.style.color = differenceTotal > 0 ? 'green' : 'red';
+                containerTotal.appendChild(spanTotal);
+            }
+            if (imgNew) {
+                localStorage.setItem('nombreTotalRésultats', JSON.stringify(nouveauTotal));
+            }
+        }
+
+        // Comparer les nombres actuels avec ceux stockés et mettre à jour l'affichage
+        const comparerEtAfficher = (nouveauxNombres) => {
+            const anciensNombres = JSON.parse(localStorage.getItem('nombresCatégories') || '{}');
+
+            Object.keys(nouveauxNombres).forEach(nom => {
+                const difference = nouveauxNombres[nom] - (anciensNombres[nom] || 0);
+                if (difference !== 0) {
+                    const elementCategorie = [...document.querySelectorAll('.parent-node')]
+                    .find(el => el.querySelector('a').textContent.trim() === nom);
+                    const span = document.createElement('span');
+                    span.textContent = ` (${difference > 0 ? '+' : ''}${difference})`;
+                    span.style.color = difference > 0 ? 'green' : 'red';
+                    elementCategorie.appendChild(span);
+                }
+            });
+
+            // Mise à jour du stockage local avec les nouveaux nombres si on a vu un nouvel objet uniquement
+            if (imgNew) {
+                localStorage.setItem('nombresCatégories', JSON.stringify(nouveauxNombres));
+            }
+        };
+
+        const nombresActuels = extraireNombres();
+        comparerEtAfficher(nombresActuels);
+        const urlActuelle = new URL(window.location.href);
+        const paramPn = urlActuelle.searchParams.get("pn");
+        if (paramPn === null || paramPn === '') {
+            const nombreTotalActuel = extraireNombreTotal();
+            comparerEtAfficherTotal(nombreTotalActuel);
+        }
+    }
+
+    //Affichage de l'image New
+    if (imgNew) {
+        // Créer l'élément image
+        const imageElement = document.createElement('img');
+        imageElement.src = 'https://i.ibb.co/qsNvMQx/new-10785605-2-2.png';
+        imageElement.style.cssText = 'height: 15px; width: 35px; margin-left: 10px; vertical-align: middle;';
+
+        // Trouver l'élément après lequel insérer l'image
+        // Cela suppose que le paragraphe avec les résultats est toujours présent et correctement positionné
+        const paragraphResults = document.querySelector('#vvp-items-grid-container > p');
+
+        if (paragraphResults) {
+            // Insérer l'image après le paragraphe des résultats
+            paragraphResults.appendChild(imageElement);
+        }
+    }
+
     const urlData = window.location.href.match(/(amazon\..+)\/vine\/vine-items(?:\?queue=)?(encore|last_chance|potluck)?.*?(?:&page=(\d+))?$/); // Country and queue type are extrapolated from this
     //End
     const MAX_COMMENT_LENGTH = 900;
     const ITEM_EXPIRY = 7776000000; // 90 days in ms
+    const PRODUCT_IMAGE_ID = /.+\/(.*)\._SS[0-9]+_\.[a-z]{3,4}$/;
     // Icons for the Share button
-    const btn_discordSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -15 130 130" style="height: 25px;width: 26px;margin-right: 4px;">
+    const btn_discordSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -15 130 130" style="height: 29px; padding: 4px 0px 4px 10px;">
         <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" style="fill: #5865f2;"></path>
     </svg>`;
-    const btn_loadingAnim = `<span class="a-spinner a-spinner-small" style="margin-right: 5px;"></span>`;
-    const btn_checkmark = `<span class='a-button-discord a-button-discord-icon a-button-discord-success' style='background-position: -83px -137px;'></span>`;
-    const btn_warning = `<span class='a-button-discord a-button-discord-icon a-button-discord-warning' style='background-position: -83px -117px;'></span>`;
-    const btn_error = `<span class='a-button-discord a-button-discord-icon a-button-discord-error' style='background-position: -451px -421px;'></span>`;
-    const btn_info = `<span class='a-button-discord a-button-discord-icon a-button-discord-info' style='background-position: -257px -353px;'></span>`;
+    const btn_loadingAnim = `<span class="a-spinner a-spinner-small" style="margin-left: 10px;"></span>`;
+    const btn_checkmark = `<span class='a-button-discord-icon a-button-discord-success a-hires' style='background-position: -83px -116px;'></span>`;
+    const btn_warning = `<span class='a-button-discord-icon a-button-discord-warning a-hires' style='background-position: -83px -96px;'></span>`;
+    const btn_error = `<span class='a-button-discord-icon a-button-discord-error a-hires' style='background-position: -451px -422px;'></span>`;
+    const btn_info = `<span class='a-button-discord-icon a-button-discord-info a-hires' style='background-position: -257px -354px;'></span>`;
 
     // The modals related to error messages
     const errorMessages = document.querySelectorAll('#vvp-product-details-error-alert, #vvp-out-of-inventory-error-alert');
@@ -319,41 +626,81 @@ NOTES:
         GM_setValue("storedProducts", JSON.stringify(storedProducts));
     }
 
+    function purgeHiddenObjects(purgeAll = false) {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key.includes('_cache')) {
+                const hiddenData = JSON.parse(localStorage.getItem(key));
+                if (purgeAll || (new Date().getTime() - hiddenData.date >= ITEM_EXPIRY)) {
+                    localStorage.removeItem(key);
+                }
+            }
+        }
+    }
+
     //On purge les anciens produits
     purgeStoredProducts();
+    purgeHiddenObjects();
 
     //On affiche les pages en haut si l'option est activé
-    if (paginationEnabled) {
+    if (paginationEnabled && apiOk) {
         // Sélection du contenu HTML du div source
-        const sourceContent = document.querySelector('.a-text-center').outerHTML;
+        const sourceElement = document.querySelector('.a-text-center');
 
-        // Création d'un nouveau div pour le contenu copié
-        const newDiv = document.createElement('div');
-        newDiv.innerHTML = sourceContent;
-        newDiv.style.textAlign = 'center'; // Centrer le contenu
-        newDiv.style.paddingBottom = '10px'; // Ajouter un petit espace après
+        // Vérifier si l'élément source existe
+        if (sourceElement) {
+            const sourceContent = sourceElement.outerHTML;
 
-        // Sélection du div cible où le contenu sera affiché
-        const targetDiv = document.getElementById('vvp-items-grid-container');
+            // Création d'un nouveau div pour le contenu copié
+            const newDiv = document.createElement('div');
+            newDiv.innerHTML = sourceContent;
+            newDiv.style.textAlign = 'center'; // Centrer le contenu
+            newDiv.style.paddingBottom = '10px'; // Ajouter un petit espace après
 
-        // Insertion du nouveau div au début du div cible
-        targetDiv.insertBefore(newDiv, targetDiv.firstChild);
+            // Sélection du div cible où le contenu sera affiché
+            const targetDiv = document.getElementById('vvp-items-grid-container');
+
+            // S'assurer que le div cible existe avant d'insérer le nouveau div
+            if (targetDiv) {
+                // Insertion du nouveau div au début du div cible
+                targetDiv.insertBefore(newDiv, targetDiv.firstChild);
+            }
+            // Pas besoin d'un else avec console.error ici
+        }
+        // Pas besoin d'un else avec console.error ici
     }
 
     //Menu PickMe
-    GM_registerMenuCommand("Configurer la préférence de surbrillance", function() {
+    GM_registerMenuCommand("Activer/Désactiver la surbrillance des nouveaux produits", function() {
         askhighlightPreference();
-    }, "h");
+    }, "a");
     GM_registerMenuCommand("Définir la couleur de surbrillance", function() {
         setHighlightColor();
-    }, "i");
-    GM_registerMenuCommand("Configurer l'affichage des pages sur la partie haute", function() {
+    }, "s");
+    GM_registerMenuCommand("Activer/Désactiver l'affichage des pages sur la partie haute", function() {
         askpaginationPreference();
-    }, "j");
+        window.location.reload();
+    }, "p");
+    GM_registerMenuCommand("Activer/Désactiver la possibilité de cacher les produits", function() {
+        askhidePreference();
+        window.location.reload();
+    }, "c");
+    GM_registerMenuCommand("Activer/Désactiver l'affichage de différence sur les catégories", function() {
+        askcatPreference();
+        window.location.reload();
+    }, "c");
+    GM_registerMenuCommand("Remonter la valeur fiscale estimée", function() {
+        asktaxPreference();
+        window.location.reload();
+    }, "f");
     GM_registerMenuCommand("Supprimer les produits enregistrés pour la surbrillance", function() {
         purgeStoredProducts(true);
         alert("Tous les produits ont été supprimés.");
-    }, "k");
+    }, "s");
+    GM_registerMenuCommand("Supprimer les produits enregistrés pour les cacher", function() {
+        purgeHiddenObjects(true);
+        alert("Tous les produits ont été supprimés.");
+    }, "e");
     //End
     // Removes old products if they've been in stored for 90+ days
     function purgeOldItems() {
@@ -453,21 +800,47 @@ NOTES:
                         GM_setValue('apiToken', userInput);
                         resolve(userInput);
                     } else if (response && response.status === 404) {
+                        GM_deleteValue("apiToken");
                         alert("Clef API invalide !");
                         reject("Invalid API token");
                     } else {
+                        GM_deleteValue("apiToken");
                         alert("Vérification de la clef échoué. Merci d'essayer plus tard.");
                         reject("Authorization failed");
                     }
                 } catch (error) {
+                    GM_deleteValue("apiToken");
                     console.error("Error verifying API token:", error);
                     reject(error);
                 }
             } else {
+                GM_deleteValue("apiToken");
                 reject("Error: User closed the prompt. A valid API token is required.");
             }
         });
     }
+
+    //Pickme add
+    async function verifierCleAPI() {
+        const cleAPI = GM_getValue("apiToken");
+        if (!cleAPI) {
+            console.log("Aucune clé API n'est configurée.");
+            return false;
+        }
+        try {
+            const reponse = await verifyToken(cleAPI);
+            if (reponse && reponse.status === 200) {
+                return true;
+            } else {
+                console.log("La clé API est invalide.");
+                return false;
+            }
+        } catch (erreur) {
+            console.error("Erreur lors de la vérification de la clé API:", erreur);
+            return false;
+        }
+    }
+    //End
 
     function returnVariations() {
         var variations = {};
@@ -500,25 +873,26 @@ NOTES:
         return str;
     }
 
-    // Checks if each dropdown has more than 1 selection
-    // Useful for pointing out misleading product photos when viewed on Vine
-    function countVariations(obj, notes) {
+    // Checks if each dropdown has more than 1 option
+    // Useful for pointing out misleading parent products
+    function countVariations(obj) {
         for (const key in obj) {
             if (Array.isArray(obj[key]) && obj[key].length > 1) {
-                return null; // If there are multiple variations, then we're better off not alerting anyone
+                return false; // If there are multiple variations, then we're better off not alerting anyone
             }
         }
-        return "Parent and child ASINs don't match.";
+        return true;
     }
 
     function writeComment(productData) {
+        var hasNoSiblings = countVariations(productData.variations);
         var comment = [];
         (productData.seller) ? comment.push(`Vendeur: ${productData.seller}`) : null;
         (productData.isLimited) ? comment.push(":hourglass: Limited") : null;
         (productData.variations) ? comment.push(variationFormatting(productData.variations)) : null;
 
         var notes = [];
-        (productData.differentChild) ? notes.push(countVariations(productData.variations)) : null;
+        (productData.differentImages && hasNoSiblings) ? notes.push("Parent product photo might not reflect available child variant.") : null;
         notes = notes.filter(value => value !== null);
         (notes.length > 0) ? comment.push(noteFormatting(notes)) : null;
 
@@ -538,11 +912,13 @@ NOTES:
         // Prepping data to be sent to the API
         var productData = {};
         var childAsin = document.querySelector("a#vvp-product-details-modal--product-title").href.match(/amazon..+\/dp\/([A-Z0-9]+).*$/)[1];
+        var childImage = document.querySelector('#vvp-product-details-img-container > img');
         var variations = returnVariations();
         productData.variations = (Object.keys(variations).length > 0) ? variations : null;
         productData.isLimited = (document.querySelector('#vvp-product-details-modal--limited-quantity').style.display !== 'none') ? true : false;
         productData.asin = parentAsin;
         productData.differentChild = (parentAsin !== childAsin) ? true : false; // comparing the asin loaded in the modal to the one on the webpage
+        productData.differentImages = (parentImage !== childImage.src?.match(PRODUCT_IMAGE_ID)[1]) ? true : false;
         productData.etv = document.querySelector("#vvp-product-details-modal--tax-value-string")?.innerText.replace("€", "");
         productData.queue = queueType;
         productData.seller = document.querySelector("#vvp-product-details-modal--by-line").innerText.replace(/^par /, '');
@@ -562,7 +938,7 @@ NOTES:
                 listOfItems[productData.asin].date = new Date().getTime();
                 GM_setValue('config', listOfItems);
                 updateButtonIcon(2);
-            //PickMe add
+                //PickMe add
             } else if (response.status == 201) {
                 listOfItems[productData.asin] = {};
                 listOfItems[productData.asin].status = 'Posted';
@@ -570,7 +946,7 @@ NOTES:
                 listOfItems[productData.asin].date = new Date().getTime();
                 GM_setValue('config', listOfItems);
                 updateButtonIcon(4);
-            //End
+                //End
             } else if (response.status == 400 || response.status == 401) { // invalid token
                 updateButtonIcon(5);
                 // Will prompt the user to enter a valid token
@@ -584,16 +960,16 @@ NOTES:
                 updateButtonIcon(6);
             } else if (response.status == 429) { // too many requests
                 updateButtonIcon(3);
-			//PickMe add
+                //PickMe add
             } else if (response.status == 423) { // Ancien produit
-			    listOfItems[productData.asin] = {};
+                listOfItems[productData.asin] = {};
                 listOfItems[productData.asin].status = 'Posted';
                 listOfItems[productData.asin].queue = productData.queue;
                 listOfItems[productData.asin].date = new Date().getTime();
                 GM_setValue('config', listOfItems);
                 updateButtonIcon(7);
             }
-			//End
+            //End
         }
 
     }
@@ -627,7 +1003,7 @@ NOTES:
             var productDetailsHeader = modal.parentElement.parentElement.querySelector('.a-popover-header > .a-popover-header-content');
             //PickMe edit
             if (productDetailsHeader && productDetailsHeader.innerText.trim() === "Détails de l'article") {
-            //End
+                //End
                 return [modal, modal.parentElement.parentElement];
             }
             return null;
@@ -685,7 +1061,7 @@ NOTES:
         } else if (type == 6) { // API: incorrect parameters
             discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Erreur</span>`;
             discordBtn.style.cursor = 'pointer';
-        //PickMe Edit
+            //PickMe Edit
         } else if (type == 7) { // API: incorrect parameters
             discordBtn.innerHTML = `${btn_warning}<span class="a-button-text">Trop ancien</span>`;
             discordBtn.disabled = true;
@@ -700,7 +1076,7 @@ NOTES:
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.41,
+            version: 0.5,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -708,7 +1084,7 @@ NOTES:
             etv: data.etv,
             comment: data.comments,
         });
-     //End
+        //End
         updateButtonIcon(1);
 
         return new Promise((resolve, reject) => {
@@ -736,7 +1112,7 @@ NOTES:
     //PickMe add
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.41,
+            version: 0.5,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
@@ -780,13 +1156,14 @@ NOTES:
 
     }
 
-    let parentAsin, queueType;
+    let parentAsin, parentImage, queueType;
 
     // As much as I hate this, this adds event listeners to all of the "See details" buttons
     document.querySelectorAll('.a-button-primary.vvp-details-btn > .a-button-inner > input').forEach(function(element) {
         element.addEventListener('click', function() {
 
             parentAsin = this.getAttribute('data-asin');
+            parentImage = this.parentElement.parentElement.parentElement.querySelector('img').src.match(PRODUCT_IMAGE_ID)[1];
             queueType = urlData?.[2] || d_queueType(this.getAttribute('data-recommendation-type'));
 
             // silencing console errors; a null error is inevitable with this arrangement; I might fix this in the future
@@ -828,7 +1205,7 @@ NOTES:
             var wasPosted = GM_getValue("config")[parentAsin]?.queue;
             var isModalHidden = (document.querySelector("a#vvp-product-details-modal--product-title").style.visibility === 'hidden') ? true : false;
 
-            if (hasError || queueType == null || window.location.href.includes('?search')) {
+            if (hasError || queueType == null || queueType == "potluck" || window.location.href.includes('?search')) {
                 // Hide the Share button; no need to show it when there are errors
                 document.querySelector("button.a-button-discord").style.display = 'none';
             } else if (wasPosted === queueType) {
