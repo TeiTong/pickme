@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.50
+// @version      0.50.1
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -295,8 +295,8 @@ NOTES:
 
         style.textContent += `
 		 .bouton-action {
-			background-color: #f7ca00; /* Vert pour indiquer l'action */
-			color: black; /* Texte blanc pour contraster avec le fond vert */
+			background-color: #f7ca00;
+			color: black;
 			font-weight: bold;
 			text-decoration: none;
 			display: inline-block;
@@ -496,8 +496,13 @@ NOTES:
 
     sendDatasToAPI(listElements);
 
+    function resetEtMiseAJour() {
+        imgNew = true;
+        updateCat(false);
+    }
+
     //Affichage de la différence des catégories
-    if (window.location.href.includes("queue=encore") && catEnabled && apiOk) {
+    function updateCat(firstLoad = true) {
         // Fonction pour extraire le nombre d'éléments par catégorie
         const extraireNombres = () => {
             const categories = document.querySelectorAll('.parent-node');
@@ -513,7 +518,6 @@ NOTES:
         const extraireNombreTotal = () => {
             const texteTotal = document.querySelector('#vvp-items-grid-container > p').textContent.trim();
             const nombreTotal = parseInt(texteTotal.match(/sur (\d+[\s\u00A0\u202F\u2009]*\d*)/)[1].replace(/[\s\u00A0\u202F\u2009]/g, ''), 10);
-            console.log(nombreTotal);
             return nombreTotal;
         };
 
@@ -521,7 +525,7 @@ NOTES:
         const comparerEtAfficherTotal = (nouveauTotal) => {
             const ancienTotal = parseInt(localStorage.getItem('nombreTotalRésultats') || '0', 10);
             const differenceTotal = nouveauTotal - ancienTotal;
-            if (differenceTotal !== 0) {
+            if (differenceTotal !== 0 && firstLoad) {
                 const containerTotal = document.querySelector('#vvp-items-grid-container > p');
                 const spanTotal = document.createElement('span');
                 spanTotal.textContent = ` (${differenceTotal > 0 ? '+' : ''}${differenceTotal})`;
@@ -538,20 +542,27 @@ NOTES:
             const anciensNombres = JSON.parse(localStorage.getItem('nombresCatégories') || '{}');
 
             Object.keys(nouveauxNombres).forEach(nom => {
-                const difference = nouveauxNombres[nom] - (anciensNombres[nom] || 0);
-                if (difference !== 0) {
+                const nouveauxNombresVal = nouveauxNombres && nouveauxNombres[nom] ? nouveauxNombres[nom] : 0;
+                const anciensNombresVal = anciensNombres && anciensNombres[nom] ? anciensNombres[nom] : 0;
+                const difference = nouveauxNombresVal - anciensNombresVal;
+                if (difference !== 0 && firstLoad) {
                     const elementCategorie = [...document.querySelectorAll('.parent-node')]
                     .find(el => el.querySelector('a').textContent.trim() === nom);
-                    const span = document.createElement('span');
-                    span.textContent = ` (${difference > 0 ? '+' : ''}${difference})`;
-                    span.style.color = difference > 0 ? 'green' : 'red';
-                    elementCategorie.appendChild(span);
+                    if (elementCategorie) { // Vérifier que l'élément existe avant de continuer
+                        const span = document.createElement('span');
+                        span.textContent = ` (${difference > 0 ? '+' : ''}${difference})`;
+                        span.style.color = difference > 0 ? 'green' : 'red';
+                        elementCategorie.appendChild(span);
+                    }
                 }
             });
 
             // Mise à jour du stockage local avec les nouveaux nombres si on a vu un nouvel objet uniquement
             if (imgNew) {
                 localStorage.setItem('nombresCatégories', JSON.stringify(nouveauxNombres));
+            }
+            if (!firstLoad) {
+                window.location.reload();
             }
         };
 
@@ -562,6 +573,32 @@ NOTES:
         if (paramPn === null || paramPn === '') {
             const nombreTotalActuel = extraireNombreTotal();
             comparerEtAfficherTotal(nombreTotalActuel);
+        }
+    }
+
+    if (window.location.href.includes("queue=encore") && catEnabled && apiOk) {
+        updateCat();
+        // Création du bouton "Reset"
+        const boutonReset = document.createElement('button');
+        boutonReset.textContent = 'Reset';
+        // Application du style CSS spécifié
+        boutonReset.style.backgroundColor = '#f7ca00';
+        boutonReset.style.color = 'black';
+        boutonReset.style.fontWeight = 'bold';
+        boutonReset.style.textDecoration = 'none';
+        boutonReset.style.display = 'inline-block';
+        boutonReset.style.border = '1px solid #dcdcdc';
+        boutonReset.style.borderRadius = '20px';
+        boutonReset.style.padding = '3px 10px';
+        boutonReset.style.marginLeft = '5px';
+        boutonReset.style.cursor = 'pointer';
+        boutonReset.style.outline = 'none';
+        boutonReset.addEventListener('click', resetEtMiseAJour);
+
+        // Sélection du conteneur où insérer le bouton "Reset"
+        const conteneur = document.querySelector('#vvp-browse-nodes-container > p');
+        if (conteneur) {
+            conteneur.appendChild(boutonReset);
         }
     }
 
