@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.50.1
+// @version      0.50.2
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -132,25 +132,56 @@ NOTES:
         }
     }
 
-    // Navigation des pages avec les touches du clavier
+    // Définir des valeurs par défaut
+    const defaultKeys = {
+        left: 'q',
+        right: 'd',
+        up: 'z',
+        down: 's'
+    };
+
+    // Fonction pour récupérer la configuration des touches
+    function getKeyConfig() {
+        return {
+            left: GM_getValue('keyLeft', defaultKeys.left),
+            right: GM_getValue('keyRight', defaultKeys.right),
+            up: GM_getValue('keyUp', defaultKeys.up),
+            down: GM_getValue('keyDown', defaultKeys.down)
+        };
+    }
+
+    // Écouteur d'événements pour la navigation des pages
     document.addEventListener('keydown', function(e) {
-        // Touche Q ou flèche gauche pour naviguer les pages
-        if (e.key === 'q' || e.key === 'ArrowLeft') {
+        const keys = getKeyConfig();
+
+        if (e.key === keys.left) {
             naviguerPage(-1);
         }
-        // Touche D ou flèche droite pour naviguer les pages
-        else if (e.key === 'd' || e.key === 'ArrowRight') {
+        else if (e.key === keys.right) {
             naviguerPage(1);
         }
-        // Touche Z ou flèche du haut pour avancer dans la queue
-        else if (e.key === 'z' || e.key === 'ArrowUp') {
+        else if (e.key === keys.up) {
             naviguerQueue(1);
         }
-        // Touche S ou flèche du bas pour reculer dans la queue
-        else if (e.key === 's' || e.key === 'ArrowDown') {
+        else if (e.key === keys.down) {
             naviguerQueue(-1);
         }
     });
+
+    // Ajouter une fonction pour permettre à l'utilisateur de modifier la configuration
+    function configurerTouches() {
+        let keyLeft = prompt('Touche pour naviguer à gauche (pour les flêches : ArrowLeft)', GM_getValue('keyLeft', defaultKeys.left));
+        GM_setValue('keyLeft', keyLeft);
+
+        let keyRight = prompt('Touche pour naviguer à droite (pour les flêches : ArrowRight)', GM_getValue('keyRight', defaultKeys.right));
+        GM_setValue('keyRight', keyRight);
+
+        let keyUp = prompt('Touche pour monter dans les onglets (pour les flêches : ArrowUp)', GM_getValue('keyUp', defaultKeys.up));
+        GM_setValue('keyUp', keyUp);
+
+        let keyDown = prompt('Touche pour descendre dans les onglets (pour les flêches : ArrowDown)', GM_getValue('keyDown', defaultKeys.down));
+        GM_setValue('keyDown', keyDown);
+    }
 
     function naviguerQueue(direction) {
         const queues = ['potluck', 'last_chance', 'encore'];
@@ -714,6 +745,9 @@ NOTES:
     GM_registerMenuCommand("Définir la couleur de surbrillance", function() {
         setHighlightColor();
     }, "s");
+    GM_registerMenuCommand("Configurer les touches de navigation", function() {
+        configurerTouches();
+    }, "t");
     GM_registerMenuCommand("Activer/Désactiver l'affichage des pages sur la partie haute", function() {
         askpaginationPreference();
         window.location.reload();
