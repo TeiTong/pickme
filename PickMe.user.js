@@ -70,7 +70,6 @@ NOTES:
     }
 
     const apiOk = GM_getValue("apiToken", false);
-    console.log(apiOk);
 
     function setHighlightColor() {
         // Demander à l'utilisateur de choisir une couleur
