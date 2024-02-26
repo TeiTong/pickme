@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.50.2
+// @version      0.50.3
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -67,6 +67,28 @@ NOTES:
         let userWantsCat = confirm("Voulez-vous afficher la différence de quantité dans les catégories ? OK pour activer, Annuler pour désactiver.");
         GM_setValue("catEnabled", userWantsCat);
         return userWantsCat;
+    }
+
+    function askPage() {
+        const userInput = prompt("Saisir la page où se rendre (Autres articles)");
+        const pageNumber = parseInt(userInput, 10); // Convertit en nombre en base 10
+        if (!isNaN(pageNumber)) { // Vérifie si le résultat est un nombre
+            // Obtient l'URL actuelle
+            const currentUrl = window.location.href;
+            // Crée un objet URL pour faciliter l'analyse des paramètres de l'URL
+            const urlObj = new URL(currentUrl);
+
+            // Extrait la valeur de 'pn' de l'URL actuelle, si elle existe
+            const pn = urlObj.searchParams.get('pn') || '';
+
+            // Construit la nouvelle URL avec le numéro de page et la valeur de 'pn' existante
+            const newUrl = `https://www.amazon.fr/vine/vine-items?queue=encore&pn=${pn}&cn=&page=${pageNumber}`;
+
+            // Redirige vers la nouvelle URL
+            window.location.href = newUrl;
+        } else {
+            alert("Veuillez saisir un numéro de page valide.");
+        }
     }
 
     const apiOk = GM_getValue("apiToken", false);
@@ -562,7 +584,7 @@ NOTES:
                 spanTotal.style.color = differenceTotal > 0 ? 'green' : 'red';
                 containerTotal.appendChild(spanTotal);
             }
-            if (imgNew) {
+            if (imgNew && window.location.href.includes("queue=encore")) {
                 localStorage.setItem('nombreTotalRésultats', JSON.stringify(nouveauTotal));
             }
         }
@@ -588,7 +610,7 @@ NOTES:
             });
 
             // Mise à jour du stockage local avec les nouveaux nombres si on a vu un nouvel objet uniquement
-            if (imgNew) {
+            if (imgNew && window.location.href.includes("queue=encore")) {
                 localStorage.setItem('nombresCatégories', JSON.stringify(nouveauxNombres));
             }
             if (!firstLoad) {
@@ -709,13 +731,15 @@ NOTES:
     purgeStoredProducts();
     purgeHiddenObjects();
 
-    //On affiche les pages en haut si l'option est activé
+    // On affiche les pages en haut si l'option est activée
     if (paginationEnabled && apiOk) {
         // Sélection du contenu HTML du div source
         const sourceElement = document.querySelector('.a-text-center');
 
         // Vérifier si l'élément source existe
         if (sourceElement) {
+
+            // Maintenant que l'élément source a été mis à jour, copier son contenu HTML
             const sourceContent = sourceElement.outerHTML;
 
             // Création d'un nouveau div pour le contenu copié
@@ -732,12 +756,46 @@ NOTES:
                 // Insertion du nouveau div au début du div cible
                 targetDiv.insertBefore(newDiv, targetDiv.firstChild);
             }
-            // Pas besoin d'un else avec console.error ici
+            // Trouver ou créer le conteneur de pagination si nécessaire
+            let paginationContainer = sourceElement.querySelector('.a-pagination');
+            if (!paginationContainer) {
+                paginationContainer = document.createElement('ul');
+                paginationContainer.className = 'a-pagination';
+                sourceElement.appendChild(paginationContainer);
+            }
+            //Ajout du bouton "Aller à" en haut et en bas
+            if (window.location.href.includes("queue=encore")) {
+                // Création du bouton "Aller à la page X"
+                const gotoButtonUp = document.createElement('li');
+                gotoButtonUp.className = 'a-last'; // Utiliser la même classe que le bouton "Suivant" pour le style
+                gotoButtonUp.innerHTML = `<a id="goToPageButton">Aller à la page X<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
+
+                // Ajouter un événement click au bouton "Aller à"
+                gotoButtonUp.querySelector('a').addEventListener('click', function() {
+                    askPage();
+                });
+
+                // Création du bouton "Aller à la page X"
+                const gotoButton = document.createElement('li');
+                gotoButton.className = 'a-last'; // Utiliser la même classe que le bouton "Suivant" pour le style
+                gotoButton.innerHTML = `<a id="goToPageButton">Aller à la page X<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
+
+                // Ajouter un événement click au bouton "Aller à"
+                gotoButton.querySelector('a').addEventListener('click', function() {
+                    askPage();
+                });
+                newDiv.querySelector('.a-pagination').appendChild(gotoButtonUp);
+                paginationContainer.appendChild(gotoButton);
+            }
         }
-        // Pas besoin d'un else avec console.error ici
     }
 
     //Menu PickMe
+    if (window.location.href.includes("queue=encore")) {
+        GM_registerMenuCommand("Allez à la page X (Autres articles)", function() {
+            askPage();
+        }, "x");
+    }
     GM_registerMenuCommand("Activer/Désactiver la surbrillance des nouveaux produits", function() {
         askhighlightPreference();
     }, "a");
@@ -1146,7 +1204,7 @@ NOTES:
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.5,
+            version: 0.53,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -1182,7 +1240,7 @@ NOTES:
     //PickMe add
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.5,
+            version: 0.53,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
