@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.50.3
+// @version      0.60
 // @description  Aide pour discord AVFR
-// @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008)
+// @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008 et le CSS de Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
+// @match        https://www.amazon.fr/vine/account
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=amazon.fr
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
@@ -37,6 +38,8 @@ NOTES:
     let highlightColor = GM_getValue("highlightColor", "rgba(255, 255, 0, 0.5)");
     let taxValue = GM_getValue("taxValue", true);
     let catEnabled = GM_getValue("catEnabled", true);
+    let cssEnabled = GM_getValue("cssEnabled", false);
+    let headerEnabled = GM_getValue("headerEnabled", false);
 
     // Fonction pour demander à l'utilisateur s'il souhaite activer/désactiver la fonctionnalité
     function askhighlightPreference() {
@@ -67,6 +70,18 @@ NOTES:
         let userWantsCat = confirm("Voulez-vous afficher la différence de quantité dans les catégories ? OK pour activer, Annuler pour désactiver.");
         GM_setValue("catEnabled", userWantsCat);
         return userWantsCat;
+    }
+
+    function askcssPreference() {
+        let userWantsCss = confirm("Voulez-vous utiliser l'affichage alternatif ? OK pour activer, Annuler pour désactiver.");
+        GM_setValue("cssEnabled", userWantsCss);
+        return userWantsCss;
+    }
+
+    function askheaderPreference() {
+        let userWantsHeader = confirm("Voulez-vous cacher le header (haut de page) ? OK pour cacher, Annuler pour afficher.");
+        GM_setValue("headerEnabled", userWantsHeader);
+        return userWantsHeader;
     }
 
     function askPage() {
@@ -462,6 +477,38 @@ NOTES:
         ajouterEtiquetteTemps();
         //S'il y a eu un nouvel objet, alors on met l'image New
     }
+
+    //Suppression footer
+    var styleFooter = document.createElement('style');
+
+    styleFooter.textContent = `
+#rhf, #rhf-shoveler, .rhf-frame, #navFooter {
+  display: none !important;
+}
+`
+    document.head.appendChild(styleFooter);
+
+    //Cacher le header ou non
+    if (headerEnabled && apiOk) {
+        //Suppression header
+        var styleHeader = document.createElement('style');
+
+        styleHeader.textContent = `
+body {
+  padding-right: 0px !important;
+}
+
+#navbar-main, #skiplink {
+  display: none;
+}
+
+.amzn-ss-wrap {
+  display: none !important;
+}
+`
+        document.head.appendChild(styleHeader);
+    }
+
     //Pour monter la valeur de la taxe
     if (taxValue && apiOk) {
         // Créez une balise <style>
@@ -478,6 +525,105 @@ NOTES:
         // Ajoutez la balise <style> au <head> de la page
         document.head.appendChild(style);
     }
+
+    //Affichage alternatif
+    if (cssEnabled && apiOk)
+    {
+        var styleCss = document.createElement('style');
+
+        styleCss.textContent = `
+
+//Catégories
+#vvp-browse-nodes-container .parent-node {
+  background-color: transparent;
+}
+#vvp-browse-nodes-container > div:nth-child(odd) {
+    background-color: rgb(127 127 127 / 10%) !important;
+}
+#vvp-browse-nodes-container .parent-node, #vvp-browse-nodes-container .child-node  {
+  display: flex !important;
+}
+#vvp-browse-nodes-container .parent-node a, #vvp-browse-nodes-container .child-node a {
+  flex-grow: 1 !important;
+}
+
+//Items
+.a-container.vvp-body {
+  padding: 0px;
+  max-width: unset !important;
+  min-width: unset !important;
+}
+
+#vvp-logo-link img {
+  height: var(--logo-link-height, 30px);
+}
+
+#vvp-header ~ .a-section {
+  display: none;
+}
+
+.vvp-body > * + * {
+  margin-top: 0px !important;
+}
+
+.vvp-header-links-container {
+  margin-right: 0.5rem;
+}
+
+#vvp-items-grid, #tab-unavailable, #tab-hidden, #tab-favourite {
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--grid-column-width, 110px), auto)
+  ) !important;
+  margin-bottom: 0px !important;
+}
+
+#vvp-items-grid-container .vvp-item-tile .vvp-item-tile-content {
+  width: var(--grid-column-width, 110px) !important;
+}
+
+#vvp-items-grid-container .vvp-item-tile .vvp-item-tile-content > * {
+  margin: 0 !important;
+}
+
+#vvp-items-grid-container .vvp-item-tile .vvp-item-tile-content > img {
+  margin-top: 0.5rem !important;
+}
+
+.vvp-item-tile,
+.a-tab-content {
+  border: none !important;
+}
+
+#vvp-items-grid
+  .vvp-item-tile
+  .vvp-item-tile-content
+  > .vvp-item-product-title-container {
+  height: var(--item-tile-height, 40px) !important;
+}
+
+/*  Button */
+#vvp-beta-tag {
+  display: none;
+}
+
+#vvp-search-button,
+#vvp-search-text-input {
+  border-radius: 0rem !important;
+}
+
+#vvp-search-button #vvp-search-button-announce {
+  line-height: 1 !important;
+}
+
+#vvp-search-button .a-button-inner {
+  display: flex;
+  align-items: center;
+}
+		`;
+        document.head.appendChild(styleCss);
+    }
+
     //End
 
     var API_TOKEN = GM_getValue("apiToken");
@@ -735,10 +881,8 @@ NOTES:
     if (paginationEnabled && apiOk) {
         // Sélection du contenu HTML du div source
         const sourceElement = document.querySelector('.a-text-center');
-
         // Vérifier si l'élément source existe
         if (sourceElement) {
-
             // Maintenant que l'élément source a été mis à jour, copier son contenu HTML
             const sourceContent = sourceElement.outerHTML;
 
@@ -768,7 +912,7 @@ NOTES:
                 // Création du bouton "Aller à la page X"
                 const gotoButtonUp = document.createElement('li');
                 gotoButtonUp.className = 'a-last'; // Utiliser la même classe que le bouton "Suivant" pour le style
-                gotoButtonUp.innerHTML = `<a id="goToPageButton">Aller à la page X<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
+                gotoButtonUp.innerHTML = `<a id="goToPageButton">Page X<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
 
                 // Ajouter un événement click au bouton "Aller à"
                 gotoButtonUp.querySelector('a').addEventListener('click', function() {
@@ -778,18 +922,19 @@ NOTES:
                 // Création du bouton "Aller à la page X"
                 const gotoButton = document.createElement('li');
                 gotoButton.className = 'a-last'; // Utiliser la même classe que le bouton "Suivant" pour le style
-                gotoButton.innerHTML = `<a id="goToPageButton">Aller à la page X<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
+                gotoButton.innerHTML = `<a id="goToPageButton">Page X<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
 
                 // Ajouter un événement click au bouton "Aller à"
                 gotoButton.querySelector('a').addEventListener('click', function() {
                     askPage();
                 });
-                newDiv.querySelector('.a-pagination').appendChild(gotoButtonUp);
-                paginationContainer.appendChild(gotoButton);
+                //On insère Page X en début de page
+                newDiv.querySelector('.a-pagination').insertBefore(gotoButtonUp, newDiv.querySelector('.a-last'));
+                //On insère en bas de page
+                paginationContainer.insertBefore(gotoButton, paginationContainer.querySelector('.a-last'));
             }
         }
     }
-
     //Menu PickMe
     if (window.location.href.includes("queue=encore")) {
         GM_registerMenuCommand("Allez à la page X (Autres articles)", function() {
@@ -817,6 +962,14 @@ NOTES:
         askcatPreference();
         window.location.reload();
     }, "c");
+    GM_registerMenuCommand("Activer/Désactiver l'affichage alternatif", function() {
+        askcssPreference();
+        window.location.reload();
+    }, "l");
+    GM_registerMenuCommand("Afficher/Cacher le header (haut de page)", function() {
+        askheaderPreference();
+        window.location.reload();
+    }, "h");
     GM_registerMenuCommand("Remonter la valeur fiscale estimée", function() {
         asktaxPreference();
         window.location.reload();
@@ -1204,7 +1357,7 @@ NOTES:
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.53,
+            version: 0.6,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -1240,7 +1393,7 @@ NOTES:
     //PickMe add
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.53,
+            version: 0.6,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
@@ -1313,6 +1466,33 @@ NOTES:
             childList: false,
             subtree: false
         };
+
+        //Pickme Add
+        //Active le bouton de téléchargement du rapport
+        var element = document.querySelector('.vvp-tax-report-file-type-select-container.download-disabled');
+        if (element) {
+            element.classList.remove('download-disabled');
+        }
+
+        //Ajoute l'heure de l'évaluation
+        const timeStampElement = document.getElementById('vvp-eval-end-stamp');
+        const timeStamp = timeStampElement ? timeStampElement.textContent : null;
+
+        if (timeStamp) {
+            const date = new Date(parseInt(timeStamp));
+            const optionsDate = { day: '2-digit', month: '2-digit', year: 'numeric' };
+            const optionsTime = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            const formattedDate = date.toLocaleDateString('fr-FR', optionsDate) + ' à ' + date.toLocaleTimeString('fr-FR', optionsTime);
+
+            const dateStringElement = document.getElementById('vvp-evaluation-date-string');
+            if (dateStringElement) {
+                dateStringElement.innerHTML = `Réévaluation&nbsp;: <strong>${formattedDate}</strong>`;
+            }
+        }
+
+        //Suppression du bouton pour se désincrire
+        document.getElementById('vvp-opt-out-of-vine-button').style.display = 'none';
+        //End
 
         // Mutation observer fires every time the product title in the modal changes
         observer = new MutationObserver(function (mutations) {
