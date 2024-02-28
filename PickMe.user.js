@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.60
+// @version      0.60.1
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008 et le CSS de Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -652,7 +652,7 @@ body {
     const valeurCn = parseInt(urlParams.get('cn'), 10) || 0; // Utilisez 0 comme valeur par défaut si cn n'est pas défini
     let valeurPage = urlParams.get('page') || '1'; // '1' est utilisé comme valeur par défaut
     // Vérifiez et ajustez valeurQueue en fonction de valeurPn
-    if (valeurQueue === 'encore' || valeurQueue === 'last_chance') {
+    if (valeurQueue === 'encore') {
         if (valeurPn > 0) {
             valeurQueue = valeurPn.toString();
         }
@@ -1357,7 +1357,7 @@ body {
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.6,
+            version: 0.61,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -1393,7 +1393,7 @@ body {
     //PickMe add
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.6,
+            version: 0.61,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
