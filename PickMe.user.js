@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.60.1
 // @description  Aide pour discord AVFR
-// @author       lelouch_di_britannia (modifié par Ashemka et Tei Tong, avec des idées de FMaz008 et le CSS de Thorvarium)
+// @author       lelouch_di_britannia (modifié par Ashemka et MegaMan, avec des idées de FMaz008 et le CSS de Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @match        https://www.amazon.fr/vine/account
