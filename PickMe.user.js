@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.60.1
+// @version      0.61
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et MegaMan, avec des idées de FMaz008 et le CSS de Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -32,20 +32,62 @@ NOTES:
 
     //PickMe add
     // Initialiser ou lire la configuration existante
-    let highlightEnabled = GM_getValue("highlightEnabled", true); // Par défaut, la fonctionnalité est activée
-    let paginationEnabled = GM_getValue("paginationEnabled", true); // Par défaut, la fonctionnalité est activée
-    let hideEnabled = GM_getValue("hideEnabled", true); // Par défaut, la fonctionnalité est activée
+    let highlightEnabled = GM_getValue("highlightEnabled", true);
+    let firsthlEnabled = GM_getValue("firsthlEnabled", true);
+    let paginationEnabled = GM_getValue("paginationEnabled", true);
+    let hideEnabled = GM_getValue("hideEnabled", true);
     let highlightColor = GM_getValue("highlightColor", "rgba(255, 255, 0, 0.5)");
     let taxValue = GM_getValue("taxValue", true);
     let catEnabled = GM_getValue("catEnabled", true);
     let cssEnabled = GM_getValue("cssEnabled", false);
     let headerEnabled = GM_getValue("headerEnabled", false);
+    let callUrlEnabled = GM_getValue("callUrlEnabled", false);
+    let callUrl = GM_getValue("callUrl", false);
 
     // Fonction pour demander à l'utilisateur s'il souhaite activer/désactiver la fonctionnalité
+    function askurlPreference() {
+        let userWantsUrl = confirm("Voulez-vous activer l'apelle de l'URL ? OK pour activer, Annuler pour désactiver.");
+        GM_setValue("callUrlEnabled", userWantsUrl);
+        return userWantsUrl;
+    }
+
+    // La fonction pour appeler une URL
+    function appelURL() {
+        if (/\.mp3$/i.test(callUrl)) {
+            // L'URL pointe vers un fichier MP3, vous pouvez procéder à la lecture
+            var audio = new Audio(callUrl);
+            audio.play().catch(e => console.error("Erreur lors de la tentative de lecture de l'audio : ", e));
+        } else {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "GET",
+                    url: callUrl,
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    onload: function(response) {
+                        console.log(response.status, response.responseText);
+                        resolve(response);
+                    },
+                    onerror: function(error) {
+                        console.error(error);
+                        reject(error);
+                    },
+                });
+            });
+        }
+    }
+
     function askhighlightPreference() {
         let userWantsHighlight = confirm("Voulez-vous activer la subrillance des nouveaux objets ? OK pour activer, Annuler pour désactiver.");
         GM_setValue("highlightEnabled", userWantsHighlight);
         return userWantsHighlight;
+    }
+
+    function askfirsthlPreference() {
+        let userWantsFirstHighlight = confirm("Voulez-vous activer la subrillance des nouveaux objets ? OK pour activer, Annuler pour désactiver.");
+        GM_setValue("firsthlEnabled", userWantsFirstHighlight);
+        return userWantsFirstHighlight;
     }
 
     function askpaginationPreference() {
@@ -95,15 +137,22 @@ NOTES:
 
             // Extrait la valeur de 'pn' de l'URL actuelle, si elle existe
             const pn = urlObj.searchParams.get('pn') || '';
+            const cn = urlObj.searchParams.get('cn') || '';
 
             // Construit la nouvelle URL avec le numéro de page et la valeur de 'pn' existante
-            const newUrl = `https://www.amazon.fr/vine/vine-items?queue=encore&pn=${pn}&cn=&page=${pageNumber}`;
+            const newUrl = `https://www.amazon.fr/vine/vine-items?queue=encore&pn=${pn}&cn=${cn}&page=${pageNumber}`;
 
             // Redirige vers la nouvelle URL
             window.location.href = newUrl;
         } else {
             alert("Veuillez saisir un numéro de page valide.");
         }
+    }
+
+    function setUrl() {
+        // Demander à l'utilisateur de choisir une URL
+        const userInput = prompt("Veuillez saisir l'URL a appeler lors de la découverte d'un nouvel objet", "").toLowerCase();
+        GM_setValue("callUrl", userInput);
     }
 
     const apiOk = GM_getValue("apiToken", false);
@@ -669,9 +718,10 @@ body {
     productsCont.forEach(element => {
         const urlComp = element.href;
         listElements.push(urlComp);
-        if (highlightEnabled && apiOk) {
+        if ((firsthlEnabled || highlightEnabled) && apiOk) {
             const asin = element.href.split('/dp/')[1].split('/')[0]; // Extrait l'ASIN du produit
             const parentDiv = element.closest('.vvp-item-tile'); // Trouver le div parent à mettre en surbrillance
+            const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
             // Vérifier si le produit existe déjà dans les données locales
             if (!storedProducts.hasOwnProperty(asin)) {
                 // Si le produit n'existe pas, l'ajouter aux données locales avec la date courante
@@ -684,13 +734,22 @@ body {
                 GM_setValue("storedProducts", JSON.stringify(storedProducts)); // Sauvegarder les changements
 
                 // Appliquer la mise en surbrillance au div parent
-                if (parentDiv) {
+                if (parentDiv && highlightEnabled) {
                     parentDiv.style.backgroundColor = highlightColor;
+                    imgNew = true;
+                }
+                // Déplacer le produit au début de la liste
+                if (containerDiv && firsthlEnabled) {
+                    containerDiv.prepend(parentDiv);
                     imgNew = true;
                 }
             }
         }
     });
+
+    if (imgNew && callUrlEnabled && apiOk && callUrl) {
+        appelURL();
+    }
 
     sendDatasToAPI(listElements);
 
@@ -947,6 +1006,9 @@ body {
     GM_registerMenuCommand("Définir la couleur de surbrillance", function() {
         setHighlightColor();
     }, "s");
+    GM_registerMenuCommand("Activer/Désactiver pour mettre les nouveaux produits en début de page", function() {
+        askfirsthlPreference();
+    }, "a");
     GM_registerMenuCommand("Configurer les touches de navigation", function() {
         configurerTouches();
     }, "t");
@@ -974,6 +1036,12 @@ body {
         asktaxPreference();
         window.location.reload();
     }, "f");
+    GM_registerMenuCommand("(Expérimental) Appeler une URL lors de la découverte d'un nouvel objet", function() {
+        askurlPreference();
+    }, "r");
+    GM_registerMenuCommand("(Expérimental) Choisir l'URL a appeler lors de la découverte d'un nouvel objet", function() {
+        setUrl();
+    }, "u");
     GM_registerMenuCommand("Supprimer les produits enregistrés pour la surbrillance", function() {
         purgeStoredProducts(true);
         alert("Tous les produits ont été supprimés.");
