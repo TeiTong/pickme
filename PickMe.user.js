@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.61
+// @version      0.61.1
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et MegaMan, avec des idées de FMaz008 et le CSS de Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -453,7 +453,9 @@ NOTES:
         divBoutons.appendChild(boutonToutAfficher);
 
         // Insertion des boutons après les résultats
-        resultats.after(divBoutons);
+        if (resultats) {
+            resultats.after(divBoutons);
+        }
 
         boutonVisibles.addEventListener('click', () => afficherProduits(true));
         boutonCaches.addEventListener('click', () => afficherProduits(false));
@@ -1425,7 +1427,7 @@ body {
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.61,
+            version: 0.611,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -1461,7 +1463,7 @@ body {
     //PickMe add
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.61,
+            version: 0.611,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
