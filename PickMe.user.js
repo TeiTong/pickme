@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.70
+// @version      0.70.1
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et MegaMan, avec des idées de FMaz008 et le CSS de Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -1668,13 +1668,17 @@ body {
 
     //Ajout des données reçu par l'API pour synchroniser
     function syncProductsData(productsData) {
+        let userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour activer, Annuler pour désactiver.");
         // Assurez-vous que storedProducts est initialisé, récupérez-le ou initialisez-le comme un objet vide
         let storedProducts = JSON.parse(GM_getValue("storedProducts", "{}"));
 
         productsData.forEach(product => {
             const asin = product.asin; // L'ASIN est directement disponible depuis le JSON
             const currentDate = product.date_ajout;
-
+            if (userHideAll) {
+                const etatCacheKey = asin + '_cache';
+                localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: false }));
+            }
             // Mettre à jour ou ajouter le produit dans storedProducts
             storedProducts[asin] = {
                 added: true, // Marquer le produit comme ajouté
@@ -1685,7 +1689,7 @@ body {
         // Sauvegarder les changements dans storedProducts
         GM_setValue("storedProducts", JSON.stringify(storedProducts));
         alert("Les produits ont été synchronisés.");
-        //window.location.reload();
+        window.location.reload();
     }
     //End
 
@@ -1757,38 +1761,6 @@ body {
             }
         }
 
-        //Afficher le nom complet du produit
-        if (extendedEnabled && apiOk) {
-            const observerName = new MutationObserver(mutations => {
-                mutations.forEach(mutation => {
-                    if (mutation.type === 'childList') {
-                        const itemTiles = document.querySelectorAll('.vvp-item-tile');
-                        itemTiles.forEach(tile => {
-                            const fullTextElement = tile.querySelector('.a-truncate-full.a-offscreen');
-                            const cutTextElement = tile.querySelector('.a-truncate-cut');
-                            if (fullTextElement && cutTextElement && fullTextElement.textContent) {
-                                cutTextElement.textContent = fullTextElement.textContent;
-                                // Appliquez les styles directement pour surmonter les restrictions CSS
-                                cutTextElement.style.cssText = 'height: auto !important; max-height: none !important; overflow: visible !important; white-space: normal !important;';
-                            }
-                        });
-                    }
-                });
-            });
-
-            // Configuration de l'observateur : surveille l'ajout d'éléments au DOM
-            const configName = { childList: true, subtree: true };
-
-            // Commence l'observation - change 'document.body' si tu as besoin d'une cible plus spécifique
-            observerName.observe(document.body, configName);
-
-            // Appliquez des styles plus spécifiques pour surmonter les restrictions CSS
-            document.querySelectorAll('.vvp-item-tile .a-truncate').forEach(function(element) {
-                element.style.cssText = 'max-height: 5.6em !important;';
-            });
-        }
-
-
         //Suppression du bouton pour se désincrire
         document.getElementById('vvp-opt-out-of-vine-button').style.display = 'none';
         //End
@@ -1832,5 +1804,33 @@ body {
         }
 
     });
+
+    //Afficher le nom complet du produit
+    if (extendedEnabled && apiOk) {
+        function tryExtended() {
+            const itemTiles = document.querySelectorAll('.vvp-item-tile');
+            if (itemTiles.length > 0) {
+                document.querySelectorAll('.vvp-item-tile').forEach(function(tile) {
+                    const fullTextElement = tile.querySelector('.a-truncate-full.a-offscreen');
+                    const cutTextElement = tile.querySelector('.a-truncate-cut');
+                    if (fullTextElement && cutTextElement && fullTextElement.textContent) {
+                        cutTextElement.textContent = fullTextElement.textContent;
+                        // Appliquez les styles directement pour surmonter les restrictions CSS
+                        cutTextElement.style.cssText = 'height: auto !important; max-height: none !important; overflow: visible !important; white-space: normal !important;';
+                    }
+                });
+            } else {
+                setTimeout(tryExtended, 100);
+            }
+
+
+            // Appliquez des styles plus spécifiques pour surmonter les restrictions CSS
+            document.querySelectorAll('.vvp-item-tile .a-truncate').forEach(function(element) {
+                element.style.cssText = 'max-height: 5.6em !important;';
+            });
+        }
+        setTimeout(tryExtended, 600);
+        //tryExtended();
+    }
 
 })();
