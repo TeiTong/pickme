@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.61.1
+// @version      0.7
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et MegaMan, avec des idées de FMaz008 et le CSS de Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -43,6 +43,8 @@ NOTES:
     let headerEnabled = GM_getValue("headerEnabled", false);
     let callUrlEnabled = GM_getValue("callUrlEnabled", false);
     let callUrl = GM_getValue("callUrl", false);
+    let statsEnabled = GM_getValue("statsEnabled", false);
+    let extendedEnabled = GM_getValue("extendedEnabled", false);
 
     // Fonction pour demander à l'utilisateur s'il souhaite activer/désactiver la fonctionnalité
     function askurlPreference() {
@@ -79,13 +81,13 @@ NOTES:
     }
 
     function askhighlightPreference() {
-        let userWantsHighlight = confirm("Voulez-vous activer la subrillance des nouveaux objets ? OK pour activer, Annuler pour désactiver.");
+        let userWantsHighlight = confirm("Voulez-vous activer la subrillance des nouveaux produits ? OK pour activer, Annuler pour désactiver.");
         GM_setValue("highlightEnabled", userWantsHighlight);
         return userWantsHighlight;
     }
 
     function askfirsthlPreference() {
-        let userWantsFirstHighlight = confirm("Voulez-vous activer la subrillance des nouveaux objets ? OK pour activer, Annuler pour désactiver.");
+        let userWantsFirstHighlight = confirm("Voulez-vous activer la subrillance des nouveaux produits ? OK pour activer, Annuler pour désactiver.");
         GM_setValue("firsthlEnabled", userWantsFirstHighlight);
         return userWantsFirstHighlight;
     }
@@ -117,6 +119,9 @@ NOTES:
     function askcssPreference() {
         let userWantsCss = confirm("Voulez-vous utiliser l'affichage alternatif ? OK pour activer, Annuler pour désactiver.");
         GM_setValue("cssEnabled", userWantsCss);
+        if (userWantsCss) {
+            GM_setValue("extendedEnabled", false);
+        }
         return userWantsCss;
     }
 
@@ -124,6 +129,32 @@ NOTES:
         let userWantsHeader = confirm("Voulez-vous cacher le header (haut de page) ? OK pour cacher, Annuler pour afficher.");
         GM_setValue("headerEnabled", userWantsHeader);
         return userWantsHeader;
+    }
+
+    function askExtendedPreference() {
+        let userWantsExtended = confirm("Voulez-vous afficher le nom complet des produits ? OK pour cacher, Annuler pour afficher.");
+        GM_setValue("extendedEnabled", userWantsExtended);
+        if (userWantsExtended) {
+            GM_setValue("cssEnabled", false);
+        }
+        return userWantsExtended;
+    }
+
+    async function askstatsPreference() {
+        try {
+            var response = await verifyTokenPremiumPlus(API_TOKEN);
+            if (response && response.status === 200) {
+                let userWantsStats = confirm("(Premium+) Voulez-vous afficher les statistiques produits du jour ? OK pour cacher, Annuler pour afficher.");
+                GM_setValue("statsEnabled", userWantsStats);
+                return userWantsStats;
+            } else if (response && response.status === 404) {
+                alert("Option réservée aux membres Premium+: Clef API invalide ou membre non Premium+.");
+            } else {
+                alert("Vérification de la clef échoué. Merci d'essayer plus tard.");
+            }
+        } catch (error) {
+            console.error("Erreur lors de la vérification de la clef API:", error);
+        }
     }
 
     function askPage() {
@@ -151,7 +182,7 @@ NOTES:
 
     function setUrl() {
         // Demander à l'utilisateur de choisir une URL
-        const userInput = prompt("Veuillez saisir l'URL a appeler lors de la découverte d'un nouvel objet", "").toLowerCase();
+        const userInput = prompt("Veuillez saisir l'URL a appeler lors de la découverte d'un nouveau produit", "").toLowerCase();
         GM_setValue("callUrl", userInput);
     }
 
@@ -997,11 +1028,6 @@ body {
         }
     }
     //Menu PickMe
-    if (window.location.href.includes("queue=encore")) {
-        GM_registerMenuCommand("Allez à la page X (Autres articles)", function() {
-            askPage();
-        }, "x");
-    }
     GM_registerMenuCommand("Activer/Désactiver la surbrillance des nouveaux produits", function() {
         askhighlightPreference();
     }, "a");
@@ -1021,7 +1047,7 @@ body {
     GM_registerMenuCommand("Activer/Désactiver la possibilité de cacher les produits", function() {
         askhidePreference();
         window.location.reload();
-    }, "c");
+    }, "d");
     GM_registerMenuCommand("Activer/Désactiver l'affichage de différence sur les catégories", function() {
         askcatPreference();
         window.location.reload();
@@ -1038,6 +1064,17 @@ body {
         asktaxPreference();
         window.location.reload();
     }, "f");
+    GM_registerMenuCommand("Activer/Désactiver l'affichage du nom complet des produits", function() {
+        askExtendedPreference();
+        window.location.reload();
+    }, "m");
+    GM_registerMenuCommand("(Premium+) Activer/Désactiver l'affichage de la quantité de produits du jour", function() {
+        askstatsPreference();
+        window.location.reload();
+    }, "p");
+    GM_registerMenuCommand("(Premium+) Synchroniser les produits", function() {
+        syncProducts();
+    }, "o");
     GM_registerMenuCommand("(Expérimental) Appeler une URL lors de la découverte d'un nouvel objet", function() {
         askurlPreference();
     }, "r");
@@ -1124,6 +1161,26 @@ body {
             GM_xmlhttpRequest({
                 method: "GET",
                 url: `https://apishyrka.alwaysdata.net/shyrka/user/${token}`,
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                onload: function(response) {
+                    console.log(response.status, response.responseText);
+                    resolve(response);
+                },
+                onerror: function(error) {
+                    console.error(error);
+                    reject(error);
+                },
+            });
+        });
+    }
+
+    function verifyTokenPremiumPlus(token) {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: `https://apishyrka.alwaysdata.net/shyrka/userpremiumplus/${token}`,
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
@@ -1427,7 +1484,7 @@ body {
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.611,
+            version: 0.7,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -1461,9 +1518,14 @@ body {
     }
 
     //PickMe add
+    if (statsEnabled && apiOk && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
+        // Appeler la fonction pour afficher les stats
+        qtyProducts();
+    }
+
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.611,
+            version: 0.7,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
@@ -1490,6 +1552,141 @@ body {
         });
     }
 
+    //Appel API pour synchroniser
+    function syncProducts() {
+        const formData = new URLSearchParams({
+            version: 0.7, // Assurez-vous que les valeurs sont des chaînes
+            token: API_TOKEN, // Remplacez API_TOKEN par la valeur de votre token
+        });
+
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: "https://apishyrka.alwaysdata.net/shyrka/sync", // Assurez-vous que l'URL est correcte
+                data: formData.toString(),
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                onload: function(response) {
+                    if (response.status >= 200 && response.status < 300) {
+                        try {
+                            // Tente de parser le texte de réponse en JSON
+                            const productsData = JSON.parse(response.responseText); // Parsez le JSON de la réponse
+                            syncProductsData(productsData); // Traitez les données
+                            //console.log(jsonResponse); // Affiche la réponse parsée dans la console
+                            resolve(productsData); // Résout la promesse avec l'objet JSON
+                        } catch (error) {
+                            console.error("Erreur lors du parsing JSON:", error);
+                            reject(error); // Rejette la promesse si le parsing échoue
+                        }
+                    } else if (response.status == 401) {
+                        alert("Clef API invalide ou membre non Premium+");
+                        console.log(response.status, response.responseText);
+                        resolve(response);
+                    } else {
+                        // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
+                        console.error("Erreur HTTP:", response.status, response.statusText);
+                        reject(new Error(`Erreur HTTP: ${response.status} ${response.statusText}`));
+                    }
+                },
+                onerror: function(error) {
+                    console.error("Erreur de requête:", error);
+                    reject(error); // Rejette la promesse en cas d'erreur de requête
+                }
+            });
+        });
+    }
+
+    //Appel API pour la quantité de produits
+    function qtyProducts() {
+        const formData = new URLSearchParams({
+            version: 0.7, // Assurez-vous que les valeurs sont des chaînes
+            token: API_TOKEN, // Remplacez API_TOKEN par la valeur de votre token
+        });
+
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: "https://apishyrka.alwaysdata.net/shyrka/qtyproducts", // Assurez-vous que l'URL est correcte
+                data: formData.toString(),
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                onload: function(response) {
+                    if (response.status >= 200 && response.status < 300) {
+                        try {
+                            // Tente de parser le texte de réponse en JSON
+                            const productsData = JSON.parse(response.responseText); // Parsez le JSON de la réponse
+                            qtyProductsData(productsData); // Traitez les données
+                            //console.log(jsonResponse); // Affiche la réponse parsée dans la console
+                            resolve(productsData); // Résout la promesse avec l'objet JSON
+                        } catch (error) {
+                            console.error("Erreur lors du parsing JSON:", error);
+                            reject(error); // Rejette la promesse si le parsing échoue
+                        }
+                    } else if (response.status == 401) {
+                        alert("Token invalide ou membre non Premium+");
+                        console.log(response.status, response.responseText);
+                        resolve(response);
+                    } else {
+                        // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
+                        console.error("Erreur HTTP:", response.status, response.statusText);
+                        reject(new Error(`Erreur HTTP: ${response.status} ${response.statusText}`));
+                    }
+                },
+                onerror: function(error) {
+                    console.error("Erreur de requête:", error);
+                    reject(error); // Rejette la promesse en cas d'erreur de requête
+                }
+            });
+        });
+    }
+
+    //Affichage des données reçu par l'API
+    function qtyProductsData(productsData) {
+        // Trouve le conteneur où ajouter les informations
+        const container = document.getElementById('vvp-browse-nodes-container');
+
+        // Crée un nouveau div pour afficher les informations
+        const infoDiv = document.createElement('div');
+        infoDiv.style.padding = '0';
+        infoDiv.style.margin = '0';
+
+        // Ajoute les informations au div
+        infoDiv.innerHTML = `
+        <p style="margin:0; font-weight: bold; text-decoration: underline;">Nouveaux produits :</p>
+        <p style="margin:0;">Autres articles : ${productsData[0].ai}</p>
+        <p style="margin:0;">Disponible pour tous : ${productsData[0].afa}</p>
+        <p style="margin:0;">Total jour : ${productsData[0].total}</p>
+        <p style="margin:0; margin-bottom: 1em;">Total mois : ${productsData[0].total_month}</p>
+    `;
+
+        // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout"
+        const referenceNode = container.querySelector('p');
+        container.insertBefore(infoDiv, referenceNode.nextSibling);
+    }
+
+    //Ajout des données reçu par l'API pour synchroniser
+    function syncProductsData(productsData) {
+        // Assurez-vous que storedProducts est initialisé, récupérez-le ou initialisez-le comme un objet vide
+        let storedProducts = JSON.parse(GM_getValue("storedProducts", "{}"));
+
+        productsData.forEach(product => {
+            const asin = product.asin; // L'ASIN est directement disponible depuis le JSON
+            const currentDate = product.date_ajout;
+
+            // Mettre à jour ou ajouter le produit dans storedProducts
+            storedProducts[asin] = {
+                added: true, // Marquer le produit comme ajouté
+                dateAdded: currentDate // Utilisez la date d'ajout fournie par l'API si vous le souhaitez
+            };
+        });
+
+        // Sauvegarder les changements dans storedProducts
+        GM_setValue("storedProducts", JSON.stringify(storedProducts));
+        alert("Les produits ont été synchronisés.");
+        //window.location.reload();
+    }
     //End
 
     // Determining the queue type from the HTML dom
@@ -1559,6 +1756,38 @@ body {
                 dateStringElement.innerHTML = `Réévaluation&nbsp;: <strong>${formattedDate}</strong>`;
             }
         }
+
+        //Afficher le nom complet du produit
+        if (extendedEnabled && apiOk) {
+            const observerName = new MutationObserver(mutations => {
+                mutations.forEach(mutation => {
+                    if (mutation.type === 'childList') {
+                        const itemTiles = document.querySelectorAll('.vvp-item-tile');
+                        itemTiles.forEach(tile => {
+                            const fullTextElement = tile.querySelector('.a-truncate-full.a-offscreen');
+                            const cutTextElement = tile.querySelector('.a-truncate-cut');
+                            if (fullTextElement && cutTextElement && fullTextElement.textContent) {
+                                cutTextElement.textContent = fullTextElement.textContent;
+                                // Appliquez les styles directement pour surmonter les restrictions CSS
+                                cutTextElement.style.cssText = 'height: auto !important; max-height: none !important; overflow: visible !important; white-space: normal !important;';
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Configuration de l'observateur : surveille l'ajout d'éléments au DOM
+            const configName = { childList: true, subtree: true };
+
+            // Commence l'observation - change 'document.body' si tu as besoin d'une cible plus spécifique
+            observerName.observe(document.body, configName);
+
+            // Appliquez des styles plus spécifiques pour surmonter les restrictions CSS
+            document.querySelectorAll('.vvp-item-tile .a-truncate').forEach(function(element) {
+                element.style.cssText = 'max-height: 5.6em !important;';
+            });
+        }
+
 
         //Suppression du bouton pour se désincrire
         document.getElementById('vvp-opt-out-of-vine-button').style.display = 'none';
