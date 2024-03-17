@@ -1668,7 +1668,7 @@ body {
 
     //Ajout des données reçu par l'API pour synchroniser
     function syncProductsData(productsData) {
-        let userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour activer, Annuler pour désactiver.");
+        let userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour cacher, Annuler pour ne pas le faire.");
         // Assurez-vous que storedProducts est initialisé, récupérez-le ou initialisez-le comme un objet vide
         let storedProducts = JSON.parse(GM_getValue("storedProducts", "{}"));
 
