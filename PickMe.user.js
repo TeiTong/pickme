@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.70.1
+// @version      0.71
 // @description  Aide pour discord AVFR
 // @author       lelouch_di_britannia (modifié par Ashemka et MegaMan, avec des idées de FMaz008 et le CSS de Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -16,6 +16,7 @@
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
+// @grant        unsafeWindow
 // ==/UserScript==
 
 /*
@@ -45,6 +46,7 @@ NOTES:
     let callUrl = GM_getValue("callUrl", false);
     let statsEnabled = GM_getValue("statsEnabled", false);
     let extendedEnabled = GM_getValue("extendedEnabled", false);
+    let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
 
     // Fonction pour demander à l'utilisateur s'il souhaite activer/désactiver la fonctionnalité
     function askurlPreference() {
@@ -138,6 +140,12 @@ NOTES:
             GM_setValue("cssEnabled", false);
         }
         return userWantsExtended;
+    }
+
+    function askwheelPreference() {
+        let userWantsWheel = confirm("Voulez-vous corriger automatiquement le chargement infini des produits ? OK pour corriger, Annuler pour ne pas corriger.");
+        GM_setValue("wheelfixEnabled", userWantsWheel);
+        return userWantsWheel;
     }
 
     async function askstatsPreference() {
@@ -1068,6 +1076,10 @@ body {
         askExtendedPreference();
         window.location.reload();
     }, "m");
+    GM_registerMenuCommand("Activer/Désactiver le correctif des produits qui ne chargent pas", function() {
+        askwheelPreference();
+        window.location.reload();
+    }, "w");
     GM_registerMenuCommand("(Premium+) Activer/Désactiver l'affichage de la quantité de produits du jour", function() {
         askstatsPreference();
         window.location.reload();
@@ -1484,7 +1496,7 @@ body {
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.7,
+            version: 0.710,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -1525,7 +1537,7 @@ body {
 
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.7,
+            version: 0.710,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
@@ -1555,7 +1567,7 @@ body {
     //Appel API pour synchroniser
     function syncProducts() {
         const formData = new URLSearchParams({
-            version: 0.7, // Assurez-vous que les valeurs sont des chaînes
+            version: 0.710, // Assurez-vous que les valeurs sont des chaînes
             token: API_TOKEN, // Remplacez API_TOKEN par la valeur de votre token
         });
 
@@ -1600,7 +1612,7 @@ body {
     //Appel API pour la quantité de produits
     function qtyProducts() {
         const formData = new URLSearchParams({
-            version: 0.7, // Assurez-vous que les valeurs sont des chaînes
+            version: 0.710, // Assurez-vous que les valeurs sont des chaînes
             token: API_TOKEN, // Remplacez API_TOKEN par la valeur de votre token
         });
 
@@ -1663,12 +1675,19 @@ body {
 
         // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout"
         const referenceNode = container.querySelector('p');
-        container.insertBefore(infoDiv, referenceNode.nextSibling);
+        if (referenceNode) {
+            // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout" si l'élément de référence existe
+            container.insertBefore(infoDiv, referenceNode.nextSibling);
+        } else {
+            // Si l'élément de référence n'existe pas, tu peux choisir un autre comportement,
+            // par exemple ajouter infoDiv à la fin du conteneur
+            container.appendChild(infoDiv);
+        }
     }
 
     //Ajout des données reçu par l'API pour synchroniser
     function syncProductsData(productsData) {
-        let userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour cacher, Annuler pour ne pas le faire.");
+        let userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour activer, Annuler pour désactiver.");
         // Assurez-vous que storedProducts est initialisé, récupérez-le ou initialisez-le comme un objet vide
         let storedProducts = JSON.parse(GM_getValue("storedProducts", "{}"));
 
@@ -1832,5 +1851,145 @@ body {
         setTimeout(tryExtended, 600);
         //tryExtended();
     }
+
+    //Wheel Fix
+    if (wheelfixEnabled && apiOk) {
+        // Intercept Fetch requests
+        const origFetch = window.fetch;
+        var interceptor_LastParentVariant = null;
+        var interceptor_responseData = {};
+        var interceptor_postData = {};
+
+        unsafeWindow.fetch = async (...args) => {
+            let response = await origFetch(...args);
+            let lastParent = interceptor_LastParentVariant;
+            let regex = null;
+
+            regex = /^api\/recommendations\/.*$/;
+            if (regex.test(args[0])) {
+                await response
+                    .clone()
+                    .json()
+                    .then(function (data) {
+                    interceptor_responseData = data;
+                })
+                    .catch((err) => console.error(err));
+
+                if (interceptor_responseData.result.variations !== undefined) {
+                    let variations = interceptor_responseData.result.variations;
+                    let fixed = 0;
+                    for (let i = 0; i < variations.length; ++i) {
+                        let value = variations[i];
+                        if (isObjectEmpty(value.dimensions)) {
+                            interceptor_responseData.result.variations[i].dimensions = {
+                                asin_no: value.asin,
+                            };
+                            fixed++;
+                        }
+                    }
+
+                    for (let i = 0; i < variations.length; ++i) {
+                        let variation = variations[i];
+                        let before = "";
+                        let arrKeys = Object.keys(variation.dimensions);
+                        for (let j = 0; j < arrKeys.length; j++) {
+                            before = variation.dimensions[arrKeys[j]];
+                            variation.dimensions[arrKeys[j]] = variation.dimensions[arrKeys[j]].replace(/[)(:\[\]&]/g, "");
+
+                            if (before != variation.dimensions[arrKeys[j]]) {
+                                fixed++;
+                            }
+                        }
+                    }
+
+                    if (fixed > 0) {
+                        // Déclencher l'animation
+                        showMagicStars();
+                    }
+                }
+
+                return new Response(JSON.stringify(interceptor_responseData));
+            } else {
+                return response;
+            }
+        };
+
+
+        function showMagicStars() {
+            var style = document.createElement('style');
+            style.innerHTML = `
+            @keyframes sparkle {
+                0% { transform: scale(0); opacity: 1; }
+                100% { transform: scale(1); opacity: 0; }
+            }
+            .star {
+                position: fixed;
+                color: #FFD700; /* Or */
+                font-size: 60px; /* Plus grand */
+                animation: sparkle 3s forwards; /* Durée plus longue */
+                animation-timing-function: ease-out;
+                z-index: 999999; /* Très élevé */
+            }
+            .magic-text {
+                position: fixed;
+                top: 30%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 40px;
+                color: #000099;
+           text-shadow:
+              -1px -1px 0 #000,
+               1px -1px 0 #000,
+              -1px  1px 0 #000,
+               1px  1px 0 #000; /* Contour noir */
+                z-index: 1000000; /* Encore plus élevé */
+                animation: fadeInOut 4s forwards; /* Animation pour le texte */
+            }
+            @keyframes fadeInOut {
+                0% { opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { opacity: 0; }
+            }
+        `;
+            document.head.appendChild(style);
+
+            // Créer le texte "PickMe Fix"
+            var magicText = document.createElement('div');
+            magicText.className = 'magic-text';
+            magicText.textContent = 'PickMe Fix';
+            document.body.appendChild(magicText);
+
+            // Supprimer le texte après 3 secondes
+            setTimeout(() => {
+                document.body.removeChild(magicText);
+            }, 3000);
+
+            // Créer et afficher les étoiles
+            for (let i = 0; i < 50; i++) {
+                let star = document.createElement('div');
+                star.className = 'star';
+                star.textContent = '★';
+                star.style.top = `${Math.random() * window.innerHeight}px`;
+                star.style.left = `${Math.random() * window.innerWidth}px`;
+                document.body.appendChild(star);
+
+                // Supprimer l'étoile après l'animation
+                setTimeout(() => {
+                    document.body.removeChild(star);
+                }, 3000 + Math.random() * 500);
+            }
+        }
+
+        function isObjectEmpty(obj) {
+            for (var key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+    //End Wheel Fix
 
 })();
