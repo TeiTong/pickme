@@ -1,14 +1,13 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      0.71
-// @description  Aide pour discord AVFR
-// @author       lelouch_di_britannia (modifié par Ashemka et MegaMan, avec des idées de FMaz008 et le CSS de Thorvarium)
+// @version      1.0
+// @description  Outils pour les membres du discord AVFR
+// @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
-// @match        https://www.amazon.fr/vine/account
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=amazon.fr
+// @icon         https://i.ibb.co/Zd9vSZz/PM-ICO-2.png
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @downloadURL  https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @grant        GM_xmlhttpRequest
@@ -29,6 +28,8 @@ NOTES:
 (function() {
     'use strict';
 
+    var version = GM_info.script.version;
+
     (GM_getValue("config")) ? GM_getValue("config") : GM_setValue("config", {}); // initialize the list of items that were posted to Discord
 
     //PickMe add
@@ -38,6 +39,7 @@ NOTES:
     let paginationEnabled = GM_getValue("paginationEnabled", true);
     let hideEnabled = GM_getValue("hideEnabled", true);
     let highlightColor = GM_getValue("highlightColor", "rgba(255, 255, 0, 0.5)");
+    let highlightColorFav = GM_getValue("highlightColorFav", "rgba(255, 0, 0, 0.5)");
     let taxValue = GM_getValue("taxValue", true);
     let catEnabled = GM_getValue("catEnabled", true);
     let cssEnabled = GM_getValue("cssEnabled", false);
@@ -47,13 +49,33 @@ NOTES:
     let statsEnabled = GM_getValue("statsEnabled", false);
     let extendedEnabled = GM_getValue("extendedEnabled", false);
     let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
+    let autohideEnabled = GM_getValue("autohideEnabled", false);
+    let favWords = GM_getValue('favWords', '');
+    let hideWords = GM_getValue('hideWords', '');
 
-    // Fonction pour demander à l'utilisateur s'il souhaite activer/désactiver la fonctionnalité
-    function askurlPreference() {
-        let userWantsUrl = confirm("Voulez-vous activer l'apelle de l'URL ? OK pour activer, Annuler pour désactiver.");
-        GM_setValue("callUrlEnabled", userWantsUrl);
-        return userWantsUrl;
+
+    //On remplace l'image et son lien par notre menu
+    function replaceImageUrl() {
+        // Sélectionner le lien contenant l'image avec l'attribut alt "vine_logo_title"
+        var link = document.querySelector('a > img[alt="vine_logo_title"]') ? document.querySelector('a > img[alt="vine_logo_title"]').parentNode : null;
+
+        // Vérifier si le lien existe
+        if (link) {
+            // Sélectionner directement l'image à l'intérieur du lien
+            var img = link.querySelector('img');
+            // Remplacer l'URL de l'image
+            img.src = 'https://i.ibb.co/NC96JrP/PM.png';
+            // Modifier le comportement du lien pour empêcher le chargement de la page
+            link.onclick = function(event) {
+                // Empêcher l'action par défaut du lien
+                event.preventDefault();
+                // Appeler la fonction createConfigPopup
+                createConfigPopup();
+            };
+        }
     }
+
+    replaceImageUrl();
 
     // La fonction pour appeler une URL
     function appelURL() {
@@ -82,91 +104,8 @@ NOTES:
         }
     }
 
-    function askhighlightPreference() {
-        let userWantsHighlight = confirm("Voulez-vous activer la subrillance des nouveaux produits ? OK pour activer, Annuler pour désactiver.");
-        GM_setValue("highlightEnabled", userWantsHighlight);
-        return userWantsHighlight;
-    }
-
-    function askfirsthlPreference() {
-        let userWantsFirstHighlight = confirm("Voulez-vous activer la subrillance des nouveaux produits ? OK pour activer, Annuler pour désactiver.");
-        GM_setValue("firsthlEnabled", userWantsFirstHighlight);
-        return userWantsFirstHighlight;
-    }
-
-    function askpaginationPreference() {
-        let userWantsPagination = confirm("Voulez-vous activer l'affichage des pages au dessus des produits ? OK pour activer, Annuler pour désactiver.");
-        GM_setValue("paginationEnabled", userWantsPagination);
-        return userWantsPagination;
-    }
-
-    function askhidePreference() {
-        let userWantsHide = confirm("Voulez-vous activer la possibilité de cacher des produits ? OK pour activer, Annuler pour désactiver.");
-        GM_setValue("hideEnabled", userWantsHide);
-        return userWantsHide;
-    }
-
-    function asktaxPreference() {
-        let userWantsTax = confirm("Voulez-vous remonter l'affichage de la valeur fiscale estimée ? OK pour activer, Annuler pour désactiver.");
-        GM_setValue("taxValue", userWantsTax);
-        return userWantsTax;
-    }
-
-    function askcatPreference() {
-        let userWantsCat = confirm("Voulez-vous afficher la différence de quantité dans les catégories ? OK pour activer, Annuler pour désactiver.");
-        GM_setValue("catEnabled", userWantsCat);
-        return userWantsCat;
-    }
-
-    function askcssPreference() {
-        let userWantsCss = confirm("Voulez-vous utiliser l'affichage alternatif ? OK pour activer, Annuler pour désactiver.");
-        GM_setValue("cssEnabled", userWantsCss);
-        if (userWantsCss) {
-            GM_setValue("extendedEnabled", false);
-        }
-        return userWantsCss;
-    }
-
-    function askheaderPreference() {
-        let userWantsHeader = confirm("Voulez-vous cacher le header (haut de page) ? OK pour cacher, Annuler pour afficher.");
-        GM_setValue("headerEnabled", userWantsHeader);
-        return userWantsHeader;
-    }
-
-    function askExtendedPreference() {
-        let userWantsExtended = confirm("Voulez-vous afficher le nom complet des produits ? OK pour cacher, Annuler pour afficher.");
-        GM_setValue("extendedEnabled", userWantsExtended);
-        if (userWantsExtended) {
-            GM_setValue("cssEnabled", false);
-        }
-        return userWantsExtended;
-    }
-
-    function askwheelPreference() {
-        let userWantsWheel = confirm("Voulez-vous corriger automatiquement le chargement infini des produits ? OK pour corriger, Annuler pour ne pas corriger.");
-        GM_setValue("wheelfixEnabled", userWantsWheel);
-        return userWantsWheel;
-    }
-
-    async function askstatsPreference() {
-        try {
-            var response = await verifyTokenPremiumPlus(API_TOKEN);
-            if (response && response.status === 200) {
-                let userWantsStats = confirm("(Premium+) Voulez-vous afficher les statistiques produits du jour ? OK pour cacher, Annuler pour afficher.");
-                GM_setValue("statsEnabled", userWantsStats);
-                return userWantsStats;
-            } else if (response && response.status === 404) {
-                alert("Option réservée aux membres Premium+: Clef API invalide ou membre non Premium+.");
-            } else {
-                alert("Vérification de la clef échoué. Merci d'essayer plus tard.");
-            }
-        } catch (error) {
-            console.error("Erreur lors de la vérification de la clef API:", error);
-        }
-    }
-
     function askPage() {
-        const userInput = prompt("Saisir la page où se rendre (Autres articles)");
+        const userInput = prompt("Saisir la page où se rendre");
         const pageNumber = parseInt(userInput, 10); // Convertit en nombre en base 10
         if (!isNaN(pageNumber)) { // Vérifie si le résultat est un nombre
             // Obtient l'URL actuelle
@@ -197,49 +136,133 @@ NOTES:
     const apiOk = GM_getValue("apiToken", false);
 
     function setHighlightColor() {
-        // Demander à l'utilisateur de choisir une couleur
-        const userInput = prompt("Veuillez saisir la couleur de surbrillance, soit par son nom, soit par sa valeur hexadécimale (exemple : Jaune (#FFFF00), Bleu (#0096FF), Rouge (#FF0000), Vert (#96FF96), etc..)", "").toLowerCase();
+        // Extraire les composantes r, g, b de la couleur actuelle
+        const rgbaMatch = highlightColor.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),\s*(\d*\.?\d+)\)$/);
+        let hexColor = "#FFFF00"; // Fallback couleur jaune si la conversion échoue
+        if (rgbaMatch) {
+            const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0');
+            const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, '0');
+            const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, '0');
+            hexColor = `#${r}${g}${b}`;
+        }
 
-        // Correspondance des noms de couleurs à leurs codes hexadécimaux
-        const colorMap = {
-            jaune: "#FFFF00",
-            bleu: "#0096FF",
-            rouge: "#FF0000",
-            vert: "#96FF96",
-            orange: "#FF9600",
-            violet: "#9600FF",
-            rose: "#FF00FF"
-        };
+        // Vérifie si une popup existe déjà et la supprime si c'est le cas
+        const existingPopup = document.getElementById('colorPickerPopup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
 
-        // Vérifier si l'entrée de l'utilisateur correspond à une couleur prédéfinie
-        const userColor = colorMap[userInput] || userInput;
+        // Crée la fenêtre popup
+        const popup = document.createElement('div');
+        popup.id = "colorPickerPopup";
+        popup.style.cssText = `
+        position: fixed;
+        z-index: 10001;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px;
+        background-color: white;
+        border: 1px solid #ccc;
+        box-shadow: 0px 0px 10px #ccc;
+    `;
+        popup.innerHTML = `
+          <h2 id="configPopupHeader">Couleur de surbrillance des nouveaux produits<span id="closeColorPicker" style="float: right; cursor: pointer;">&times;</span></h2>
+        <input type="color" id="colorPicker" value="${hexColor}" style="width: 100%;">
+        <div class="button-container final-buttons">
+            <button class="full-width" id="saveColor">Enregistrer</button>
+            <button class="full-width" id="closeColor">Fermer</button>
+        </div>
+    `;
 
-        // Vérifier si la couleur est une couleur hexadécimale valide (avec ou sans #)
-        const isValidHex = /^#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$/.test(userColor);
+        document.body.appendChild(popup);
 
-        if (isValidHex) {
-            // Supprimer le '#' si présent et normaliser la saisie en format 6 caractères
-            let normalizedHex = userColor.replace('#', '');
-            if (normalizedHex.length === 3) {
-                normalizedHex = normalizedHex.split('').map(char => char + char).join('');
-            }
-
-            // Convertir hex en rgb
-            const r = parseInt(normalizedHex.substr(0, 2), 16);
-            const g = parseInt(normalizedHex.substr(2, 2), 16);
-            const b = parseInt(normalizedHex.substr(4, 2), 16);
-
-            // Format rgba avec 50% de transparence
+        // Ajoute des écouteurs d'événement pour les boutons
+        document.getElementById('saveColor').addEventListener('click', function() {
+            const selectedColor = document.getElementById('colorPicker').value;
+            // Convertir la couleur hexadécimale en RGBA pour la transparence
+            const r = parseInt(selectedColor.substr(1, 2), 16);
+            const g = parseInt(selectedColor.substr(3, 2), 16);
+            const b = parseInt(selectedColor.substr(5, 2), 16);
             const rgbaColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
 
-            // Stocker la couleur convertie
+            // Stocker la couleur sélectionnée
             GM_setValue("highlightColor", rgbaColor);
-            alert("La couleur de surbrillance a été mise à jour à " + userInput);
-        } else {
-            // Utiliser couleur de fallback si saisie invalide
-            GM_setValue("highlightColor", 'rgba(255, 255, 0, 0.5)');
-            alert("La saisie n'est pas une couleur valide. La couleur de surbrillance a été réinitialisée à Jaune.");
+            highlightColor = rgbaColor;
+            popup.remove();
+        });
+
+        document.getElementById('closeColor').addEventListener('click', function() {
+            popup.remove();
+        });
+        document.getElementById('closeColorPicker').addEventListener('click', function() {
+            popup.remove();
+        });
+    }
+
+    function setHighlightColorFav() {
+        // Extraire les composantes r, g, b de la couleur actuelle
+        const rgbaMatch = highlightColorFav.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),\s*(\d*\.?\d+)\)$/);
+        let hexColor = "#FF0000"; // Fallback couleur jaune si la conversion échoue
+        if (rgbaMatch) {
+            const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0');
+            const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, '0');
+            const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, '0');
+            hexColor = `#${r}${g}${b}`;
         }
+
+        // Vérifie si une popup existe déjà et la supprime si c'est le cas
+        const existingPopup = document.getElementById('colorPickerPopup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
+
+        // Crée la fenêtre popup
+        const popup = document.createElement('div');
+        popup.id = "colorPickerPopup";
+        popup.style.cssText = `
+        position: fixed;
+        z-index: 10001;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px;
+        background-color: white;
+        border: 1px solid #ccc;
+        box-shadow: 0px 0px 10px #ccc;
+    `;
+        popup.innerHTML = `
+          <h2 id="configPopupHeader">Couleur de surbrillance des produits filtrés<span id="closeColorPicker" style="float: right; cursor: pointer;">&times;</span></h2>
+        <input type="color" id="colorPicker" value="${hexColor}" style="width: 100%;">
+        <div class="button-container final-buttons">
+            <button class="full-width" id="saveColor">Enregistrer</button>
+            <button class="full-width" id="closeColor">Fermer</button>
+        </div>
+    `;
+
+        document.body.appendChild(popup);
+
+        // Ajoute des écouteurs d'événement pour les boutons
+        document.getElementById('saveColor').addEventListener('click', function() {
+            const selectedColor = document.getElementById('colorPicker').value;
+            // Convertir la couleur hexadécimale en RGBA pour la transparence
+            const r = parseInt(selectedColor.substr(1, 2), 16);
+            const g = parseInt(selectedColor.substr(3, 2), 16);
+            const b = parseInt(selectedColor.substr(5, 2), 16);
+            const rgbaColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
+
+            // Stocker la couleur sélectionnée
+            GM_setValue("highlightColorFav", rgbaColor);
+            highlightColorFav = rgbaColor;
+            popup.remove();
+        });
+
+        document.getElementById('closeColor').addEventListener('click', function() {
+            popup.remove();
+        });
+        document.getElementById('closeColorPicker').addEventListener('click', function() {
+            popup.remove();
+        });
     }
 
     var storedProducts = GM_getValue("storedProducts");
@@ -261,7 +284,9 @@ NOTES:
         left: 'q',
         right: 'd',
         up: 'z',
-        down: 's'
+        down: 's',
+        hide: 'h',
+        show: 'j'
     };
 
     // Fonction pour récupérer la configuration des touches
@@ -270,14 +295,32 @@ NOTES:
             left: GM_getValue('keyLeft', defaultKeys.left),
             right: GM_getValue('keyRight', defaultKeys.right),
             up: GM_getValue('keyUp', defaultKeys.up),
-            down: GM_getValue('keyDown', defaultKeys.down)
+            down: GM_getValue('keyDown', defaultKeys.down),
+            hide: GM_getValue('keyHide', defaultKeys.hide),
+            show: GM_getValue('keyShow', defaultKeys.show)
         };
+    }
+
+    // Fonction pour simuler un clic sur un bouton, identifié par son id
+    function simulerClicSurBouton(idBouton) {
+        // Pour les autres boutons, continue à simuler un clic réel
+        const bouton = document.getElementById(idBouton);
+        if (bouton) {
+            bouton.click();
+        }
     }
 
     // Écouteur d'événements pour la navigation des pages
     document.addEventListener('keydown', function(e) {
+        const existingPopupKey = document.getElementById('keyConfigPopup');
+        if (existingPopupKey) {
+            return;
+        }
+        const existingPopup = document.getElementById('configPopup');
+        if (existingPopup) {
+            return;
+        }
         const keys = getKeyConfig();
-
         if (e.key === keys.left) {
             naviguerPage(-1);
         }
@@ -290,22 +333,19 @@ NOTES:
         else if (e.key === keys.down) {
             naviguerQueue(-1);
         }
+        else if (e.key === keys.hide) {
+            const boutonProduits = document.querySelector('.bouton-filtre.active');
+            if (boutonProduits && boutonProduits.textContent === "Produits visibles") {
+                simulerClicSurBouton('boutonCacherTout');
+            }
+        }
+        else if (e.key === keys.show) {
+            const boutonProduits = document.querySelector('.bouton-filtre.active');
+            if (boutonProduits && boutonProduits.textContent === "Produits cachés") {
+                simulerClicSurBouton('boutonToutAfficher');
+            }
+        }
     });
-
-    // Ajouter une fonction pour permettre à l'utilisateur de modifier la configuration
-    function configurerTouches() {
-        let keyLeft = prompt('Touche pour naviguer à gauche (pour les flêches : ArrowLeft)', GM_getValue('keyLeft', defaultKeys.left));
-        GM_setValue('keyLeft', keyLeft);
-
-        let keyRight = prompt('Touche pour naviguer à droite (pour les flêches : ArrowRight)', GM_getValue('keyRight', defaultKeys.right));
-        GM_setValue('keyRight', keyRight);
-
-        let keyUp = prompt('Touche pour monter dans les onglets (pour les flêches : ArrowUp)', GM_getValue('keyUp', defaultKeys.up));
-        GM_setValue('keyUp', keyUp);
-
-        let keyDown = prompt('Touche pour descendre dans les onglets (pour les flêches : ArrowDown)', GM_getValue('keyDown', defaultKeys.down));
-        GM_setValue('keyDown', keyDown);
-    }
 
     function naviguerQueue(direction) {
         const queues = ['potluck', 'last_chance', 'encore'];
@@ -414,7 +454,6 @@ NOTES:
         });
     }
 
-    //Pour ajouter les boutons + la fonction pour cacher
     function ajouterIconeEtFonctionCacher() {
         const produits = document.querySelectorAll('.vvp-item-tile');
         const conteneur = document.querySelector('#vvp-items-grid-container');
@@ -478,10 +517,12 @@ NOTES:
         const boutonCacherTout = document.createElement('button');
         boutonCacherTout.textContent = 'Tout cacher';
         boutonCacherTout.classList.add('bouton-action');
+        boutonCacherTout.id = 'boutonCacherTout';
 
         const boutonToutAfficher = document.createElement('button');
         boutonToutAfficher.textContent = 'Tout afficher';
         boutonToutAfficher.classList.add('bouton-action');
+        boutonToutAfficher.id = 'boutonToutAfficher';
 
         const divBoutons = document.createElement('div');
         divBoutons.style.marginTop = '5px'; // Réduit l'espace au-dessus des boutons
@@ -755,14 +796,14 @@ body {
 
     //Variable pour savoir s'il y a eu un nouvel objet
     let imgNew = false;
-
+    let elementsToPrepend = [];
     productsCont.forEach(element => {
         const urlComp = element.href;
         listElements.push(urlComp);
         if ((firsthlEnabled || highlightEnabled) && apiOk) {
             const asin = element.href.split('/dp/')[1].split('/')[0]; // Extrait l'ASIN du produit
             const parentDiv = element.closest('.vvp-item-tile'); // Trouver le div parent à mettre en surbrillance
-            const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
+            //const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
             // Vérifier si le produit existe déjà dans les données locales
             if (!storedProducts.hasOwnProperty(asin)) {
                 // Si le produit n'existe pas, l'ajouter aux données locales avec la date courante
@@ -779,14 +820,25 @@ body {
                     parentDiv.style.backgroundColor = highlightColor;
                     imgNew = true;
                 }
-                // Déplacer le produit au début de la liste
-                if (containerDiv && firsthlEnabled) {
-                    containerDiv.prepend(parentDiv);
+                // On stocke les produits qu'on va devoir remonter
+                if (parentDiv && firsthlEnabled) {
+                    //containerDiv.prepend(parentDiv);
+                    elementsToPrepend.push(parentDiv);
                     imgNew = true;
                 }
             }
         }
     });
+
+    //On remonte les produits dans leur ordre initial
+    if (firsthlEnabled && apiOk) {
+        const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
+        if (containerDiv) {
+            elementsToPrepend.reverse().forEach(element => {
+                containerDiv.prepend(element);
+            });
+        }
+    }
 
     if (imgNew && callUrlEnabled && apiOk && callUrl) {
         appelURL();
@@ -899,6 +951,23 @@ body {
             conteneur.appendChild(boutonReset);
         }
     }
+
+    //Ajout de l'icone pour l'accès aux options
+    const boutonSettings = document.createElement('img');
+    // Définit les attributs nécessaires pour l'image
+    // Définit les propriétés de l'image/bouton
+    boutonSettings.src = 'https://i.ibb.co/7GCRjGq/73989.png';
+    boutonSettings.alt = 'Settings';
+    boutonSettings.style.cursor = 'pointer';
+    boutonSettings.style.width = '36px'; // Taille d'une icône
+    boutonSettings.style.height = '36px'; // Taille d'une icône
+    boutonSettings.style.marginLeft = '10px'; // Espace ajouté pour séparer de l'élément précédent
+    boutonSettings.style.verticalAlign = 'middle'; // Alignement vertical avec les éléments adjacents
+
+    // Ajoute un gestionnaire d'événements pour appeler `createConfigPopup` lors du clic sur l'image
+    boutonSettings.addEventListener('click', createConfigPopup);
+
+
 
     //Affichage de l'image New
     if (imgNew) {
@@ -1036,72 +1105,436 @@ body {
         }
     }
     //Menu PickMe
-    GM_registerMenuCommand("Activer/Désactiver la surbrillance des nouveaux produits", function() {
-        askhighlightPreference();
-    }, "a");
-    GM_registerMenuCommand("Définir la couleur de surbrillance", function() {
-        setHighlightColor();
-    }, "s");
-    GM_registerMenuCommand("Activer/Désactiver pour mettre les nouveaux produits en début de page", function() {
-        askfirsthlPreference();
-    }, "a");
-    GM_registerMenuCommand("Configurer les touches de navigation", function() {
-        configurerTouches();
-    }, "t");
-    GM_registerMenuCommand("Activer/Désactiver l'affichage des pages sur la partie haute", function() {
-        askpaginationPreference();
+    // Ajoute le style CSS pour la fenêtre popup flottante
+    const styleMenu = document.createElement('style');
+    styleMenu.type = 'text/css';
+    styleMenu.innerHTML = `
+#configPopup, #keyConfigPopup, #favConfigPopup, #colorPickerPopup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 500px; /* Ajusté pour mieux s'adapter aux deux colonnes de checkbox */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  cursor: auto;
+  border: 2px solid #ccc; /* Ajout d'un contour */
+}
+
+.api-token-container label {
+  margin-bottom: 0 !important;
+  display: block !important;
+}
+
+#configPopup h2, #configPopup label, #keyConfigPopup h2, #colorPickerPopup h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+#configPopup h2 {
+  cursor: grab;
+  font-size: 1.5em;
+  text-align: center;
+}
+
+#keyConfigPopup h2, #favConfigPopup h2, #colorPickerPopup h2 {
+  font-size: 1.5em;
+  text-align: center;
+}
+
+#configPopup label, #keyConfigPopup label, #favConfigPopup label {
+  display: flex;
+  align-items: center;
+}
+
+#configPopup label input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+#configPopup .button-container,
+#configPopup .checkbox-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+#configPopup .button-container button,
+#configPopup .checkbox-container label {
+  margin-bottom: 10px;
+  flex-basis: 48%; /* Ajusté pour uniformiser l'apparence des boutons et des labels */
+}
+
+#configPopup button, #keyConfigPopup button, #favConfigPopup button {
+  padding: 5px 10px;
+  background-color: #f3f3f3;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+}
+
+#configPopup button:not(.full-width), #keyConfigPopup button:not(.full-width), #favConfigPopup button:not(.full-width), , #colorPickerPopup button:not(.full-width) {
+  margin-right: 1%;
+  margin-left: 1%;
+}
+
+#configPopup button.full-width {
+  flex-basis: 48%;
+  margin-right: 1%;
+  margin-left: 1%;
+}
+
+#configPopup button:hover {
+  background-color: #e8e8e8;
+}
+
+#configPopup button:active {
+  background-color: #ddd;
+}
+#configPopup label.disabled {
+  color: #ccc;
+}
+
+#configPopup label.disabled input[type="checkbox"] {
+  cursor: not-allowed;
+}
+#saveConfig, #closeConfig, #saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor {
+  padding: 8px 15px !important; /* Plus de padding pour un meilleur visuel */
+  margin-top !important: 5px;
+  border-radius: 5px !important; /* Bordures légèrement arrondies */
+  font-weight: bold !important; /* Texte en gras */
+  border: none !important; /* Supprime la bordure par défaut */
+  color: white !important; /* Texte en blanc */
+  cursor: pointer !important;
+  transition: background-color 0.3s ease !important; /* Transition pour l'effet au survol */
+}
+
+#saveConfig, #saveKeyConfig, #saveFavConfig, #saveColor {
+  background-color: #4CAF50 !important; /* Vert pour le bouton "Enregistrer" */
+}
+
+#closeConfig, #closeKeyConfig, #closeFavConfig, #closeColor {
+  background-color: #f44336 !important; /* Rouge pour le bouton "Fermer" */
+}
+
+#saveConfig:hover, #saveKeyConfig:hover, #saveFavConfig:hover, #saveColor:hover {
+  background-color: #45a049 !important; /* Assombrit le vert au survol */
+}
+
+#closeConfig:hover, #closeKeyConfig:hover, #closeFavConfig:hover, #closeColor:hover {
+  background-color: #e53935 !important; /* Assombrit le rouge au survol */
+}
+#saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor {
+  margin-top: 10px; /* Ajoute un espace de 10px au-dessus du second bouton */
+  width: 100%; /* Utilise width: 100% pour assurer que le bouton prend toute la largeur */
+}
+`;
+    document.head.appendChild(styleMenu);
+
+    // Fonction pour rendre la fenêtre déplaçable
+    function dragElement(elmnt) {
+        var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        if (document.getElementById(elmnt.id + "Header")) {
+            // si présent, le header est l'endroit où vous pouvez déplacer la DIV:
+            document.getElementById(elmnt.id + "Header").onmousedown = dragMouseDown;
+        } else {
+            // sinon, déplace la DIV de n'importe quel endroit à l'intérieur de la DIV:
+            elmnt.onmousedown = dragMouseDown;
+        }
+
+        function dragMouseDown(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // position de la souris au démarrage:
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            // appelle la fonction chaque fois que le curseur bouge:
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // calcule la nouvelle position de la souris:
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            // définit la nouvelle position de l'élément:
+            elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+            elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+        }
+
+        function closeDragElement() {
+            // arrête le mouvement quand le bouton de la souris est relâché:
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+
+    // Crée la fenêtre popup de configuration avec la fonction de déplacement
+    async function createConfigPopup() {
+        let isPremiumPlus = false;
+        let isPremium = false;
+        const responsePremiumPlus = await verifyTokenPremiumPlus(API_TOKEN);
+        const responsePremium = await verifyTokenPremium(API_TOKEN);
+        let apiToken = "";
+        if (API_TOKEN == undefined) {
+            apiToken = "";
+        } else {
+            isPremiumPlus = responsePremiumPlus && responsePremiumPlus.status === 200;
+            isPremium = responsePremium && responsePremium.status === 200;
+            apiToken = API_TOKEN;
+        }
+        const popup = document.createElement('div');
+        popup.id = "configPopup";
+        popup.innerHTML = `
+    <h2 id="configPopupHeader">Paramètres PickMe v${version}<span id="closePopup" style="float: right; cursor: pointer;">&times;</span></h2>
+    <div class="checkbox-container">
+      ${createCheckbox('highlightEnabled', 'Surbrillance des nouveaux produits')}
+      ${createCheckbox('firsthlEnabled', 'Mettre les nouveaux produits en début de page')}
+      ${createCheckbox('paginationEnabled', 'Affichage des pages en partie haute')}
+      ${createCheckbox('hideEnabled', 'Pouvoir cacher des produits')}
+      ${createCheckbox('catEnabled', 'Différence de quantité dans les catégories')}
+      ${createCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée')}
+      ${createCheckbox('cssEnabled', 'Utiliser l\'affichage alternatif (plus petit et épuré)')}
+      ${createCheckbox('headerEnabled', 'Cacher le header')}
+      ${createCheckbox('extendedEnabled', 'Afficher le nom complet des produits')}
+      ${createCheckbox('wheelfixEnabled', 'Corriger le chargement infini des produits')}
+      ${createCheckbox('autohideEnabled', '(Premium) Cacher/Mettre en avant automatiquement selon le nom de l\'objet', !isPremium)}
+      ${createCheckbox('statsEnabled', '(Premium+) Afficher les statistiques produits du jour', !isPremiumPlus)}
+      ${createCheckbox('callUrlEnabled', '(Expérimental) Appeler une URL lors de la découverte d\'un nouvel objet')}
+    </div>
+     <div class="api-token-container">
+      <label for="apiTokenInput">Clef API :</label>
+      <input type="text" id="apiTokenInput" value="${apiToken}" style="width: 100%; max-width: 480px; margin-bottom: 10px;" />
+    </div>
+    ${addActionButtons(!isPremium, !isPremiumPlus)}
+  `;
+        document.body.appendChild(popup);
+
+        document.getElementById('cssEnabled').addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('extendedEnabled').checked = false;
+            }
+        });
+
+        document.getElementById('extendedEnabled').addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('cssEnabled').checked = false;
+            }
+        });
+
+        document.getElementById('closePopup').addEventListener('click', () => {
+            document.getElementById('configPopup').remove();
+        });
+
+        // Ajoute des écouteurs pour les nouveaux boutons
+        document.getElementById('setHighlightColor').addEventListener('click', setHighlightColor);
+        document.getElementById('setHighlightColorFav').addEventListener('click', setHighlightColorFav);
+        document.getElementById('configurerTouches').addEventListener('click', configurerTouches);
+        document.getElementById('configurerFiltres').addEventListener('click', configurerFiltres);
+        document.getElementById('syncProducts').addEventListener('click', syncProducts);
+        document.getElementById('setUrl').addEventListener('click', setUrl);
+        document.getElementById('purgeStoredProducts').addEventListener('click', () => {
+            if (confirm("Es-tu sûr de vouloir supprimer les produits enregistrés pour la surbrillance ?")) {
+                purgeStoredProducts(true);
+            }
+        });
+
+        document.getElementById('purgeHiddenObjects').addEventListener('click', () => {
+            if (confirm("Es-tu sûr de vouloir supprimer les produits cachés ?")) {
+                purgeHiddenObjects(true);
+            }
+        });
+
+        dragElement(popup);
+
+        document.getElementById('saveConfig').addEventListener('click', saveConfig);
+        document.getElementById('closeConfig').addEventListener('click', () => popup.remove());
+    }
+
+    function createCheckbox(name, label, disabled = false) {
+        // Si disabled est true, alors la case ne doit pas être cochée, indépendamment de la valeur stockée
+        const isChecked = !disabled && GM_getValue(name, false) ? 'checked' : '';
+        const isDisabled = disabled ? 'disabled' : '';
+        // Ajoute l'attribut id à l'élément input
+        return `<label class="${isDisabled ? 'disabled' : ''}"><input type="checkbox" id="${name}" name="${name}" ${isChecked} ${isDisabled}> ${label}</label>`;
+    }
+
+    // Sauvegarde la configuration
+    async function saveConfig() {
+        document.querySelectorAll('#configPopup input[type="checkbox"]').forEach(input => {
+            GM_setValue(input.name, input.checked);
+        });
+        const newApiToken = document.getElementById('apiTokenInput').value;
+        var response = await verifyToken(newApiToken);
+        if (response && response.status === 200) {
+            // Save token after validation
+            GM_setValue('apiToken', newApiToken);
+        } else if (response && response.status === 404) {
+            GM_deleteValue("apiToken");
+            alert("Clef API invalide !");
+            return
+        }
+        //alert('Configuration sauvegardée.');
         window.location.reload();
-    }, "p");
-    GM_registerMenuCommand("Activer/Désactiver la possibilité de cacher les produits", function() {
-        askhidePreference();
-        window.location.reload();
-    }, "d");
-    GM_registerMenuCommand("Activer/Désactiver l'affichage de différence sur les catégories", function() {
-        askcatPreference();
-        window.location.reload();
-    }, "c");
-    GM_registerMenuCommand("Activer/Désactiver l'affichage alternatif", function() {
-        askcssPreference();
-        window.location.reload();
-    }, "l");
-    GM_registerMenuCommand("Afficher/Cacher le header (haut de page)", function() {
-        askheaderPreference();
-        window.location.reload();
-    }, "h");
-    GM_registerMenuCommand("Remonter la valeur fiscale estimée", function() {
-        asktaxPreference();
-        window.location.reload();
-    }, "f");
-    GM_registerMenuCommand("Activer/Désactiver l'affichage du nom complet des produits", function() {
-        askExtendedPreference();
-        window.location.reload();
-    }, "m");
-    GM_registerMenuCommand("Activer/Désactiver le correctif des produits qui ne chargent pas", function() {
-        askwheelPreference();
-        window.location.reload();
-    }, "w");
-    GM_registerMenuCommand("(Premium+) Activer/Désactiver l'affichage de la quantité de produits du jour", function() {
-        askstatsPreference();
-        window.location.reload();
-    }, "p");
-    GM_registerMenuCommand("(Premium+) Synchroniser les produits", function() {
-        syncProducts();
-    }, "o");
-    GM_registerMenuCommand("(Expérimental) Appeler une URL lors de la découverte d'un nouvel objet", function() {
-        askurlPreference();
-    }, "r");
-    GM_registerMenuCommand("(Expérimental) Choisir l'URL a appeler lors de la découverte d'un nouvel objet", function() {
-        setUrl();
-    }, "u");
-    GM_registerMenuCommand("Supprimer les produits enregistrés pour la surbrillance", function() {
-        purgeStoredProducts(true);
-        alert("Tous les produits ont été supprimés.");
-    }, "s");
-    GM_registerMenuCommand("Supprimer les produits enregistrés pour les cacher", function() {
-        purgeHiddenObjects(true);
-        alert("Tous les produits ont été supprimés.");
-    }, "e");
+        document.getElementById('configPopup').remove();
+    }
+
+    // Ajoute les boutons pour les actions spécifiques qui ne sont pas juste des toggles on/off
+    function addActionButtons(isPremium, isPremiumPlus) {
+        return `
+<div class="button-container action-buttons">
+  <button id="setHighlightColor">Définir la couleur de surbrillance des nouveaux produits</button>
+  <button id="setHighlightColorFav">Définir la couleur de surbrillance des produits filtrés par nom</button>
+  <button id="configurerFiltres" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Configurer les mots pour le filtre</button>
+  <button id="syncProducts" ${isPremiumPlus ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium+) Synchroniser les produits</button>
+  <button id="configurerTouches">Configurer les touches</button>
+  <button id="setUrl">(Expérimental) Choisir l'URL à appeler</button>
+  <button id="purgeStoredProducts">Supprimer les produits enregistrés pour la surbrillance</button>
+  <button id="purgeHiddenObjects">Supprimer les produits cachés</button>
+</div>
+<div class="button-container final-buttons">
+  <button class="full-width" id="saveConfig">Enregistrer</button>
+  <button class="full-width" id="closeConfig">Fermer</button>
+</div>
+    `;
+    }
+
+    // Ajouter la commande de menu "Paramètres"
+    GM_registerMenuCommand("Paramètres", createConfigPopup, "p");
+
+
+    // Fonction pour créer la fenêtre popup de configuration des touches
+    function createKeyConfigPopup() {
+        // Vérifie si une popup existe déjà et la supprime si c'est le cas
+        const existingPopup = document.getElementById('keyConfigPopup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
+
+        // Crée la fenêtre popup
+        const popup = document.createElement('div');
+        popup.id = "keyConfigPopup";
+        popup.style.cssText = `
+        z-index: 10001; /* Assure-toi que ce z-index est suffisamment élevé pour surpasser les autres éléments */
+        width: 350px;
+    `;
+        popup.innerHTML = `
+        <h2 id="configPopupHeader">Configuration des touches<span id="closeKeyPopup" style="float: right; cursor: pointer;">&times;</span></h2>
+        ${createKeyInput('keyLeft', 'Navigation à gauche (flêche : ArrowLeft)')}
+        ${createKeyInput('keyRight', 'Navigation à droite (flêche : ArrowRight)')}
+        ${createKeyInput('keyUp', 'Onglet suivant (flêche : ArrowUp)')}
+        ${createKeyInput('keyDown', 'Onglet précédent (flêche : ArrowDown)')}
+        ${createKeyInput('keyHide', 'Tout cacher')}
+        ${createKeyInput('keyShow', 'Tout montrer')}
+<div class="button-container final-buttons">
+  <button class="full-width" id="saveKeyConfig">Enregistrer</button>
+  <button class="full-width" id="closeKeyConfig">Fermer</button>
+</div>
+    `;
+
+        document.body.appendChild(popup);
+        //dragElement(popup); // Utilise ta fonction existante pour rendre la popup déplaçable
+
+        // Ajout des écouteurs d'événements pour les boutons
+        document.getElementById('saveKeyConfig').addEventListener('click', saveKeyConfig);
+        document.getElementById('closeKeyConfig').addEventListener('click', () => document.getElementById('keyConfigPopup').remove());
+        document.getElementById('closeKeyPopup').addEventListener('click', () => {
+            document.getElementById('keyConfigPopup').remove();
+        });
+    }
+
+    // Crée les champs de saisie pour les touches
+    function createKeyInput(id, label) {
+        const value = GM_getValue(id, ''); // Récupère la valeur actuelle ou une chaîne vide par défaut
+        return `
+        <div style="margin-top: 10px;">
+            <label for="${id}" style="display: block;">${label}</label>
+            <input type="text" id="${id}" name="${id}" value="${value}" style="width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px;">
+        </div>
+    `;
+    }
+
+    // Fonction pour enregistrer la configuration des touches
+    function saveKeyConfig() {
+        const keys = ['keyLeft', 'keyRight', 'keyUp', 'keyDown', 'keyHide', 'keyShow'];
+        keys.forEach(key => {
+            const inputValue = document.getElementById(key).value;
+            GM_setValue(key, inputValue);
+        });
+        document.getElementById('keyConfigPopup').remove();
+    }
+
+    // Fonction pour créer la fenêtre popup de configuration des filtres
+    function createFavConfigPopup() {
+        // Vérifie si une popup existe déjà et la supprime si c'est le cas
+        const existingPopup = document.getElementById('favConfigPopup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
+
+        // Crée la fenêtre popup
+        const popup = document.createElement('div');
+        popup.id = "favConfigPopup";
+        popup.style.cssText = `
+        z-index: 10001; /* Assure-toi que ce z-index est suffisamment élevé pour surpasser les autres éléments */
+        width: 600px;
+    `;
+        popup.innerHTML = `
+        <h2 id="configPopupHeader">Configuration des filtres<span id="closeFavPopup" style="float: right; cursor: pointer;">&times;</span></h2>
+        <div>
+            <label for="favWords">Produits favoris :</label>
+            <textarea id="favWords" name="favWords" style="width: 100%; height: 70px;">${GM_getValue('favWords', '')}</textarea>
+        </div>
+        <div style="margin-top: 10px;">
+            <label for="hideWords">Produits à cacher :</label>
+            <textarea id="hideWords" name="hideWords" style="width: 100%; height: 110px">${GM_getValue('hideWords', '')}</textarea>
+        </div><br>
+<p style="font-size: 0.9em; color: #666;">Note&nbsp;: chaque recherche différente doit être séparée par une virgule. Les majuscules ne sont pas prises en compte. Exemple&nbsp;: coque iphone, chat, HUB.<br>Si un produit est à la fois favori et à cacher, il ne sera pas caché.</p>
+        <div class="button-container final-buttons">
+          <button class="full-width" id="saveFavConfig">Enregistrer</button>
+          <button class="full-width" id="closeFavConfig">Fermer</button>
+        </div>
+    `;
+
+        document.body.appendChild(popup);
+        //dragElement(popup); // Utilise ta fonction existante pour rendre la popup déplaçable
+
+        // Ajout des écouteurs d'événements pour les boutons
+        document.getElementById('saveFavConfig').addEventListener('click', saveFavConfig);
+        document.getElementById('closeFavConfig').addEventListener('click', () => document.getElementById('favConfigPopup').remove());
+        document.getElementById('closeFavPopup').addEventListener('click', () => {
+            document.getElementById('favConfigPopup').remove();
+        });
+    }
+
+
+    function saveFavConfig() {
+        const favWords = document.getElementById('favWords').value;
+        const hideWords = document.getElementById('hideWords').value;
+        GM_setValue('favWords', favWords);
+        GM_setValue('hideWords', hideWords);
+        document.getElementById('favConfigPopup').remove(); // Ferme la popup après enregistrement
+    }
+
+    // Modification de la fonction configurerTouches pour ouvrir la popup
+    function configurerTouches() {
+        createKeyConfigPopup();
+    }
+    function configurerFiltres() {
+        createFavConfigPopup();
+    }
     //End
+
     // Removes old products if they've been in stored for 90+ days
     function purgeOldItems() {
         const items = GM_getValue("config");
@@ -1193,6 +1626,26 @@ body {
             GM_xmlhttpRequest({
                 method: "GET",
                 url: `https://apishyrka.alwaysdata.net/shyrka/userpremiumplus/${token}`,
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                onload: function(response) {
+                    console.log(response.status, response.responseText);
+                    resolve(response);
+                },
+                onerror: function(error) {
+                    console.error(error);
+                    reject(error);
+                },
+            });
+        });
+    }
+
+    function verifyTokenPremium(token) {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: `https://apishyrka.alwaysdata.net/shyrka/userpremium/${token}`,
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
@@ -1496,7 +1949,7 @@ body {
     function sendDataToAPI(data) {
 
         const formData = new URLSearchParams({
-            version: 0.710,
+            version: version,
             token: API_TOKEN,
             page: valeurPage,
             tab: valeurQueue,
@@ -1537,7 +1990,7 @@ body {
 
     function sendDatasToAPI(data) {
         const formData = new URLSearchParams({
-            version: 0.710,
+            version: version,
             token: API_TOKEN,
             urls: JSON.stringify(data),
             queue: valeurQueue,
@@ -1567,7 +2020,7 @@ body {
     //Appel API pour synchroniser
     function syncProducts() {
         const formData = new URLSearchParams({
-            version: 0.710, // Assurez-vous que les valeurs sont des chaînes
+            version: version, // Assurez-vous que les valeurs sont des chaînes
             token: API_TOKEN, // Remplacez API_TOKEN par la valeur de votre token
         });
 
@@ -1612,7 +2065,7 @@ body {
     //Appel API pour la quantité de produits
     function qtyProducts() {
         const formData = new URLSearchParams({
-            version: 0.710, // Assurez-vous que les valeurs sont des chaînes
+            version: version, // Assurez-vous que les valeurs sont des chaînes
             token: API_TOKEN, // Remplacez API_TOKEN par la valeur de votre token
         });
 
@@ -1637,7 +2090,7 @@ body {
                             reject(error); // Rejette la promesse si le parsing échoue
                         }
                     } else if (response.status == 401) {
-                        alert("Token invalide ou membre non Premium+");
+                        //alert("Token invalide ou membre non Premium+");
                         console.log(response.status, response.responseText);
                         resolve(response);
                     } else {
@@ -1674,14 +2127,16 @@ body {
     `;
 
         // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout"
-        const referenceNode = container.querySelector('p');
-        if (referenceNode) {
-            // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout" si l'élément de référence existe
-            container.insertBefore(infoDiv, referenceNode.nextSibling);
-        } else {
-            // Si l'élément de référence n'existe pas, tu peux choisir un autre comportement,
-            // par exemple ajouter infoDiv à la fin du conteneur
-            container.appendChild(infoDiv);
+        if (container) {
+            const referenceNode = container.querySelector('p');
+            if (referenceNode) {
+                // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout" si l'élément de référence existe
+                container.insertBefore(infoDiv, referenceNode.nextSibling);
+            } else {
+                // Si l'élément de référence n'existe pas, tu peux choisir un autre comportement,
+                // par exemple ajouter infoDiv à la fin du conteneur
+                container.appendChild(infoDiv);
+            }
         }
     }
 
@@ -1708,7 +2163,6 @@ body {
         // Sauvegarder les changements dans storedProducts
         GM_setValue("storedProducts", JSON.stringify(storedProducts));
         alert("Les produits ont été synchronisés.");
-        window.location.reload();
     }
     //End
 
@@ -1757,33 +2211,6 @@ body {
             subtree: false
         };
 
-        //Pickme Add
-        //Active le bouton de téléchargement du rapport
-        var element = document.querySelector('.vvp-tax-report-file-type-select-container.download-disabled');
-        if (element) {
-            element.classList.remove('download-disabled');
-        }
-
-        //Ajoute l'heure de l'évaluation
-        const timeStampElement = document.getElementById('vvp-eval-end-stamp');
-        const timeStamp = timeStampElement ? timeStampElement.textContent : null;
-
-        if (timeStamp) {
-            const date = new Date(parseInt(timeStamp));
-            const optionsDate = { day: '2-digit', month: '2-digit', year: 'numeric' };
-            const optionsTime = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-            const formattedDate = date.toLocaleDateString('fr-FR', optionsDate) + ' à ' + date.toLocaleTimeString('fr-FR', optionsTime);
-
-            const dateStringElement = document.getElementById('vvp-evaluation-date-string');
-            if (dateStringElement) {
-                dateStringElement.innerHTML = `Réévaluation&nbsp;: <strong>${formattedDate}</strong>`;
-            }
-        }
-
-        //Suppression du bouton pour se désincrire
-        document.getElementById('vvp-opt-out-of-vine-button').style.display = 'none';
-        //End
-
         // Mutation observer fires every time the product title in the modal changes
         observer = new MutationObserver(function (mutations) {
 
@@ -1819,7 +2246,7 @@ body {
         try {
             observer.observe(target, config);
         } catch(error) {
-            console.log('No items on the page.');
+            console.log('Aucun produits sur cette page');
         }
 
     });
@@ -1850,6 +2277,42 @@ body {
         }
         setTimeout(tryExtended, 600);
         //tryExtended();
+    }
+
+    if (autohideEnabled && apiOk) {
+        function tryAutoHide() {
+            // Nettoie les chaînes et vérifie si elles sont vides
+            var favWordsTrim = favWords.trim();
+            var hideWordsTrim = hideWords.trim();
+
+            const favArray = favWordsTrim.length > 0 ? favWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+            const hideArray = hideWordsTrim.length > 0 ? hideWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+            const itemTiles = document.querySelectorAll('.vvp-item-tile');
+
+            if (itemTiles.length > 0) {
+                itemTiles.forEach(function(tile) {
+                    const fullTextElement = tile.querySelector('.a-truncate-full.a-offscreen');
+                    const parentDiv = tile.closest('.vvp-item-tile');
+                    if (fullTextElement) {
+                        const textContentLower = fullTextElement.textContent.toLowerCase().trim().replace(/\s+/g, '');
+
+                        // Effectue la vérification seulement si favArray n'est pas vide
+                        if (favArray.length > 0 && favArray.some(mot => textContentLower.includes(mot))) {
+                            parentDiv.style.backgroundColor = highlightColorFav; // Assurez-vous que 'highlightColorFav' est bien défini
+                            parentDiv.parentNode.prepend(parentDiv);
+                        }
+                        // Effectue la vérification seulement si hideArray n'est pas vide
+                        else if (hideArray.length > 0 && hideArray.some(mot => textContentLower.includes(mot))) {
+                            const asin = parentDiv.getAttribute('data-asin') || parentDiv.querySelector('.vvp-details-btn input').getAttribute('data-asin');
+                            const etatCacheKey = asin + '_cache';
+                            localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: false }));
+                            parentDiv.style.display = 'none';
+                        }
+                    }
+                });
+            }
+        }
+        setTimeout(tryAutoHide, 600);
     }
 
     //Wheel Fix
