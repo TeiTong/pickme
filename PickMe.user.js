@@ -967,23 +967,6 @@ body {
             }
         }
 
-        //Ajout de l'icone pour l'accès aux options
-        const boutonSettings = document.createElement('img');
-        // Définit les attributs nécessaires pour l'image
-        // Définit les propriétés de l'image/bouton
-        boutonSettings.src = 'https://i.ibb.co/7GCRjGq/73989.png';
-        boutonSettings.alt = 'Settings';
-        boutonSettings.style.cursor = 'pointer';
-        boutonSettings.style.width = '36px'; // Taille d'une icône
-        boutonSettings.style.height = '36px'; // Taille d'une icône
-        boutonSettings.style.marginLeft = '10px'; // Espace ajouté pour séparer de l'élément précédent
-        boutonSettings.style.verticalAlign = 'middle'; // Alignement vertical avec les éléments adjacents
-
-        // Ajoute un gestionnaire d'événements pour appeler `createConfigPopup` lors du clic sur l'image
-        boutonSettings.addEventListener('click', createConfigPopup);
-
-
-
         //Affichage de l'image New
         if (imgNew) {
             // Créer l'élément image
