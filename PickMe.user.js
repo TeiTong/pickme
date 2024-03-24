@@ -28,7 +28,7 @@ NOTES:
 
 (function() {
     'use strict';
-    let fullloadEnabled = GM_getValue("fullloadEnabled", true);
+    let fullloadEnabled = GM_getValue("fullloadEnabled", false);
     if (fullloadEnabled) {
         // Masquer le contenu de la page immédiatement
         var styleElement = document.createElement('style');
