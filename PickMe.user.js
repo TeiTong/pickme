@@ -1585,8 +1585,8 @@ body {
             }
             GM_setValue("config", items);
             if (fullloadEnabled && !autohideEnabled) {
-                displayContent();
-                //setTimeout(displayContent, 100);
+                //displayContent();
+                //setTimeout(displayContent, 200);
             }
         }
         purgeOldItems();
@@ -2352,7 +2352,7 @@ body {
                             }
                         }
                     });
-                    displayContent();
+                    //displayContent();
                     //setTimeout(displayContent, 100);
                 }
             }
@@ -2498,5 +2498,11 @@ body {
             }
         }
         //End Wheel Fix
+        if (autohideEnabled) {
+            setTimeout(displayContent, 600);
+        } else {
+
+            displayContent();
+        }
     });
 })();
