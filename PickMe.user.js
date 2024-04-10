@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -471,7 +471,6 @@ NOTES:
 
         function ajouterIconeEtFonctionCacher() {
             const produits = document.querySelectorAll('.vvp-item-tile');
-            const conteneur = document.querySelector('#vvp-items-grid-container');
             const resultats = document.querySelector('#vvp-items-grid-container > p'); // Modifiez ce sélecteur si nécessaire
 
             // Ajout du style pour les boutons
@@ -519,6 +518,9 @@ NOTES:
 		`;
             document.head.appendChild(style);
 
+            //Icone pour cacher/montrer
+            const urlIcone = 'https://i.ibb.co/1R6HWMw/314858-hidden-eye-icon.png';
+            const urlIconeOeil = 'https://i.ibb.co/MNzxHrh/314859-eye-icon.png';
             // Création des boutons avec le nouveau style
             const boutonVisibles = document.createElement('button');
             boutonVisibles.textContent = 'Produits visibles';
@@ -560,28 +562,67 @@ NOTES:
                 produits.forEach(produit => {
                     const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
                     const etatCacheKey = asin + '_cache';
-                    localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: cacher }));
+                    const etatFavoriKey = asin + '_favori';
+
+                    // Vérifie si le produit est en favori avant de changer son état de caché
+                    const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
+                    if (!etatFavori.estFavori) { // Ne modifie l'état de caché que si le produit n'est pas en favori
+                        localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: cacher }));
+
+                        // Sélection de l'icône d'œil dans le produit actuel et mise à jour si l'état de caché change
+                        const iconeOeil = produit.querySelector('img[src="' + urlIcone + '"], img[src="' + urlIconeOeil + '"]');
+                        if (iconeOeil) {
+                            iconeOeil.setAttribute('src', cacher ? urlIcone : urlIconeOeil);
+                        }
+                    }
                 });
+
                 // Force la mise à jour de l'affichage selon le nouveau statut de visibilité
                 afficherProduits(!cacher);
             }
-
             // Gestion des clics sur les boutons Cacher tout et Tout afficher
             boutonCacherTout.addEventListener('click', () => toggleTousLesProduits(false));
             boutonToutAfficher.addEventListener('click', () => toggleTousLesProduits(true));
 
             // Affiche les produits en fonction du filtre : visible ou caché
             function afficherProduits(afficherVisibles) {
+                const produitsFavoris = [];
                 produits.forEach(produit => {
                     const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
                     const etatCacheKey = asin + '_cache';
-                    let etatCache = JSON.parse(localStorage.getItem(etatCacheKey));
-                    if (etatCache === null) {
-                        etatCache = { estCache: true }; // Définit la valeur par défaut
-                        localStorage.setItem(etatCacheKey, JSON.stringify(etatCache)); // Enregistre la valeur par défaut dans le stockage local
+                    const etatFavoriKey = asin + '_favori';
+
+                    // Initialisation des états si non définis
+                    let etatCache = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: true };
+                    let etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
+
+                    // Enregistre les valeurs par défaut si nécessaire
+                    if (localStorage.getItem(etatCacheKey) === null) {
+                        localStorage.setItem(etatCacheKey, JSON.stringify(etatCache));
                     }
-                    produit.style.display = (etatCache.estCache !== afficherVisibles) ? 'none' : '';
+                    if (localStorage.getItem(etatFavoriKey) === null) {
+                        localStorage.setItem(etatFavoriKey, JSON.stringify(etatFavori));
+                    }
+                    //On test s'il est favori et si on peut le cacher ou non
+                    if (etatFavori.estFavori) {
+                        // Les produits favoris sont toujours affichés dans l'onglet "Produits visibles"
+                        // et cachés dans l'onglet "Produits cachés"
+                        produit.style.display = afficherVisibles ? '' : 'none';
+                        produitsFavoris.push(produit);
+                    } else {
+                        if ((etatCache.estCache && afficherVisibles) || (!etatCache.estCache && !afficherVisibles)) {
+                            produit.style.display = '';
+                        } else {
+                            produit.style.display = 'none';
+                        }
+                    }
                 });
+                const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
+                if (containerDiv) {
+                    produitsFavoris.reverse().forEach(element => {
+                        containerDiv.prepend(element);
+                    });
+                }
                 boutonVisibles.classList.toggle('active', afficherVisibles); // Active ou désactive le bouton des produits visibles
                 boutonCaches.classList.toggle('active', !afficherVisibles); // Active ou désactive le bouton des produits cachés
                 // Gestion de l'affichage des boutons "Cacher tout" et "Tout afficher"
@@ -592,21 +633,65 @@ NOTES:
             produits.forEach(produit => {
                 const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
                 const etatCacheKey = asin + '_cache';
-                const urlIcone = 'https://i.ibb.co/1R6HWMw/314858-hidden-eye-icon.png';
-                const icone = document.createElement('img');
+                const etatFavoriKey = asin + '_favori';
+                const iconeOeil = document.createElement('img');
 
-                icone.setAttribute('src', urlIcone);
-                icone.style.cssText = 'position: absolute; top: 5px; right: 5px; cursor: pointer; width: 30px; height: 30px; z-index: 10;';
+                const etatCache = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: true };
+                iconeOeil.setAttribute('src', etatCache.estCache ? urlIcone : urlIconeOeil);
+                iconeOeil.style.cssText = 'position: absolute; top: 0px; right: 5px; cursor: pointer; width: 35px; height: 35px; z-index: 10;';
 
-                icone.addEventListener('click', () => {
-                    const etatCache = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: false };
-                    etatCache.estCache = !etatCache.estCache;
-                    localStorage.setItem(etatCacheKey, JSON.stringify(etatCache));
+                iconeOeil.addEventListener('click', () => {
+                    const etatFavoriKey = asin + '_favori';
+                    const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
+
+                    // Vérifie si le produit n'est pas marqué comme favori avant de changer son état de caché
+                    if (!etatFavori.estFavori) {
+                        const etatCacheActuel = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: false };
+                        etatCacheActuel.estCache = !etatCacheActuel.estCache;
+                        localStorage.setItem(etatCacheKey, JSON.stringify(etatCacheActuel));
+
+                        // Met à jour l'icône basée sur le nouvel état après le clic
+                        iconeOeil.setAttribute('src', etatCacheActuel.estCache ? urlIcone : urlIconeOeil);
+                    }
+
+                    // Force la mise à jour de l'affichage selon l'état actuel des filtres
+                    afficherProduits(!boutonCaches.classList.contains('active'));
+                });
+
+                //const urlIconeFavoriGris = 'https://i.ibb.co/H7LPnYS/coeurgris.png';
+                //const urlIconeFavoriRouge = 'https://i.ibb.co/kcdswPQ/coeurrouge.png';
+                const urlIconeFavoriGris = 'https://i.ibb.co/2cTkDm5/coeurgris2.png';
+                const urlIconeFavoriRouge = 'https://i.ibb.co/cxttfV7/coeurrouge2.png';
+                const iconeFavori = document.createElement('img');
+
+                const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey));
+                iconeFavori.setAttribute('src', etatFavori && etatFavori.estFavori ? urlIconeFavoriRouge : urlIconeFavoriGris);
+                iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
+
+                // Gestion du clic sur l'icône de favori
+                iconeFavori.addEventListener('click', () => {
+                    const etatFavoriActuel = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
+                    etatFavoriActuel.estFavori = !etatFavoriActuel.estFavori;
+                    localStorage.setItem(etatFavoriKey, JSON.stringify(etatFavoriActuel));
+                    iconeFavori.setAttribute('src', etatFavoriActuel.estFavori ? urlIconeFavoriRouge : urlIconeFavoriGris);
+
+                    if (etatFavoriActuel.estFavori) {
+                        // Si le produit est marqué comme favori, s'assurer qu'il est marqué comme non caché
+                        localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: true }));
+                        produit.style.display = ''; // Assure que le produit est visible
+                        // Mettre à jour l'icône de l'œil pour refléter que le produit n'est plus caché
+                        const iconeOeil = produit.querySelector('img[src="' + urlIcone + '"], img[src="' + urlIconeOeil + '"]');
+                        if (iconeOeil) {
+                            iconeOeil.setAttribute('src', urlIcone);
+                        }
+                    }
+
                     afficherProduits(!boutonCaches.classList.contains('active'));
                 });
 
                 produit.style.position = 'relative';
-                produit.appendChild(icone);
+                produit.appendChild(iconeOeil);
+                produit.appendChild(iconeFavori);
             });
 
             // Initialisation de l'affichage par défaut à 'Produits Visibles'
@@ -1029,16 +1114,38 @@ body {
         }
 
         function purgeHiddenObjects(purgeAll = false) {
+            let purgeFavorites = false;
+            let purgeHidden = false;
+
+            // Poser la question pour les produits cachés si purgeAll est true et les favoris
+            if (purgeAll) {
+                purgeHidden = confirm("Es-tu sur de vouloir supprimer tous les produits cachés ?");
+                purgeFavorites = confirm("Veux-tu supprimer tous les favoris ?");
+            }
+
             for (let i = localStorage.length - 1; i >= 0; i--) {
                 const key = localStorage.key(i);
-                if (key.includes('_cache')) {
-                    const hiddenData = JSON.parse(localStorage.getItem(key));
-                    if (purgeAll || (new Date().getTime() - hiddenData.date >= ITEM_EXPIRY)) {
+                const isCacheKey = key.includes('_cache');
+                const isFavoriKey = key.includes('_favori');
+
+                if (isCacheKey || (purgeFavorites && isFavoriKey)) {
+                    if (isCacheKey && purgeHidden) {
+                        // Suppression des objets cachés si l'utilisateur a confirmé la suppression
                         localStorage.removeItem(key);
+                    } else if (isFavoriKey && purgeFavorites) {
+                        // Suppression des favoris si l'utilisateur a confirmé la suppression
+                        localStorage.removeItem(key);
+                    } else if (isCacheKey && !purgeAll) {
+                        // Vérifier l'expiration des objets cachés si purgeAll n'est pas activé
+                        const hiddenData = JSON.parse(localStorage.getItem(key));
+                        if (new Date().getTime() - hiddenData.date >= ITEM_EXPIRY) {
+                            localStorage.removeItem(key);
+                        }
                     }
                 }
             }
         }
+
 
         //On purge les anciens produits
         purgeStoredProducts();
@@ -1299,7 +1406,7 @@ body {
       ${createCheckbox('highlightEnabled', 'Surbrillance des nouveaux produits', 'Permet d\'ajouter un fond de couleur dès qu\'un nouveau produit est trouvé sur la page en cours. La couleur peut se choisir avec le bouton plus bas dans ces options.')}
       ${createCheckbox('firsthlEnabled', 'Mettre les nouveaux produits en début de page', 'Les nouveaux produits seront mis au tout début de la liste des produits sur la page en cours')}
       ${createCheckbox('paginationEnabled', 'Affichage des pages en partie haute', 'En plus des pages de navigation en partie basse, ajoute également la navigation des pages en début de liste des produits')}
-      ${createCheckbox('hideEnabled', 'Pouvoir cacher des produits', 'Ajoute l\'option qui permet de cacher certains produits de votre choix, ainsi que les boutons pour tout cacher ou tout afficher en une seule fois')}
+      ${createCheckbox('hideEnabled', 'Pouvoir cacher des produits', 'Ajoute l\'option qui permet de cacher certains produits de votre choix ainsi que des favoris (le produit devient impossible à cacher et sera toujours mis en tête en liste sur la page), ainsi que les boutons pour tout cacher ou tout afficher en une seule fois')}
       ${createCheckbox('catEnabled', 'Différence de quantité dans les catégories', 'Afficher à côté de chaque catégorie du bandeau à gauche la différence de quantité positive ou négative par rapport à la dernière fois où vous avez vu un nouveau produit. Se réinitialise à chaque fois que vous voyez un nouveau produit ou quand vous appuyez sur le bouton "Reset"')}
       ${createCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée', 'Dans la fênetre du produit qui s\'affiche quand on clique sur "Voir les détails", remonte dans le titre la valeur fiscale du produit au lieu qu\'elle soit en fin de fenêtre')}
       ${createCheckbox('cssEnabled', 'Utiliser l\'affichage alternatif', 'Affichage réduit, pour voir plus de produits en même temps, avec également réduction de la taille des catégories. Option utile sur mobile par exemple. Non compatible avec l\'affichage du nom complet des produits')}
@@ -1349,9 +1456,7 @@ body {
             });
 
             document.getElementById('purgeHiddenObjects').addEventListener('click', () => {
-                if (confirm("Es-tu sûr de vouloir supprimer les produits cachés ?")) {
-                    purgeHiddenObjects(true);
-                }
+                purgeHiddenObjects(true);
             });
 
             dragElement(popup);
@@ -1422,7 +1527,7 @@ body {
   <button id="configurerTouches">Configurer les touches</button>
   <button id="setUrl">(Expérimental) Choisir l'URL à appeler</button>
   <button id="purgeStoredProducts">Supprimer les produits enregistrés pour la surbrillance</button>
-  <button id="purgeHiddenObjects">Supprimer les produits cachés</button>
+  <button id="purgeHiddenObjects">Supprimer les produits cachés et/ou les favoris</button>
 </div>
 <div class="button-container final-buttons">
   <button class="full-width" id="saveConfig">Enregistrer</button>
@@ -1567,10 +1672,10 @@ body {
                 ((date - items[obj].date) >= ITEM_EXPIRY) ? delete items[obj] : null;
             }
             GM_setValue("config", items);
-            if (fullloadEnabled && !autohideEnabled) {
-                //displayContent();
-                //setTimeout(displayContent, 200);
-            }
+            //if (fullloadEnabled && !autohideEnabled) {
+            //displayContent();
+            //setTimeout(displayContent, 200);
+            //}
         }
         purgeOldItems();
 
@@ -2484,7 +2589,6 @@ body {
         if (autohideEnabled) {
             setTimeout(displayContent, 600);
         } else {
-
             displayContent();
         }
     });
