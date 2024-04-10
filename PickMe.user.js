@@ -2280,8 +2280,12 @@ body {
                 const asin = product.asin; // L'ASIN est directement disponible depuis le JSON
                 const currentDate = product.date_ajout;
                 if (userHideAll) {
-                    const etatCacheKey = asin + '_cache';
-                    localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: false }));
+                    const etatFavoriKey = asin + '_favori';
+                    const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
+                    if (!etatFavori.estFavori) { // Ne modifie l'état de caché que si le produit n'est pas en favori
+                        const etatCacheKey = asin + '_cache';
+                        localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: false }));
+                    }
                 }
                 // Mettre à jour ou ajouter le produit dans storedProducts
                 storedProducts[asin] = {
