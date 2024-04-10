@@ -666,7 +666,17 @@ NOTES:
 
                 const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey));
                 iconeFavori.setAttribute('src', etatFavori && etatFavori.estFavori ? urlIconeFavoriRouge : urlIconeFavoriGris);
-                iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
+                //On test si on utilise le css alternatif pour bouger l'emplacement du coeur, sinon il est superposé au temps du produit
+                if (cssEnabled) {
+                    //On test si le produit est nouveau
+                    if (!storedProducts.hasOwnProperty(asin) || !highlightEnabled) {
+                        iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
+                    } else {
+                        iconeFavori.style.cssText = 'position: absolute; top: 30px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
+                    }
+                } else {
+                    iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
+                }
 
                 // Gestion du clic sur l'icône de favori
                 iconeFavori.addEventListener('click', () => {
