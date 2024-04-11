@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.2.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -1240,6 +1240,8 @@ body {
   align-items: stretch;
   cursor: auto;
   border: 2px solid #ccc; /* Ajout d'un contour */
+  overflow: auto; /* Ajout de défilement si nécessaire */
+  resize: both; /* Permet le redimensionnement horizontal et vertical */
 }
 
 .api-token-container label {
@@ -1351,7 +1353,18 @@ body {
 }
 `;
         document.head.appendChild(styleMenu);
+// Assurez-vous que les boutons sont toujours accessibles
+function adjustPopupLayout() {
+  const popup = document.getElementById('configPopup');
+  if (popup) {
+    const rect = popup.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight) {
+      popup.style.top = `${window.innerHeight - rect.height}px`;
+    }
+  }
+}
 
+window.addEventListener('resize', adjustPopupLayout); // Ajuster la position lors du redimensionnement de la fenêtre
         // Fonction pour rendre la fenêtre déplaçable
         function dragElement(elmnt) {
             var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
@@ -1396,6 +1409,9 @@ body {
 
         // Crée la fenêtre popup de configuration avec la fonction de déplacement
         async function createConfigPopup() {
+            if (document.getElementById('configPopup')) {
+                return; // Termine la fonction pour éviter de créer une nouvelle popup
+            }
             let isPremiumPlus = false;
             let isPremium = false;
             const responsePremiumPlus = await verifyTokenPremiumPlus(API_TOKEN);
