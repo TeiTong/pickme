@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.2.1
+// @version      1.3
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -58,6 +58,7 @@ NOTES:
         let taxValue = GM_getValue("taxValue", true);
         let catEnabled = GM_getValue("catEnabled", true);
         let cssEnabled = GM_getValue("cssEnabled", false);
+        let mobileEnabled = GM_getValue("mobileEnabled", false);
         let headerEnabled = GM_getValue("headerEnabled", false);
         let callUrlEnabled = GM_getValue("callUrlEnabled", false);
         let callUrl = GM_getValue("callUrl", false);
@@ -67,6 +68,20 @@ NOTES:
         let autohideEnabled = GM_getValue("autohideEnabled", false);
         let favWords = GM_getValue('favWords', '');
         let hideWords = GM_getValue('hideWords', '');
+
+        //Modification du texte pour l'affichage mobile
+        var pageX = "Page X";
+        var produitsVisibles = "Produits visibles";
+        var produitsCaches = "Produits cachés";
+        var toutCacher = "Tout cacher";
+        var toutAfficher = "Tout afficher";
+        if (mobileEnabled) {
+            pageX = "X";
+            produitsVisibles = "Visibles";
+            produitsCaches = "Cachés";
+            toutCacher = "Tout cacher";
+            toutAfficher = "Tout afficher";
+        }
 
 
         //On remplace l'image et son lien par notre menu
@@ -80,6 +95,10 @@ NOTES:
                 var img = link.querySelector('img');
                 // Remplacer l'URL de l'image
                 img.src = 'https://i.ibb.co/NC96JrP/PM.png';
+                if (mobileEnabled || cssEnabled) {
+                    img.style.height = '35px'; // Définis une nouvelle hauteur pour l'image
+                    img.style.width = 'auto'; // Assure que la largeur s'ajuste pour conserver les proportions
+                }
                 // Modifier le comportement du lien pour empêcher le chargement de la page
                 link.onclick = function(event) {
                     // Empêcher l'action par défaut du lien
@@ -523,21 +542,21 @@ NOTES:
             const urlIconeOeil = 'https://i.ibb.co/MNzxHrh/314859-eye-icon.png';
             // Création des boutons avec le nouveau style
             const boutonVisibles = document.createElement('button');
-            boutonVisibles.textContent = 'Produits visibles';
+            boutonVisibles.textContent = produitsVisibles;
             boutonVisibles.classList.add('bouton-filtre', 'active'); // Ajout des classes pour le style
 
             const boutonCaches = document.createElement('button');
-            boutonCaches.textContent = 'Produits cachés';
+            boutonCaches.textContent = produitsCaches;
             boutonCaches.classList.add('bouton-filtre'); // Ajout des classes pour le style
 
             // Ajout des boutons pour cacher tout et tout afficher
             const boutonCacherTout = document.createElement('button');
-            boutonCacherTout.textContent = 'Tout cacher';
+            boutonCacherTout.textContent = toutCacher;
             boutonCacherTout.classList.add('bouton-action');
             boutonCacherTout.id = 'boutonCacherTout';
 
             const boutonToutAfficher = document.createElement('button');
-            boutonToutAfficher.textContent = 'Tout afficher';
+            boutonToutAfficher.textContent = toutAfficher;
             boutonToutAfficher.classList.add('bouton-action');
             boutonToutAfficher.id = 'boutonToutAfficher';
 
@@ -667,7 +686,7 @@ NOTES:
                 const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey));
                 iconeFavori.setAttribute('src', etatFavori && etatFavori.estFavori ? urlIconeFavoriRouge : urlIconeFavoriGris);
                 //On test si on utilise le css alternatif pour bouger l'emplacement du coeur, sinon il est superposé au temps du produit
-                if (cssEnabled) {
+                if (cssEnabled || mobileEnabled) {
                     //On test si le produit est nouveau
                     if (!storedProducts.hasOwnProperty(asin) || !highlightEnabled) {
                         iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
@@ -739,7 +758,7 @@ body {
   padding-right: 0px !important;
 }
 
-#navbar-main, #skiplink {
+#navbar-main, #nav-main, #skiplink {
   display: none;
 }
 
@@ -793,10 +812,6 @@ body {
   padding: 0px;
   max-width: unset !important;
   min-width: unset !important;
-}
-
-#vvp-logo-link img {
-  height: var(--logo-link-height, 30px);
 }
 
 #vvp-header ~ .a-section {
@@ -864,7 +879,489 @@ body {
 		`;
             document.head.appendChild(styleCss);
         }
+        //Affichage mobile
+        if (mobileEnabled && apiOk)
+        {
+            var mobileCss = document.createElement('style');
 
+            mobileCss.textContent = `
+
+#configPopup, #keyConfigPopup, #favConfigPopup {
+  width: 350px !important;
+  height: 600px;
+}
+
+#colorPickerPopup {
+  width: 350px !important;
+}
+
+/* Taille dynamique pour mobile */
+@media (max-width: 600px) {
+  #configPopup {
+    width: 90%; /* Prendre 90% de la largeur de l'écran */
+    height: 90%;
+    margin: 10px auto; /* Ajout d'un peu de marge autour des popups */
+  }
+}
+
+@media (max-width: 600px) {
+  #colorPickerPopup, #keyConfigPopup, #favConfigPopup {
+    width: 90%; /* Prendre 90% de la largeur de l'écran */
+    margin: 10px auto; /* Ajout d'un peu de marge autour des popups */
+  }
+}
+
+:root {
+  /*defaults--mostly for dev reference*/
+  --default-item-tile-height: 30px;
+  --default-grid-column: 90px;
+  --default-max-product-title: 100px;
+  --default-product-title-text-size: 10px;
+  --default-cutoff-background-color: #d1d1d1;
+
+  /*users can define custom  overrides by defining
+  --custom-orgin-param-name
+
+  /*item-title-height is the base value for derived items*/
+  --item-tile-height: var(
+    --custom-item-tile-height,
+    var(--default-item-tile-height)
+  );
+
+  --calc-grid-column-width: calc(var(--item-tile-height) * 2.75);
+  --grid-column-width: var(
+    --custom-item-grid-column-width,
+    var(--calc-grid-column-width)
+  );
+
+  --calc-max-product-title: calc(var(--item-tile-height) * 1.25);
+  --max-product-title: var(
+    --custom-max-product-title,
+    var(--calc-max-product-title)
+  );
+
+  --calc-product-title-text-size: calc(var(--item-tile-height) * 0.333);
+  --product-title-text-size: var(
+    --custom-product-title-text-size,
+    var(--calc-product-title-text-size)
+  );
+
+  /*used in cutoff.css file, defined here for convenience*/
+  --cutoff-background-color: var(
+    --custom-cutoff-background-color,
+    var(--default-cutoff-background-color)
+  );
+}
+
+body {
+  padding-right: 0px !important;
+}
+
+.a-section.vvp-items-button-and-search-container {
+  flex-direction: column !important;
+}
+
+.vvp-container-right-align {
+  margin-top: 10px !important;
+  width: 100% !important;
+  flex-grow: 1 !important;
+}
+
+.a-icon-search {
+  display: none;
+}
+
+.a-search {
+  flex-grow: 1;
+}
+
+#vvp-search-text-input {
+  width: 100% !important;
+}
+
+.a-tabs {
+  margin: 0px !important;
+}
+
+.a-tabs li a {
+  padding: 1rem !important;
+}
+
+.nav-mobile.nav-ftr-batmobile {
+  display: none;
+}
+
+.vvp-tab-set-container
+  [data-a-name="vine-items"]
+  .a-box-inner
+  .vvp-tab-content
+  .vvp-items-button-and-search-container {
+  margin: 0px !important;
+}
+
+#a-page
+  > div.a-container.vvp-body
+  > div.a-tab-container.vvp-tab-set-container
+  > ul {
+  margin-bottom: 0px !important;
+}
+
+#vvp-header {
+  justify-content: center !important;
+}
+
+.vvp-body {
+  padding: 0px !important;
+}
+
+.vvp-header-links-container a,
+.a-tab-heading a {
+  font-size: 12px !important;
+}
+
+#vvp-items-button-container {
+  width: 100% !important;
+}
+
+#vvp-browse-nodes-container .child-node {
+  margin-left: 20px !important;
+}
+
+/* STRIPPED CATEGORIES */
+#vvp-browse-nodes-container .parent-node {
+  background-color: white;
+}
+#vvp-browse-nodes-container > div:nth-child(odd) {
+  background-color: #f3f3f3 !important;
+}
+
+#vvp-browse-nodes-container .parent-node,
+#vvp-browse-nodes-container .child-node {
+  display: flex !important;
+}
+#vvp-browse-nodes-container .parent-node a,
+#vvp-browse-nodes-container .child-node a {
+  flex-grow: 1 !important;
+}
+
+#vvp-browse-nodes-container > p {
+  text-align: right;
+}
+
+#vvp-items-button-container .a-button-toggle.a-button {
+  margin: 0px !important;
+  padding: 0px !important;
+  width: calc(100% / 3) !important;
+  border-radius: 0px;
+}
+
+#vvp-items-button-container .a-button-toggle.a-button a {
+  font-size: 12px !important;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  padding: 0 !important;
+  justify-content: center !important;
+}
+
+.vvp-items-container {
+  flex-direction: column !important;
+}
+
+#vvp-items-grid .vvp-item-tile .vvp-item-tile-content > * {
+  margin: 0 !important;
+}
+
+#vvp-items-grid .vvp-item-tile .vvp-item-tile-content > img {
+  margin-top: 0.5rem !important;
+}
+
+.vvp-item-tile,
+.a-tab-content {
+  border: none !important;
+}
+
+.a-button-primary {
+  transition: 0.2s !important;
+}
+
+.a-button-primary .a-button-inner {
+  background-color: transparent !important;
+}
+
+.a-button-primary:hover {
+  opacity: 0.85 !important;
+}
+
+/* Pagination styles */
+.a-pagination {
+  display: flex !important;
+  justify-content: center;
+}
+
+.a-pagination li:first-child,
+.a-pagination li:last-child {
+  color: transparent !important;
+  position: relative;
+}
+
+.a-pagination li.a-disabled {
+  display: none !important;
+}
+
+.a-pagination li:first-child a,
+.a-pagination li:last-child a {
+  display: flex;
+  align-content: center;
+  position: relative;
+  justify-content: center;
+}
+
+.a-pagination li:first-child a:before,
+.a-pagination li:last-child a:before {
+  position: absolute !important;
+  color: white !important;
+  font-size: 2rem !important;
+  line-height: 4rem;
+  height: 100%;
+  width: 100%;
+}
+
+ul.a-pagination li:first-child a,  /* Cible le premier li de la liste, supposant que c'est Précédent */
+li:last-child.a-last a {     /* Cible les li avec classe 'a-last', supposant que c'est Suivant */
+    font-size: 0;
+}
+
+li:first-child a span.larr,  /* Cible le span larr dans le premier li */
+li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
+    font-size: 16px;
+    visibility: visible;
+}
+
+.a-pagination li {
+  width: 40px !important;
+  height: 40px !important;
+}
+.a-pagination li a {
+  padding: 0px !important;
+  margin: 0px !important;
+  height: 100%;
+  line-height: 40px !important;
+}
+
+.vvp-details-btn {
+  padding: 0.25rem 0 !important;
+  margin: 0.25rem 0rem !important;
+}
+
+.vvp-details-btn .a-button-text {
+  padding: 0.5px 0.25px !important;
+}
+
+/* RFY, AFA, AI */
+#vvp-items-button--recommended a,
+#vvp-items-button--all a,
+#vvp-items-button--seller a {
+  color: transparent;
+}
+
+#vvp-items-button--recommended a::before,
+#vvp-items-button--all a::before,
+#vvp-items-button--seller a::before {
+  color: black !important;
+  position: absolute;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#vvp-items-button--recommended a::before {
+  content: "RFY" !important;
+}
+
+#vvp-items-button--all a::before {
+  content: "AFA" !important;
+}
+
+#vvp-items-button--seller a::before {
+  content: "AI" !important;
+}
+
+/* PRODUCT MODAL */
+.a-popover.a-popover-modal.a-declarative.a-popover-modal-fixed-height {
+  height: calc(100% - 100px) !important;
+  width: 100% !important;
+  top: 50px !important;
+  right: 0px !important;
+  left: 0px !important;
+  padding: 0px !important;
+}
+
+#vvp-product-details-modal--main {
+  flex-direction: column;
+}
+
+#vvp-product-details-modal--tax-value {
+  position: absolute !important;
+  top: 20px !important;
+  z-index: 100;
+  left: 18px;
+}
+
+#vvp-product-details-img-container {
+  width: unset !important;
+  height: 150px !important;
+  display: flex !important;
+  justify-content: center !important;
+  position: relative !important;
+}
+
+#vvp-product-details-img-container img {
+  height: 150px !important;
+}
+
+/* GHOST ICON */
+#vvp-product-details-modal--limited-quantity {
+  position: absolute !important;
+  bottom: -28px !important;
+  z-index: 101 !important;
+  right: 8px !important;
+  color: transparent !important;
+  width: 41.2px !important;
+}
+
+#vvp-product-details-modal--limited-quantity::before {
+  content: "⌛";
+  font-size: 30px;
+  text-shadow: 0px 0px 20px #ff0000 !important;
+  color: white !important;
+}
+
+/* SEARCH BUTTON */
+#vvp-beta-tag {
+  display: none;
+}
+
+#vvp-search-button,
+#vvp-search-text-input {
+  border-radius: 0rem !important;
+}
+
+#vvp-search-button #vvp-search-button-announce {
+  line-height: 1 !important;
+}
+
+/* COLLAPSABLE CATEGORIES */
+
+.vvp-items-container {
+  margin: 0rem !important;
+}
+
+#vvp-browse-nodes-container {
+  margin: 1rem 0rem !important;
+}
+
+#vvp-browse-nodes-container:not(:hover) p,
+#vvp-browse-nodes-container:not(:hover) .parent-node,
+#vvp-browse-nodes-container:not(:hover) .child-node {
+  display: none !important;
+}
+
+#vvp-browse-nodes-container:not(:hover):before {
+  content: "Catégories";
+  padding: 0.5rem;
+  line-height: 3rem;
+  color: #fff;
+}
+
+#vvp-browse-nodes-container:not(:hover) {
+  background-color: #303333;
+}
+
+/* PRODUCT AND REVIEW PAGES */
+#vvp-product-details-img-container,
+#vvp-product-details-img-container img {
+  height: 75px;
+}
+
+#vvp-browse-nodes-container,
+#vvp-browse-nodes-container .parent-node,
+#vvp-browse-nodes-container .child-node {
+  width: unset !important;
+}
+
+.vvp-reviews-table .vvp-reviews-table--row,
+.vvp-orders-table .vvp-orders-table--row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.vvp-reviews-table tbody,
+.vvp-orders-table tbody {
+  display: flex !important;
+  flex-wrap: wrap;
+}
+
+.vvp-reviews-table--heading-row,
+.vvp-orders-table--heading-row {
+  display: none !important;
+}
+
+.vvp-reviews-table td,
+.vvp-orders-table td {
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
+}
+
+.vvp-reviews-table td.vvp-reviews-table--image-col,
+.vvp-orders-table td.vvp-orders-table--image-col {
+  padding-top: 10px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.vvp-reviews-table td.vvp-reviews-table--image-col img,
+.vvp-orders-table td.vvp-orders-table--image-col img {
+  height: 75px;
+}
+
+.vvp-reviews-table--actions-col,
+.vvp-orders-table--actions-col {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+#vvp-items-grid, #tab-unavailable, #tab-hidden, #tab-favourite {
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--grid-column-width), auto)
+  ) !important;
+}
+
+#vvp-items-grid-container .vvp-item-tile .vvp-item-tile-content {
+  width: var(--grid-column-width) !important;
+}
+
+#vvp-items-grid-container
+  .vvp-item-tile
+  .vvp-item-tile-content
+  > .vvp-item-product-title-container {
+  height: var(--max-product-title) !important;
+  font-size: var(--product-title-text-size) !important;
+}
+
+#vvp-items-grid-container
+  .vvp-item-tile
+  .vvp-item-tile-content
+  > .vvp-item-product-title-container
+  .a-truncate {
+  max-height: var(--max-product-title) !important;
+}
+		`;
+            document.head.appendChild(mobileCss);
+        }
         //End
 
         var API_TOKEN = GM_getValue("apiToken");
@@ -1196,7 +1693,7 @@ body {
                     // Création du bouton "Aller à la page X"
                     const gotoButtonUp = document.createElement('li');
                     gotoButtonUp.className = 'a-last'; // Utiliser la même classe que le bouton "Suivant" pour le style
-                    gotoButtonUp.innerHTML = `<a id="goToPageButton">Page X<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
+                    gotoButtonUp.innerHTML = `<a id="goToPageButton">${pageX}<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
 
                     // Ajouter un événement click au bouton "Aller à"
                     gotoButtonUp.querySelector('a').addEventListener('click', function() {
@@ -1206,7 +1703,7 @@ body {
                     // Création du bouton "Aller à la page X"
                     const gotoButton = document.createElement('li');
                     gotoButton.className = 'a-last'; // Utiliser la même classe que le bouton "Suivant" pour le style
-                    gotoButton.innerHTML = `<a id="goToPageButton">Page X<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
+                    gotoButton.innerHTML = `<a id="goToPageButton">${pageX}<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
 
                     // Ajouter un événement click au bouton "Aller à"
                     gotoButton.querySelector('a').addEventListener('click', function() {
@@ -1353,18 +1850,18 @@ body {
 }
 `;
         document.head.appendChild(styleMenu);
-// Assurez-vous que les boutons sont toujours accessibles
-function adjustPopupLayout() {
-  const popup = document.getElementById('configPopup');
-  if (popup) {
-    const rect = popup.getBoundingClientRect();
-    if (rect.bottom > window.innerHeight) {
-      popup.style.top = `${window.innerHeight - rect.height}px`;
-    }
-  }
-}
+        // Assurez-vous que les boutons sont toujours accessibles
+        function adjustPopupLayout() {
+            const popup = document.getElementById('configPopup');
+            if (popup) {
+                const rect = popup.getBoundingClientRect();
+                if (rect.bottom > window.innerHeight) {
+                    popup.style.top = `${window.innerHeight - rect.height}px`;
+                }
+            }
+        }
 
-window.addEventListener('resize', adjustPopupLayout); // Ajuster la position lors du redimensionnement de la fenêtre
+        window.addEventListener('resize', adjustPopupLayout); // Ajuster la position lors du redimensionnement de la fenêtre
         // Fonction pour rendre la fenêtre déplaçable
         function dragElement(elmnt) {
             var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
@@ -1435,7 +1932,8 @@ window.addEventListener('resize', adjustPopupLayout); // Ajuster la position lor
       ${createCheckbox('hideEnabled', 'Pouvoir cacher des produits', 'Ajoute l\'option qui permet de cacher certains produits de votre choix ainsi que des favoris (le produit devient impossible à cacher et sera toujours mis en tête en liste sur la page), ainsi que les boutons pour tout cacher ou tout afficher en une seule fois')}
       ${createCheckbox('catEnabled', 'Différence de quantité dans les catégories', 'Afficher à côté de chaque catégorie du bandeau à gauche la différence de quantité positive ou négative par rapport à la dernière fois où vous avez vu un nouveau produit. Se réinitialise à chaque fois que vous voyez un nouveau produit ou quand vous appuyez sur le bouton "Reset"')}
       ${createCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée', 'Dans la fênetre du produit qui s\'affiche quand on clique sur "Voir les détails", remonte dans le titre la valeur fiscale du produit au lieu qu\'elle soit en fin de fenêtre')}
-      ${createCheckbox('cssEnabled', 'Utiliser l\'affichage alternatif', 'Affichage réduit, pour voir plus de produits en même temps, avec également réduction de la taille des catégories. Option utile sur mobile par exemple. Non compatible avec l\'affichage du nom complet des produits')}
+      ${createCheckbox('cssEnabled', 'Utiliser l\'affichage réduit', 'Affichage réduit, pour voir plus de produits en même temps, avec également réduction de la taille des catégories. Option utile sur mobile par exemple. Non compatible avec l\'affichage du nom complet des produits et l\'affichage mobile')}
+      ${createCheckbox('mobileEnabled', 'Utiliser l\'affichage mobile', 'Optimise l\affichage sur mobile, pour éviter de mettre la "Version PC". Il est conseillé de cacher également l\'entête avec cette option. Non compatible avec l\'affichage du nom complet des produits et l\'affichage réduit')}
       ${createCheckbox('headerEnabled', 'Cacher totalement l\'entête de la page', 'Cache le haut de la page Amazon, celle avec la zone de recherche et les menus')}
       ${createCheckbox('extendedEnabled', 'Afficher le nom complet des produits', 'Affiche 4 lignes, si elles existent, au nom des produits au lieu de 2 en temps normal. Non compatible avec l\'affichage alternatif')}
       ${createCheckbox('wheelfixEnabled', 'Corriger le chargement infini des produits', 'Corrige le bug quand un produit ne charge pas (la petite roue qui tourne sans fin). Attention, même si le risque est très faible, on modifie une information transmise à Amazon, ce qui n\'est pas avec un risque de 0%')}
@@ -1455,12 +1953,21 @@ window.addEventListener('resize', adjustPopupLayout); // Ajuster la position lor
             document.getElementById('cssEnabled').addEventListener('change', function() {
                 if (this.checked) {
                     document.getElementById('extendedEnabled').checked = false;
+                    document.getElementById('mobileEnabled').checked = false;
+                }
+            });
+
+            document.getElementById('mobileEnabled').addEventListener('change', function() {
+                if (this.checked) {
+                    document.getElementById('extendedEnabled').checked = false;
+                    document.getElementById('cssEnabled').checked = false;
                 }
             });
 
             document.getElementById('extendedEnabled').addEventListener('change', function() {
                 if (this.checked) {
                     document.getElementById('cssEnabled').checked = false;
+                    document.getElementById('mobileEnabled').checked = false;
                 }
             });
 
