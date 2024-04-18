@@ -1609,6 +1609,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             // Parcourir les clés (ASIN) dans storedProducts
             for (const asin in storedProducts) {
                 if (storedProducts.hasOwnProperty(asin)) { // Vérification pour éviter les propriétés héritées
+                    const cacheKey = asin + '_cache';
+                    const favoriKey = asin + '_favori';
                     if (purgeAll) {
                         // Purger le produit sans vérifier la date
                         delete storedProducts[asin];
@@ -1617,6 +1619,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         const productDateAdded = new Date(storedProducts[asin].dateAdded).getTime(); // Convertir la date d'ajout en millisecondes
                         if (currentDate - productDateAdded >= ITEM_EXPIRY) { // Vérifier si le produit a expiré
                             delete storedProducts[asin]; // Supprimer le produit expiré
+                            localStorage.removeItem(cacheKey);
+                            localStorage.removeItem(favoriKey);
                         }
                     }
                 }
@@ -1630,7 +1634,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             let purgeFavorites = false;
             let purgeHidden = false;
 
-            // Poser la question pour les produits cachés si purgeAll est true et les favoris
+            // Poser la question pour les produits cachés et les favoris si purgeAll est vrai
             if (purgeAll) {
                 purgeHidden = confirm("Es-tu sur de vouloir supprimer tous les produits cachés ?");
                 purgeFavorites = confirm("Veux-tu supprimer tous les favoris ?");
@@ -1640,29 +1644,18 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 const key = localStorage.key(i);
                 const isCacheKey = key.includes('_cache');
                 const isFavoriKey = key.includes('_favori');
-
-                if (isCacheKey || (purgeFavorites && isFavoriKey)) {
+                if (isCacheKey || isFavoriKey) {
                     if (isCacheKey && purgeHidden) {
-                        // Suppression des objets cachés si l'utilisateur a confirmé la suppression
                         localStorage.removeItem(key);
                     } else if (isFavoriKey && purgeFavorites) {
-                        // Suppression des favoris si l'utilisateur a confirmé la suppression
                         localStorage.removeItem(key);
-                    } else if (isCacheKey && !purgeAll) {
-                        // Vérifier l'expiration des objets cachés si purgeAll n'est pas activé
-                        const hiddenData = JSON.parse(localStorage.getItem(key));
-                        if (new Date().getTime() - hiddenData.date >= ITEM_EXPIRY) {
-                            localStorage.removeItem(key);
-                        }
                     }
                 }
             }
         }
 
-
         //On purge les anciens produits
         purgeStoredProducts();
-        purgeHiddenObjects();
 
         // On affiche les pages en haut si l'option est activée
         if (paginationEnabled && apiOk) {
@@ -2216,7 +2209,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             //setTimeout(displayContent, 200);
             //}
         }
-        purgeOldItems();
+        //purgeOldItems();
 
         // Comment gets truncated by its lists, since the lengths of those are unknown, and we'll just say how many more there are at the end
         function truncateString(originalString) {
