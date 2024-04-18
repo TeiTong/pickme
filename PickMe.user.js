@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.3.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
+// @match        https://www.amazon.fr/vine/vine-reviews*
+// @match        https://www.amazon.fr/vine/orders*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
 // @icon         https://i.ibb.co/Zd9vSZz/PM-ICO-2.png
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
@@ -167,7 +169,11 @@ NOTES:
             GM_setValue("callUrl", userInput);
         }
 
-        const apiOk = GM_getValue("apiToken", false);
+        //On exclu les pages que gère RR, on laisse juste pour les pages
+        if (!window.location.href.includes('orders') && !window.location.href.includes('vine-reviews'))
+        {
+            var apiOk = GM_getValue("apiToken", false);
+        }
 
         function setHighlightColor() {
             // Extraire les composantes r, g, b de la couleur actuelle
