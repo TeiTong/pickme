@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.4.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -60,41 +60,54 @@ NOTES:
 
     //Ajout du bouton
     function addButton(asin) {
-        // Trouvez l'élément après lequel vous souhaitez insérer le bouton
-        var priceContainer = document.querySelector('.basisPriceLegalMessage');
+        if (!document.querySelector('#pickme-affiliate-button')) {
+            // Trouvez l'élément après lequel vous souhaitez insérer le bouton
+            var priceContainer = document.querySelector('.basisPriceLegalMessage');
 
-        if (priceContainer) {
-            var affiliateButton = document.createElement('a');
+            if (priceContainer) {
+                var affiliateButton = document.createElement('a');
 
-            affiliateButton.className = 'a-button a-button-primary a-button-small';
-            affiliateButton.style.display = 'block'; // Pour s'assurer qu'il apparaisse en bloc et sur une nouvelle ligne
-            affiliateButton.style.marginTop = '5px'; // Pour ajouter un peu d'espace au-dessus du bouton
-            affiliateButton.style.color = 'black'; // Changez la couleur du texte en noir
-            affiliateButton.style.maxWidth = '200px';
-            affiliateButton.style.height = '29px';
-            affiliateButton.style.lineHeight = '29px';
-            affiliateButton.style.borderRadius = '20px';
-            if (isAffiliateTagPresent()) {
-                affiliateButton.innerText = 'Lien PickMe actif';
-                affiliateButton.style.backgroundColor = 'green'; // Changez la couleur de fond en vert
-                affiliateButton.style.color = 'white';
-                affiliateButton.style.pointerEvents = 'none'; // Empêchez tout événement de clic
-                affiliateButton.style.cursor = 'default';
-                affiliateButton.style.border = '1px solid black';
-            } else {
-                affiliateButton.href = generateAffiliateLink(asin);
-                affiliateButton.innerText = 'Achat via PickMe';
+                affiliateButton.className = 'a-button a-button-primary a-button-small';
+                affiliateButton.id = 'pickme-affiliate-button';
+                affiliateButton.style.display = 'block'; // Pour s'assurer qu'il apparaisse en bloc et sur une nouvelle ligne
+                affiliateButton.style.marginTop = '5px'; // Pour ajouter un peu d'espace au-dessus du bouton
+                affiliateButton.style.color = 'black'; // Changez la couleur du texte en noir
+                affiliateButton.style.maxWidth = '200px';
+                affiliateButton.style.height = '29px';
+                affiliateButton.style.lineHeight = '29px';
+                affiliateButton.style.borderRadius = '20px';
+                if (isAffiliateTagPresent()) {
+                    affiliateButton.innerText = 'Lien PickMe actif';
+                    affiliateButton.style.backgroundColor = 'green'; // Changez la couleur de fond en vert
+                    affiliateButton.style.color = 'white';
+                    affiliateButton.style.pointerEvents = 'none'; // Empêchez tout événement de clic
+                    affiliateButton.style.cursor = 'default';
+                    affiliateButton.style.border = '1px solid black';
+                } else {
+                    affiliateButton.href = generateAffiliateLink(asin);
+                    affiliateButton.innerText = 'Achat via PickMe';
+                }
+
+                // Insérez le nouveau bouton dans le DOM juste après le conteneur de prix
+                priceContainer.parentNode.insertBefore(affiliateButton, priceContainer);
             }
-
-            // Insérez le nouveau bouton dans le DOM juste après le conteneur de prix
-            priceContainer.parentNode.insertBefore(affiliateButton, priceContainer);
         }
     }
 
-    const asinProduct = getASINfromURL(window.location.href);
+    var asinProduct = getASINfromURL(window.location.href);
     document.addEventListener('DOMContentLoaded', function() {
         if (asinProduct) {
             addButton(asinProduct);
+            const observer = new MutationObserver(mutations => {
+                mutations.forEach(mutation => {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        asinProduct = getASINfromURL(window.location.href);
+                        addButton(asinProduct);
+                    }
+                });
+            });
+
+            observer.observe(document.body, { childList: true, subtree: true });
             return;
         }
     });
