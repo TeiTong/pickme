@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.3.1
+// @version      1.4
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @match        https://www.amazon.fr/vine/vine-reviews*
 // @match        https://www.amazon.fr/vine/orders*
+// @match        https://www.amazon.fr/*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
 // @icon         https://i.ibb.co/Zd9vSZz/PM-ICO-2.png
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
@@ -30,21 +31,102 @@ NOTES:
 
 (function() {
     'use strict';
+
+    //Liste des URLs Vine
+    const excludedPatterns = [
+        'https://www.amazon.fr/vine/vine-items',
+        'https://www.amazon.fr/vine/vine-items?queue=*',
+        'https://www.amazon.fr/vine/vine-reviews*',
+        'https://www.amazon.fr/vine/orders*'
+    ];
+
+    // Fonction pour extraire l'ASIN
+    function getASINfromURL(url) {
+        // Expression régulière pour trouver l'ASIN dans différentes structures d'URL Amazon
+        const regex = /\/(dp|gp\/product|product-reviews|gp\/aw\/d)\/([A-Za-z0-9]{10})/i;
+        const match = url.match(regex);
+        return match ? match[2] : null; // Retourne l'ASIN ou null si non trouvé
+    }
+
+    //Generation du lien
+    function generateAffiliateLink(asin) {
+        // Construit le lien affilié en utilisant un template literal pour insérer l'ASIN et les paramètres d'affiliation
+        return `https://www.amazon.fr/dp/${asin}?tag=monsieurconso-21&linkCode=ogi&th=1&psc=1`;
+    }
+
+    function isAffiliateTagPresent() {
+        return window.location.search.indexOf('tag=monsieurconso-21') > -1;
+    }
+
+    //Ajout du bouton
+    function addButton(asin) {
+        // Trouvez l'élément après lequel vous souhaitez insérer le bouton
+        var priceContainer = document.querySelector('.basisPriceLegalMessage');
+
+        if (priceContainer) {
+            var affiliateButton = document.createElement('a');
+
+            affiliateButton.className = 'a-button a-button-primary a-button-small';
+            affiliateButton.style.display = 'block'; // Pour s'assurer qu'il apparaisse en bloc et sur une nouvelle ligne
+            affiliateButton.style.marginTop = '5px'; // Pour ajouter un peu d'espace au-dessus du bouton
+            affiliateButton.style.color = 'black'; // Changez la couleur du texte en noir
+            affiliateButton.style.maxWidth = '200px';
+            affiliateButton.style.height = '29px';
+            affiliateButton.style.lineHeight = '29px';
+            affiliateButton.style.borderRadius = '20px';
+            if (isAffiliateTagPresent()) {
+                affiliateButton.innerText = 'Lien PickMe actif';
+                affiliateButton.style.backgroundColor = 'green'; // Changez la couleur de fond en vert
+                affiliateButton.style.color = 'white';
+                affiliateButton.style.pointerEvents = 'none'; // Empêchez tout événement de clic
+                affiliateButton.style.cursor = 'default';
+                affiliateButton.style.border = '1px solid black';
+            } else {
+                affiliateButton.href = generateAffiliateLink(asin);
+                affiliateButton.innerText = 'Achat via PickMe';
+            }
+
+            // Insérez le nouveau bouton dans le DOM juste après le conteneur de prix
+            priceContainer.parentNode.insertBefore(affiliateButton, priceContainer);
+        }
+    }
+
+    const asinProduct = getASINfromURL(window.location.href);
+    document.addEventListener('DOMContentLoaded', function() {
+        if (asinProduct) {
+            addButton(asinProduct);
+            return;
+        }
+    });
+
+    // Convertir les motifs en une expression régulière
+    const regex = new RegExp(excludedPatterns.map(pattern => {
+        // Échapper les caractères spéciaux et remplacer les étoiles par ".*" pour une correspondance générique
+        return '^' + pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*') + '$';
+    }).join('|'));
+
+    if (!regex.test(window.location.href)) {
+        return; // Bloquer l'exécution du script ici
+    }
+
     let fullloadEnabled = GM_getValue("fullloadEnabled", false);
-    if (fullloadEnabled) {
+    if (fullloadEnabled && asinProduct == null) {
         // Masquer le contenu de la page immédiatement
         var styleElement = document.createElement('style');
         styleElement.id = 'hide-page-style';
         styleElement.innerHTML = 'body { display: none !important; }';
         document.head.appendChild(styleElement);
     }
+
     function displayContent() {
         var styleElement = document.getElementById('hide-page-style');
         if (styleElement) {
             styleElement.parentNode.removeChild(styleElement);
         }
     }
+
     document.addEventListener('DOMContentLoaded', function() {
+
         var version = GM_info.script.version;
 
         (GM_getValue("config")) ? GM_getValue("config") : GM_setValue("config", {}); // initialize the list of items that were posted to Discord
@@ -2782,8 +2864,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             // Ajoute les informations au div
             infoDiv.innerHTML = `
         <p style="margin:0; font-weight: bold; text-decoration: underline;">Nouveaux produits :</p>
-        <p style="margin:0;">Autres articles : ${productsData[0].ai}</p>
-        <p style="margin:0;">Disponible pour tous : ${productsData[0].afa}</p>
+        <p style="margin:0;">Autres articles : ${productsData[0].ai}${productsData[0].ai_recent !== '0' ? `<span style="color: green;"> (+${productsData[0].ai_recent})</span>` : ''}</p>
+        <p style="margin:0;">Disponible pour tous : ${productsData[0].afa}${productsData[0].afa_recent !== '0' ? `<span style="color: green;"> (+${productsData[0].afa_recent})</span>` : ''}</p>
         <p style="margin:0;">Total jour : ${productsData[0].total}</p>
         <p style="margin:0; margin-bottom: 1em;">Total mois : ${productsData[0].total_month}</p>
     `;
