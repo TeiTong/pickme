@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.4.1
+// @version      1.4.2
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -61,37 +61,56 @@ NOTES:
     //Ajout du bouton
     function addButton(asin) {
         if (!document.querySelector('#pickme-affiliate-button')) {
-            // Trouvez l'élément après lequel vous souhaitez insérer le bouton
             var priceContainer = document.querySelector('.basisPriceLegalMessage');
-
             if (priceContainer) {
-                var affiliateButton = document.createElement('a');
-
-                affiliateButton.className = 'a-button a-button-primary a-button-small';
-                affiliateButton.id = 'pickme-affiliate-button';
-                affiliateButton.style.display = 'block'; // Pour s'assurer qu'il apparaisse en bloc et sur une nouvelle ligne
-                affiliateButton.style.marginTop = '5px'; // Pour ajouter un peu d'espace au-dessus du bouton
-                affiliateButton.style.color = 'black'; // Changez la couleur du texte en noir
-                affiliateButton.style.maxWidth = '200px';
-                affiliateButton.style.height = '29px';
-                affiliateButton.style.lineHeight = '29px';
-                affiliateButton.style.borderRadius = '20px';
-                if (isAffiliateTagPresent()) {
-                    affiliateButton.innerText = 'Lien PickMe actif';
-                    affiliateButton.style.backgroundColor = 'green'; // Changez la couleur de fond en vert
-                    affiliateButton.style.color = 'white';
-                    affiliateButton.style.pointerEvents = 'none'; // Empêchez tout événement de clic
-                    affiliateButton.style.cursor = 'default';
-                    affiliateButton.style.border = '1px solid black';
-                } else {
-                    affiliateButton.href = generateAffiliateLink(asin);
-                    affiliateButton.innerText = 'Achat via PickMe';
-                }
-
+                const affiliateButton = createButton(asin);
                 // Insérez le nouveau bouton dans le DOM juste après le conteneur de prix
                 priceContainer.parentNode.insertBefore(affiliateButton, priceContainer);
+            } else {
+                //priceContainer = document.querySelectorAll('snsPriceRow');
+                //Selecteur du prix desktop ou mobile
+                var priceContainerVar = document.getElementById('corePrice_desktop');
+                if (!priceContainerVar) {
+                    priceContainerVar = document.getElementById('corePrice_mobile_feature_div');
+                }
+                priceContainer = priceContainerVar.querySelector('.a-span12');
+                if (priceContainer) {
+                    const affiliateButton = createButton(asin);
+                    //priceContainer.parentNode.insertAdjacentElement('afterend', affiliateButton);
+                    priceContainer.parentNode.insertAdjacentElement('beforeend', affiliateButton);
+                }
             }
         }
+    }
+
+    function createButton(asin) {
+        var affiliateButton = document.createElement('a');
+
+        affiliateButton.className = 'a-button a-button-primary a-button-small';
+        affiliateButton.id = 'pickme-affiliate-button';
+        affiliateButton.style.marginTop = '5px'; // Pour ajouter un peu d'espace au-dessus du bouton
+        affiliateButton.style.color = 'white'; // Changez la couleur du texte en noir
+        affiliateButton.style.maxWidth = '200px';
+        affiliateButton.style.height = '29px';
+        affiliateButton.style.lineHeight = '29px';
+        affiliateButton.style.borderRadius = '20px';
+        affiliateButton.style.whiteSpace = 'nowrap';
+        affiliateButton.style.padding = '0 40px';
+        affiliateButton.style.backgroundColor = '#CC0033';
+        affiliateButton.style.border = '1px solid white';
+        affiliateButton.style.display = 'inline-block';
+        if (isAffiliateTagPresent()) {
+            affiliateButton.innerText = 'Lien PickMe actif';
+            affiliateButton.style.backgroundColor = 'green'; // Changez la couleur de fond en vert
+            affiliateButton.style.color = 'white';
+            affiliateButton.style.pointerEvents = 'none'; // Empêchez tout événement de clic
+            affiliateButton.style.cursor = 'default';
+            affiliateButton.style.border = '1px solid black';
+        } else {
+            affiliateButton.href = generateAffiliateLink(asin);
+            affiliateButton.innerText = 'Acheter via PickMe';
+        }
+        return affiliateButton;
     }
 
     var asinProduct = getASINfromURL(window.location.href);
@@ -106,7 +125,6 @@ NOTES:
                     }
                 });
             });
-
             observer.observe(document.body, { childList: true, subtree: true });
             return;
         }
