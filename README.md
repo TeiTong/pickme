@@ -1,6 +1,8 @@
-PickMe
+**PickMe**
 
-Script TamperMonkey pour la communauté Amazon Vine France : https://discord.gg/amazonvinefr
+Script TamperMonkey pour la communauté Amazon Vine France.
+
+Rejoignez nous sur discord : https://discord.gg/amazonvinefr
 
 Fonctionnalités :
 
@@ -12,4 +14,4 @@ Fonctionnalités :
 - Affichage mobile
 - Etc...
 
-Autre plugin pour la gestion des avis : https://github.com/TeiTong/reviewremember
+Autre plugin pour la gestion des avis : [ReviewRemember]([https://github.com/TeiTong/pickme](https://github.com/TeiTong/reviewremember))
