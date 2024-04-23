@@ -65,13 +65,21 @@ NOTES:
             if (priceContainer) {
                 const affiliateButton = createButton(asin);
                 // Insérez le nouveau bouton dans le DOM juste après le conteneur de prix
-                priceContainer.parentNode.insertBefore(affiliateButton, priceContainer);
+                priceContainer.parentNode.insertBefore(affiliateButton, priceContainer.nextSibling);
             } else {
                 //priceContainer = document.querySelectorAll('snsPriceRow');
                 //Selecteur du prix desktop ou mobile
                 var priceContainerVar = document.getElementById('corePrice_desktop');
                 if (!priceContainerVar) {
                     priceContainerVar = document.getElementById('corePrice_mobile_feature_div');
+                    //Gestion pour les livres
+                    if (!priceContainerVar) {
+                        priceContainer = document.getElementById("bookDescription_feature_div");
+                        if (priceContainer) {
+                            const affiliateButton = createButton(asin);
+                            priceContainer.parentNode.insertBefore(affiliateButton, priceContainer);
+                        }
+                    }
                 }
                 priceContainer = priceContainerVar.querySelector('.a-span12');
                 if (priceContainer) {
@@ -89,6 +97,7 @@ NOTES:
         affiliateButton.className = 'a-button a-button-primary a-button-small';
         affiliateButton.id = 'pickme-affiliate-button';
         affiliateButton.style.marginTop = '5px'; // Pour ajouter un peu d'espace au-dessus du bouton
+        affiliateButton.style.marginBottom = '5px';
         affiliateButton.style.color = 'white'; // Changez la couleur du texte en noir
         affiliateButton.style.maxWidth = '200px';
         affiliateButton.style.height = '29px';
@@ -607,6 +616,47 @@ NOTES:
             });
         }
 
+        if (autohideEnabled && apiOk) {
+            function tryAutoHide() {
+                // Nettoie les chaînes et vérifie si elles sont vides
+                var favWordsTrim = favWords.trim();
+                var hideWordsTrim = hideWords.trim();
+
+                const favArray = favWordsTrim.length > 0 ? favWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+                const hideArray = hideWordsTrim.length > 0 ? hideWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+                const itemTiles = document.querySelectorAll('.vvp-item-tile');
+
+                if (itemTiles.length > 0) {
+                    itemTiles.forEach(function(tile) {
+                        const fullTextElement = tile.querySelector('.a-truncate-full.a-offscreen');
+                        const parentDiv = tile.closest('.vvp-item-tile');
+                        if (fullTextElement) {
+                            const textContentLower = fullTextElement.textContent.toLowerCase().trim().replace(/\s+/g, '');
+
+                            // Effectue la vérification seulement si favArray n'est pas vide
+                            if (favArray.length > 0 && favArray.some(mot => textContentLower.includes(mot))) {
+                                parentDiv.style.backgroundColor = highlightColorFav; // Assurez-vous que 'highlightColorFav' est bien défini
+                                parentDiv.parentNode.prepend(parentDiv);
+                            }
+                            // Effectue la vérification seulement si hideArray n'est pas vide
+                            else if (hideArray.length > 0 && hideArray.some(mot => textContentLower.includes(mot))) {
+                                const asin = parentDiv.getAttribute('data-asin') || parentDiv.querySelector('.vvp-details-btn input').getAttribute('data-asin');
+                                const etatCacheKey = asin + '_cache';
+                                localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: false }));
+                                parentDiv.style.display = 'none';
+                            }
+                        }
+                    });
+                    //displayContent();
+                    //setTimeout(displayContent, 100);
+                    if (hideEnabled) {
+                        ajouterIconeEtFonctionCacher();
+                    }
+                }
+            }
+            setTimeout(tryAutoHide, 600);
+        }
+
         function ajouterIconeEtFonctionCacher() {
             const produits = document.querySelectorAll('.vvp-item-tile');
             const resultats = document.querySelector('#vvp-items-grid-container > p'); // Modifiez ce sélecteur si nécessaire
@@ -846,7 +896,7 @@ NOTES:
             afficherProduits(true);
         }
 
-        if (hideEnabled && apiOk) {
+        if (hideEnabled && apiOk && !autohideEnabled) {
             // Appeler la fonction pour ajouter les étiquettes de temps
             ajouterIconeEtFonctionCacher();
         }
@@ -3056,44 +3106,6 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
             setTimeout(tryExtended, 600);
             //tryExtended();
-        }
-
-        if (autohideEnabled && apiOk) {
-            function tryAutoHide() {
-                // Nettoie les chaînes et vérifie si elles sont vides
-                var favWordsTrim = favWords.trim();
-                var hideWordsTrim = hideWords.trim();
-
-                const favArray = favWordsTrim.length > 0 ? favWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
-                const hideArray = hideWordsTrim.length > 0 ? hideWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
-                const itemTiles = document.querySelectorAll('.vvp-item-tile');
-
-                if (itemTiles.length > 0) {
-                    itemTiles.forEach(function(tile) {
-                        const fullTextElement = tile.querySelector('.a-truncate-full.a-offscreen');
-                        const parentDiv = tile.closest('.vvp-item-tile');
-                        if (fullTextElement) {
-                            const textContentLower = fullTextElement.textContent.toLowerCase().trim().replace(/\s+/g, '');
-
-                            // Effectue la vérification seulement si favArray n'est pas vide
-                            if (favArray.length > 0 && favArray.some(mot => textContentLower.includes(mot))) {
-                                parentDiv.style.backgroundColor = highlightColorFav; // Assurez-vous que 'highlightColorFav' est bien défini
-                                parentDiv.parentNode.prepend(parentDiv);
-                            }
-                            // Effectue la vérification seulement si hideArray n'est pas vide
-                            else if (hideArray.length > 0 && hideArray.some(mot => textContentLower.includes(mot))) {
-                                const asin = parentDiv.getAttribute('data-asin') || parentDiv.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                                const etatCacheKey = asin + '_cache';
-                                localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: false }));
-                                parentDiv.style.display = 'none';
-                            }
-                        }
-                    });
-                    //displayContent();
-                    //setTimeout(displayContent, 100);
-                }
-            }
-            setTimeout(tryAutoHide, 600);
         }
 
         //Wheel Fix
