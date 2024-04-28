@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.4.3
+// @version      1.4.4
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -46,12 +46,6 @@ NOTES:
         const regex = /\/(dp|gp\/product|product-reviews|gp\/aw\/d)\/([A-Za-z0-9]{10})/i;
         const match = url.match(regex);
         return match ? match[2] : null; // Retourne l'ASIN ou null si non trouvé
-    }
-
-    //Generation du lien
-    function generateAffiliateLink(asin) {
-        // Construit le lien affilié en utilisant un template literal pour insérer l'ASIN et les paramètres d'affiliation
-        return `https://www.amazon.fr/dp/${asin}?tag=monsieurconso-21&linkCode=ogi&th=1&psc=1`;
     }
 
     function isAffiliateTagPresent() {
@@ -116,8 +110,9 @@ NOTES:
             affiliateButton.style.cursor = 'default';
             affiliateButton.style.border = '1px solid black';
         } else {
-            affiliateButton.href = generateAffiliateLink(asin);
+			affiliateButton.href = `https://pickme.alwaysdata.net/monsieurconso/index.php?asin=${asin}`;
             affiliateButton.innerText = 'Acheter via PickMe';
+            affiliateButton.target = '_blank';
         }
         return affiliateButton;
     }
