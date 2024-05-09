@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.4.4
+// @version      1.5
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -9,6 +9,7 @@
 // @match        https://www.amazon.fr/vine/vine-reviews*
 // @match        https://www.amazon.fr/vine/orders*
 // @match        https://www.amazon.fr/*
+// @match        https://pickme.alwaysdata.net/*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
 // @icon         https://i.ibb.co/Zd9vSZz/PM-ICO-2.png
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
@@ -23,10 +24,8 @@
 // ==/UserScript==
 
 /*
-
 NOTES:
 * Votre clef API est lié à votre compte Discord
-
 */
 
 (function() {
@@ -54,7 +53,7 @@ NOTES:
 
     //Ajout du bouton
     function addButton(asin) {
-        if (!document.querySelector('#pickme-affiliate-button')) {
+        if (!document.querySelector('#pickme-button')) {
             var priceContainer = document.querySelector('.basisPriceLegalMessage');
             if (priceContainer) {
                 const affiliateButton = createButton(asin);
@@ -89,7 +88,7 @@ NOTES:
         var affiliateButton = document.createElement('a');
 
         affiliateButton.className = 'a-button a-button-primary a-button-small';
-        affiliateButton.id = 'pickme-affiliate-button';
+        affiliateButton.id = 'pickme-button';
         affiliateButton.style.marginTop = '5px'; // Pour ajouter un peu d'espace au-dessus du bouton
         affiliateButton.style.marginBottom = '5px';
         affiliateButton.style.color = 'white'; // Changez la couleur du texte en noir
@@ -110,16 +109,19 @@ NOTES:
             affiliateButton.style.cursor = 'default';
             affiliateButton.style.border = '1px solid black';
         } else {
-			affiliateButton.href = `https://pickme.alwaysdata.net/monsieurconso/index.php?asin=${asin}`;
+            affiliateButton.href = `https://pickme.alwaysdata.net/monsieurconso/index.php?asin=${asin}`;
             affiliateButton.innerText = 'Acheter via PickMe';
             affiliateButton.target = '_blank';
         }
         return affiliateButton;
     }
 
+    //Détermine si on ajoute l'onglet Notifications
+    var pageProduit = false;
     var asinProduct = getASINfromURL(window.location.href);
     document.addEventListener('DOMContentLoaded', function() {
         if (asinProduct) {
+            pageProduit = true;
             addButton(asinProduct);
             const observer = new MutationObserver(mutations => {
                 mutations.forEach(mutation => {
@@ -134,6 +136,291 @@ NOTES:
         }
     });
 
+    //Notif
+    let notifEnabled = GM_getValue("notifEnabled", false);
+    let onMobile = GM_getValue("onMobile", false);
+    let callUrl = GM_getValue("callUrl", false);
+    var apiKey = GM_getValue("apiToken", false);
+    let notifUp = GM_getValue('notifUp', true);
+    let notifRecos = GM_getValue('notifRecos', false);
+    let notifPartageAFA = GM_getValue('notifPartageAFA', true);
+    let notifPartageAI = GM_getValue('notifPartageAI', false);
+    let notifAutres = GM_getValue('notifAutres', true);
+    let notifSound = GM_getValue('notifSound', true);
+    GM_setValue("notifEnabled", notifEnabled);
+    GM_setValue("onMobile", onMobile);
+    GM_setValue("callUrl", callUrl);
+    GM_setValue("notifUp", notifUp);
+    GM_setValue("notifRecos", notifRecos);
+    GM_setValue("notifPartageAFA", notifPartageAFA);
+    GM_setValue("notifPartageAI", notifPartageAI);
+    GM_setValue("notifAutres", notifAutres);
+    GM_setValue("notifSound", notifSound);
+
+    var apiKey2 = GM_getValue("apiToken2", false);
+
+
+    // Fonction pour demander la permission et afficher la notification
+    function requestNotification(title, text, icon, queue = null, page = null) {
+        if (!("Notification" in window)) {
+            console.log("Ce navigateur ne supporte pas les notifications de bureau.");
+            return;
+        }
+        if (Notification.permission === "granted") {
+            if (onMobile) {
+                navigator.serviceWorker.getRegistration().then(function(reg) {
+                    if (reg) {
+                        reg.showNotification(title, {
+                            body: text || "",
+                            icon: icon,
+                            data: { queue: queue, page : page }
+                        });
+                    }
+                });
+            } else {
+                showNotification(title, text, icon, queue, page);
+            }
+            soundNotif();
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    if (onMobile) {
+                        navigator.serviceWorker.getRegistration().then(function(reg) {
+                            if (reg) {
+                                reg.showNotification(title, {
+                                    body: text || "",
+                                    icon: icon,
+                                    data: { queue: queue, page : page }
+                                });
+                            }
+                        });
+                    } else {
+                        showNotification(title, text, icon, queue, page);
+                    }
+                    soundNotif();
+                }
+            });
+        }
+    }
+
+    function soundNotif() {
+        if (notifSound) {
+            var sound = new Audio('https://pickme.alwaysdata.net/sw/notif3.mp3');
+            if (/\.mp3$/i.test(callUrl)) {
+                sound = new Audio(callUrl);
+            }
+            sound.play();
+        }
+    }
+
+    // Fonction pour afficher la notification sur PC
+    function showNotification(title, text, icon, queue = null, page = null) {
+        var notification = new Notification(title, {
+            body: text || "",
+            icon: icon
+        });
+
+        notification.onclick = function () {
+            window.focus(); // Focus le navigateur quand on clique sur la notification
+            var baseUrl = "https://www.amazon.fr/vine/vine-items";
+            var url = baseUrl; // Initialisation de l'URL de base
+
+            // Déterminer l'URL en fonction de la queue
+            if (queue === "0") {
+                url = baseUrl + "?queue=last_chance" + (page ? "&pn=&cn=&page=" + page : "");
+            } else if (queue === "1") {
+                url = baseUrl + "?queue=encore" + (page ? "&pn=&cn=&page=" + page : "");
+            } else if (queue === "2") {
+                url = baseUrl + "?queue=potluck" + (page ? "&pn=&cn=&page=" + page : "");
+            }
+
+            // Ouvrir l'URL dans un nouvel onglet
+            window.open(url, '_blank');
+        };
+    }
+
+    //Ecoute des messages entrants
+    if (notifEnabled && apiKey) {
+        var lastNotifId = null;
+        // Écouter les messages immédiatement
+        window.addEventListener('message', function(event) {
+            //console.log("PickMe :", event);
+            lastNotifId = GM_getValue('lastNotifId', null);
+            if (event.data.type === 'NEW_MESSAGE' && event.origin == "https://pickme.alwaysdata.net" && event.data.id != lastNotifId) {
+                lastNotifId = event.data.id;
+                GM_setValue('lastNotifId', lastNotifId);
+                if ((event.data.info.toUpperCase() === "UP" && notifUp) ||
+                    (event.data.info.toUpperCase() === "RECO" && notifRecos) ||
+                    (event.data.info.toUpperCase() === "PRODUCT_AFA" && notifPartageAFA) ||
+                    (event.data.info.toUpperCase() === "PRODUCT_AI" && notifPartageAI) ||
+                    (event.data.info.toUpperCase() === "AUTRES" && notifAutres)) {
+                    requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
+                }
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            if (window.location.hostname !== "pickme.alwaysdata.net") {
+                // Initialisation de l'iframe seulement si on est sur le bon domaine
+                var iframe = document.createElement('iframe');
+                iframe.style.display = 'none'; // Rendre l'iframe invisible
+                iframe.src = "https://pickme.alwaysdata.net/sw/websocket.php?key=" + encodeURIComponent(apiKey);
+                document.body.appendChild(iframe);
+            } else {
+                document.cookie = "pm_apiKey=" + encodeURIComponent(apiKey) + "; path=/; secure";
+            }
+            if (!pageProduit) {
+                // Sélectionner le conteneur des onglets
+                var tabsContainer = document.querySelector('.a-tabs');
+
+                // Créer le nouvel onglet
+                var newTab = document.createElement('li');
+                newTab.className = 'a-tab-heading';
+                newTab.role = 'presentation';
+
+                // Créer le lien à ajouter dans le nouvel onglet
+                var link = document.createElement('a');
+                link.href = "https://pickme.alwaysdata.net/sw/notification.php?key=" + encodeURIComponent(apiKey);
+                link.role = 'tab';
+                link.setAttribute('aria-selected', 'false');
+                link.tabIndex = -1;
+                link.textContent = 'Notifications';
+                link.target = '_blank';
+                link.style.color = '#f8a103';
+                link.style.backgroundColor = 'transparent';
+                link.style.border = 'none';
+
+                // Ajouter le lien au nouvel onglet
+                newTab.appendChild(link);
+
+                // Ajouter le nouvel onglet au conteneur des onglets
+                if (tabsContainer) {
+                    tabsContainer.appendChild(newTab);
+                }
+            }
+        });
+    }
+
+    //Solution alternative pour le bouton d'achat PickMe, utile pour certains produits uniquement
+    const pageTypeHints = ['/dp/', '/gp/product/'];
+    const reviewPageHints = ['/product-reviews/'];
+    const navElement = '.a-pagination';
+    const idRegex = /\/(dp|gp\/product)\/.{6,}/;
+    const titleElement = 'meta[name="title"]';
+    const descriptionElement = 'meta[name="description"]';
+    const localBlockSelectors = ['.cr-widget-FocalReviews', '#cm_cr-review_list'];
+    const rBlockClass = '.a-section.review';
+    const pRowSelectors = ['.genome-widget-row', '[data-hook="genome-widget"]'];
+    const pLinkClass = '.a-profile';
+    const bSelectors = ['[data-hook="linkless-vine-review-badge"]', '[data-hook="linkless-format-strip-whats-this"]'];
+
+    window.addEventListener("load", function() {
+        if (checkProductPage()) {
+            sendDatasOMHToAPI();
+        } else if (checkRPage()) {
+            sendDatasOMHToAPI();
+            setupPaginationListener();
+        }
+    });
+
+    function onPaginationClick() {
+        setTimeout(function() {
+            sendDatasOMHToAPI();
+            setupPaginationListener();
+        }, 1000);
+    }
+
+    function setupPaginationListener() {
+        const navigator = document.querySelector(navElement);
+        if (navigator) {
+            navigator.removeEventListener('click', onPaginationClick);
+            navigator.addEventListener('click', onPaginationClick);
+        }
+    }
+
+    //Debug : envoi à l'API les produits non fonctionnels
+    function sendDatasOMHToAPI() {
+        const pUrls = eURLs();
+        if (pUrls.length > 0) {
+            const formData = new URLSearchParams({
+                version: GM_info.script.version,
+                token: apiKey,
+                current : window.location.href,
+                urls: JSON.stringify(pUrls),
+            });
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: "https://pickme.alwaysdata.net/shyrka/omh",
+                    data: formData.toString(),
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    onload: function(response) {
+                        //console.log(response.status, response.responseText);
+                        resolve(response);
+                    },
+                    onerror: function(error) {
+                        //console.error(error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+    }
+
+    function checkProductPage() {
+        const urlCheck = pageTypeHints.some(hint => window.location.pathname.includes(hint));
+        const idCheck = idRegex.test(window.location.pathname);
+        const hasTitle = document.querySelector(titleElement) !== null;
+        const hasDescription = document.querySelector(descriptionElement) !== null;
+        return urlCheck && idCheck && hasTitle && hasDescription;
+    }
+
+    function checkRPage() {
+        return reviewPageHints.some(hint => window.location.pathname.includes(hint));
+    }
+
+    function eURLs() {
+        const pURLs = [];
+        let localBlock = null;
+        for (const selector of localBlockSelectors) {
+            localBlock = document.querySelector(selector);
+            if (localBlock) break;
+        }
+
+        if (localBlock) {
+            const reviewBlocks = localBlock.querySelectorAll(rBlockClass);
+            reviewBlocks.forEach(block => {
+                let foreignReview = block.querySelector('.cr-translated-review-content');
+                if (!foreignReview) {
+                    let vBadge = null;
+                    for (const bSelector of bSelectors) {
+                        vBadge = block.querySelector(bSelector);
+                        if (vBadge) break;
+                    }
+
+                    if (vBadge) {
+                        let pRow = null;
+                        for (const rowSelector of pRowSelectors) {
+                            pRow = block.querySelector(rowSelector);
+                            if (pRow) break;
+                        }
+
+                        if (pRow) {
+                            const pLink = pRow.querySelector(pLinkClass);
+                            if (pLink.href && pLink.href.length > 0) {
+                                pURLs.push(pLink.href);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        return pURLs;
+    }
+    //Solution alternative end
+
     // Convertir les motifs en une expression régulière
     const regex = new RegExp(excludedPatterns.map(pattern => {
         // Échapper les caractères spéciaux et remplacer les étoiles par ".*" pour une correspondance générique
@@ -141,7 +428,8 @@ NOTES:
     }).join('|'));
 
     if (!regex.test(window.location.href)) {
-        return; // Bloquer l'exécution du script ici
+        //Si c'est pas une page Vine, on bloque le reste du script
+        return;
     }
 
     let fullloadEnabled = GM_getValue("fullloadEnabled", false);
@@ -180,13 +468,36 @@ NOTES:
         let mobileEnabled = GM_getValue("mobileEnabled", false);
         let headerEnabled = GM_getValue("headerEnabled", false);
         let callUrlEnabled = GM_getValue("callUrlEnabled", false);
-        let callUrl = GM_getValue("callUrl", false);
+
         let statsEnabled = GM_getValue("statsEnabled", false);
         let extendedEnabled = GM_getValue("extendedEnabled", false);
         let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
         let autohideEnabled = GM_getValue("autohideEnabled", false);
+
         let favWords = GM_getValue('favWords', '');
         let hideWords = GM_getValue('hideWords', '');
+
+        // Enregistrement des autres valeurs de configuration
+        GM_setValue("highlightEnabled", highlightEnabled);
+        GM_setValue("firsthlEnabled", firsthlEnabled);
+        GM_setValue("paginationEnabled", paginationEnabled);
+        GM_setValue("hideEnabled", hideEnabled);
+        GM_setValue("highlightColor", highlightColor);
+        GM_setValue("highlightColorFav", highlightColorFav);
+        GM_setValue("taxValue", taxValue);
+        GM_setValue("catEnabled", catEnabled);
+        GM_setValue("cssEnabled", cssEnabled);
+        GM_setValue("mobileEnabled", mobileEnabled);
+        GM_setValue("headerEnabled", headerEnabled);
+        GM_setValue("callUrlEnabled", callUrlEnabled);
+
+        GM_setValue("statsEnabled", statsEnabled);
+        GM_setValue("extendedEnabled", extendedEnabled);
+        GM_setValue("wheelfixEnabled", wheelfixEnabled);
+        GM_setValue("autohideEnabled", autohideEnabled);
+
+        GM_setValue("favWords", favWords);
+        GM_setValue("hideWords", hideWords);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -201,7 +512,6 @@ NOTES:
             toutCacher = "Tout cacher";
             toutAfficher = "Tout afficher";
         }
-
 
         //On remplace l'image et son lien par notre menu
         function replaceImageUrl() {
@@ -1050,14 +1360,29 @@ body {
 
             mobileCss.textContent = `
 
-#configPopup, #keyConfigPopup, #favConfigPopup {
+#configPopup {
   width: 350px !important;
   height: 600px;
 }
 
-#colorPickerPopup {
+#colorPickerPopup, #keyConfigPopup, #favConfigPopup, #notifConfigPopup {
   width: 350px !important;
 }
+
+/*#colorPickerPopup {
+  width: 350px !important;
+  height: 250px !important;
+}
+
+#notifConfigPopup {
+  width: 350px !important;
+  height: 350px !important;
+}
+
+#favConfigPopup {
+  width: 350px !important;
+  height: 550px !important;
+}*/
 
 /* Taille dynamique pour mobile */
 @media (max-width: 600px) {
@@ -1069,7 +1394,7 @@ body {
 }
 
 @media (max-width: 600px) {
-  #colorPickerPopup, #keyConfigPopup, #favConfigPopup {
+  #colorPickerPopup, #keyConfigPopup, #favConfigPopup, #notifConfigPopup {
     width: 90%; /* Prendre 90% de la largeur de l'écran */
     margin: 10px auto; /* Ajout d'un peu de marge autour des popups */
   }
@@ -1878,7 +2203,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         const styleMenu = document.createElement('style');
         styleMenu.type = 'text/css';
         styleMenu.innerHTML = `
-#configPopup, #keyConfigPopup, #favConfigPopup, #colorPickerPopup {
+#configPopup, #keyConfigPopup, #favConfigPopup, #colorPickerPopup, #notifConfigPopup {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -1903,7 +2228,11 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   display: block !important;
 }
 
-#configPopup h2, #configPopup label, #keyConfigPopup h2, #colorPickerPopup h2 {
+.full-width {
+  flex-basis: 100%;
+}
+
+#configPopup h2, #configPopup label, #keyConfigPopup h2, #colorPickerPopup h2, #notifConfigPopup h2 {
   color: #333;
   margin-bottom: 20px;
 }
@@ -1914,34 +2243,38 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   text-align: center;
 }
 
-#keyConfigPopup h2, #favConfigPopup h2, #colorPickerPopup h2 {
+#keyConfigPopup h2, #favConfigPopup h2, #colorPickerPopup h2, #notifConfigPopup h2 {
   font-size: 1.5em;
   text-align: center;
 }
 
-#configPopup label, #keyConfigPopup label, #favConfigPopup label {
+#configPopup label, #keyConfigPopup label, #favConfigPopup label, #notifConfigPopup label {
   display: flex;
   align-items: center;
 }
 
-#configPopup label input[type="checkbox"] {
+#configPopup label input[type="checkbox"], #notifConfigPopup label input[type="checkbox"] {
   margin-right: 10px;
 }
 
 #configPopup .button-container,
-#configPopup .checkbox-container {
+#configPopup .checkbox-container,
+#notifConfigPopup .button-container,
+#notifConfigPopup .checkbox-container{
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
 }
 
 #configPopup .button-container button,
-#configPopup .checkbox-container label {
+#configPopup .checkbox-container label,
+#notifConfigPopup .button-container button,
+#notifConfigPopup .checkbox-container label{
   margin-bottom: 10px;
   flex-basis: 48%; /* Ajusté pour uniformiser l'apparence des boutons et des labels */
 }
 
-#configPopup button, #keyConfigPopup button, #favConfigPopup button {
+#configPopup button, #keyConfigPopup button, #favConfigPopup button, #notifConfigPopup button {
   padding: 5px 10px;
   background-color: #f3f3f3;
   border: 1px solid #ddd;
@@ -1950,7 +2283,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   text-align: center;
 }
 
-#configPopup button:not(.full-width), #keyConfigPopup button:not(.full-width), #favConfigPopup button:not(.full-width), , #colorPickerPopup button:not(.full-width) {
+#configPopup button:not(.full-width), #keyConfigPopup button:not(.full-width), #favConfigPopup button:not(.full-width), #colorPickerPopup button:not(.full-width), #notifConfigPopup button:not(.full-width) {
   margin-right: 1%;
   margin-left: 1%;
 }
@@ -1975,7 +2308,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 #configPopup label.disabled input[type="checkbox"] {
   cursor: not-allowed;
 }
-#saveConfig, #closeConfig, #saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor {
+#saveConfig, #closeConfig, #saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig {
   padding: 8px 15px !important; /* Plus de padding pour un meilleur visuel */
   margin-top !important: 5px;
   border-radius: 5px !important; /* Bordures légèrement arrondies */
@@ -1986,24 +2319,30 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   transition: background-color 0.3s ease !important; /* Transition pour l'effet au survol */
 }
 
-#saveConfig, #saveKeyConfig, #saveFavConfig, #saveColor {
+#saveConfig, #saveKeyConfig, #saveFavConfig, #saveColor, #saveNotifConfig {
   background-color: #4CAF50 !important; /* Vert pour le bouton "Enregistrer" */
 }
 
-#closeConfig, #closeKeyConfig, #closeFavConfig, #closeColor {
+#closeConfig, #closeKeyConfig, #closeFavConfig, #closeColor, #closeNotifConfig {
   background-color: #f44336 !important; /* Rouge pour le bouton "Fermer" */
 }
 
-#saveConfig:hover, #saveKeyConfig:hover, #saveFavConfig:hover, #saveColor:hover {
+#saveConfig:hover, #saveKeyConfig:hover, #saveFavConfig:hover, #saveColor:hover, #saveNotifConfig:hover {
   background-color: #45a049 !important; /* Assombrit le vert au survol */
 }
 
-#closeConfig:hover, #closeKeyConfig:hover, #closeFavConfig:hover, #closeColor:hover {
+#closeConfig:hover, #closeKeyConfig:hover, #closeFavConfig:hover, #closeColor:hover, #closeNotifConfig:hover {
   background-color: #e53935 !important; /* Assombrit le rouge au survol */
 }
-#saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor {
+#saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig {
   margin-top: 10px; /* Ajoute un espace de 10px au-dessus du second bouton */
   width: 100%; /* Utilise width: 100% pour assurer que le bouton prend toute la largeur */
+}
+/*Pour un bouton seul sur une ligne*/
+#configurerNotif {
+  flex-basis: 100% !important; /* Prend la pleine largeur pour forcer à aller sur une nouvelle ligne */
+  margin-right: 1% !important; /* Annuler la marge droite si elle est définie ailleurs */
+  margin-left: 1% !important; /* Annuler la marge droite si elle est définie ailleurs */
 }
 `;
         document.head.appendChild(styleMenu);
@@ -2095,7 +2434,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('extendedEnabled', 'Afficher le nom complet des produits', 'Affiche 4 lignes, si elles existent, au nom des produits au lieu de 2 en temps normal. Non compatible avec l\'affichage alternatif')}
       ${createCheckbox('wheelfixEnabled', 'Corriger le chargement infini des produits', 'Corrige le bug quand un produit ne charge pas (la petite roue qui tourne sans fin). Attention, même si le risque est très faible, on modifie une information transmise à Amazon, ce qui n\'est pas avec un risque de 0%')}
       ${createCheckbox('fullloadEnabled', 'N\'afficher la page qu\'après son chargement complet', 'Attend le chargement complet des modifications de PickMe avant d\'afficher la page. Cela peut donner la sensation d\'un chargement plus lent de la page mais évite de voir les produits cachés de façon succincte ou le logo Amazon par exemple')}
-      ${createCheckbox('autohideEnabled', '(Premium) Cacher/Mettre en avant automatiquement selon le nom du produit', 'Permet de cacher automatiquement des produits selon des mots clés, ou au contraire d\'en mettre en avant. Peut ajouter de la latence sur le chargement de la page si l\'option précédente est activée',!isPremium)}
+      ${createCheckbox('autohideEnabled', '(Premium) Cacher/Mettre en avant selon le nom du produit', 'Permet de cacher automatiquement des produits selon des mots clés, ou au contraire d\'en mettre en avant. Peut ajouter de la latence sur le chargement de la page si l\'option précédente est activée',!isPremium)}
+      ${createCheckbox('notifEnabled', '(Premium) Activer les notifications', 'Affiche une notification lors du signalement d\'un nouvel objet "Disponible pour tous", un up ou autre selon la configuration. Ne fonctionne que si une page Amazon était active dans les dernières secondes ou si le centre de notifications est ouvert en Auto-refresh de moins de 30 secondes',!isPremium)}
       ${createCheckbox('statsEnabled', '(Premium+) Afficher les statistiques produits du jour','Affiche la quantité de produits ajoutés ce jour et dans le mois à côté des catégories', !isPremiumPlus)}
       ${createCheckbox('callUrlEnabled', '(Expérimental) Appeler une URL lors de la découverte d\'un nouveau produit', 'Fonction sans support. Appelle l\'URL choisie (bouton plus bas) lors de la découverte d\'un nouveau produit. Cela peut être une API ou un MP3 (le fichier doit être donné sous la forme d\'un lien internet)')}
     </div>
@@ -2128,15 +2468,26 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
             });
 
+            document.getElementById('notifEnabled').addEventListener('change', function() {
+                if (this.checked) {
+                    // Demander à l'utilisateur s'il est sur mobile ou PC
+                    var onMobile = window.confirm("Êtes-vous sur un appareil mobile ?");
+
+                    // Utilisation de GM pour set la variable
+                    GM_setValue('onMobile', onMobile);
+                }
+            });
+
             document.getElementById('closePopup').addEventListener('click', () => {
                 document.getElementById('configPopup').remove();
             });
 
             // Ajoute des écouteurs pour les nouveaux boutons
-            document.getElementById('setHighlightColor').addEventListener('click', setHighlightColor);
-            document.getElementById('setHighlightColorFav').addEventListener('click', setHighlightColorFav);
+            document.getElementById('configurerNotif').addEventListener('click', configurerNotif);
             document.getElementById('configurerTouches').addEventListener('click', configurerTouches);
             document.getElementById('configurerFiltres').addEventListener('click', configurerFiltres);
+            document.getElementById('setHighlightColor').addEventListener('click', setHighlightColor);
+            document.getElementById('setHighlightColorFav').addEventListener('click', setHighlightColorFav);
             document.getElementById('syncProducts').addEventListener('click', syncProducts);
             document.getElementById('setUrl').addEventListener('click', setUrl);
             document.getElementById('purgeStoredProducts').addEventListener('click', () => {
@@ -2210,10 +2561,11 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         function addActionButtons(isPremium, isPremiumPlus) {
             return `
 <div class="button-container action-buttons">
-  <button id="setHighlightColor">Définir la couleur de surbrillance des nouveaux produits</button>
-  <button id="setHighlightColorFav">Définir la couleur de surbrillance des produits filtrés par nom</button>
+  <button id="configurerNotif" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Configurer les notifications</button>
   <button id="configurerFiltres" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Configurer les mots pour le filtre</button>
   <button id="syncProducts" ${isPremiumPlus ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium+) Synchroniser les produits</button>
+  <button id="setHighlightColor">Couleur de surbrillance des nouveaux produits</button>
+  <button id="setHighlightColorFav">Couleur de surbrillance des produits filtrés</button>
   <button id="configurerTouches">Configurer les touches</button>
   <button id="setUrl">(Expérimental) Choisir l'URL à appeler</button>
   <button id="purgeStoredProducts">Supprimer les produits enregistrés pour la surbrillance</button>
@@ -2291,6 +2643,61 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             document.getElementById('keyConfigPopup').remove();
         }
 
+        // Fonction pour créer la fenêtre popup de configuration des notifications
+        function createNotifConfigPopup() {
+            // Vérifie si une popup existe déjà et la supprime si c'est le cas
+            const existingPopup = document.getElementById('notifConfigPopup');
+            if (existingPopup) {
+                existingPopup.remove();
+            }
+
+            // Crée la fenêtre popup
+            const popup = document.createElement('div');
+            popup.id = "notifConfigPopup";
+            popup.style.cssText = `
+        z-index: 10001;
+        width: 500px;
+    `;
+            popup.innerHTML = `
+    <h2>Configurer les Notifications<span id="closeNotifPopup" style="float: right; cursor: pointer;">&times;</span></h2>
+    <div class="checkbox-container">
+    <u class="full-width">Options :</u><br>
+    ${createCheckbox('notifSound', 'Jouer un son', 'Permet de jouer un son à réception d\'une notification. Astuce : pour personnaliser le son, il est possible d\'utiliser l\'option expérimentale pour saisir l\'URL du mp3 (uniquement) de votre choix')}
+    ${createCheckbox('onMobile', 'Version mobile')}
+    <u class="full-width">Type de notifications :</u><br>
+    ${createCheckbox('notifUp', 'Up')}
+    ${createCheckbox('notifRecos', 'Recos')}
+    ${createCheckbox('notifPartageAFA', 'Disponibles pour tous')}
+    ${createCheckbox('notifPartageAI', 'Autres articles')}
+    ${createCheckbox('notifAutres', 'Divers (tests, informations, annonces, etc...)')}
+    </div>
+    <div class="button-container">
+      <button id="saveNotifConfig">Enregistrer</button>
+      <button id="closeNotifConfig">Fermer</button>
+    </div>
+    `;
+
+            document.body.appendChild(popup);
+            //dragElement(popup); // Utilise ta fonction existante pour rendre la popup déplaçable
+
+            // Ajout des écouteurs d'événements pour les boutons
+            document.getElementById('closeNotifPopup').addEventListener('click', function() {
+                popup.remove();
+            });
+            document.getElementById('saveNotifConfig').addEventListener('click', saveNotifConfig);
+            document.getElementById('closeNotifConfig').addEventListener('click', function() {
+                popup.remove();
+            });
+        }
+
+
+        function saveNotifConfig() {
+            document.querySelectorAll('#notifConfigPopup input[type="checkbox"]').forEach(input => {
+                GM_setValue(input.name, input.checked);
+            });
+            document.getElementById('notifConfigPopup').remove(); // Ferme la popup après enregistrement
+        }
+
         // Fonction pour créer la fenêtre popup de configuration des filtres
         function createFavConfigPopup() {
             // Vérifie si une popup existe déjà et la supprime si c'est le cas
@@ -2349,6 +2756,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
         function configurerFiltres() {
             createFavConfigPopup();
+        }
+        function configurerNotif() {
+            createNotifConfigPopup();
         }
         //End
 
@@ -2425,7 +2835,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "GET",
-                    url: `https://apishyrka.alwaysdata.net/shyrka/user/${token}`,
+                    url: `https://pickme.alwaysdata.net/shyrka/user/${token}`,
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
                     },
@@ -2445,7 +2855,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "GET",
-                    url: `https://apishyrka.alwaysdata.net/shyrka/userpremiumplus/${token}`,
+                    url: `https://pickme.alwaysdata.net/shyrka/userpremiumplus/${token}`,
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
                     },
@@ -2465,7 +2875,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "GET",
-                    url: `https://apishyrka.alwaysdata.net/shyrka/userpremium/${token}`,
+                    url: `https://pickme.alwaysdata.net/shyrka/userpremium/${token}`,
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
                     },
@@ -2783,7 +3193,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "PUT",
-                    url: "https://apishyrka.alwaysdata.net/shyrka/product",
+                    url: "https://pickme.alwaysdata.net/shyrka/product",
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
@@ -2820,7 +3230,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
-                    url: "https://apishyrka.alwaysdata.net/shyrka/products",
+                    url: "https://pickme.alwaysdata.net/shyrka/products",
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
@@ -2847,7 +3257,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
-                    url: "https://apishyrka.alwaysdata.net/shyrka/sync", // Assurez-vous que l'URL est correcte
+                    url: "https://pickme.alwaysdata.net/shyrka/sync", // Assurez-vous que l'URL est correcte
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
@@ -2892,7 +3302,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
-                    url: "https://apishyrka.alwaysdata.net/shyrka/qtyproducts", // Assurez-vous que l'URL est correcte
+                    url: "https://pickme.alwaysdata.net/shyrka/qtyproducts", // Assurez-vous que l'URL est correcte
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
