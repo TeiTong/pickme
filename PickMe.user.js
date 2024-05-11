@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.5.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -147,6 +147,10 @@ NOTES:
     let notifPartageAI = GM_getValue('notifPartageAI', false);
     let notifAutres = GM_getValue('notifAutres', true);
     let notifSound = GM_getValue('notifSound', true);
+    let notifFav = GM_getValue('notifFav', false);
+    let favWords = GM_getValue('favWords', '');
+    let hideWords = GM_getValue('hideWords', '');
+    let filterOption = GM_getValue('filterOption', 'notifFavOnly');
     GM_setValue("notifEnabled", notifEnabled);
     GM_setValue("onMobile", onMobile);
     GM_setValue("callUrl", callUrl);
@@ -156,9 +160,10 @@ NOTES:
     GM_setValue("notifPartageAI", notifPartageAI);
     GM_setValue("notifAutres", notifAutres);
     GM_setValue("notifSound", notifSound);
-
-    var apiKey2 = GM_getValue("apiToken2", false);
-
+    GM_setValue("notifFav", notifFav);
+    GM_setValue("favWords", favWords);
+    GM_setValue("hideWords", hideWords);
+    GM_setValue("filterOption", filterOption);
 
     // Fonction pour demander la permission et afficher la notification
     function requestNotification(title, text, icon, queue = null, page = null) {
@@ -232,6 +237,8 @@ NOTES:
                 url = baseUrl + "?queue=encore" + (page ? "&pn=&cn=&page=" + page : "");
             } else if (queue === "2") {
                 url = baseUrl + "?queue=potluck" + (page ? "&pn=&cn=&page=" + page : "");
+            } else {
+                url = baseUrl + "?queue=encore" + (queue ? "&pn=" + queue : "") + (page ? "&cn=&page=" + page : "");
             }
 
             // Ouvrir l'URL dans un nouvel onglet
@@ -242,6 +249,17 @@ NOTES:
     //Ecoute des messages entrants
     if (notifEnabled && apiKey) {
         var lastNotifId = null;
+        if (notifFav) {
+            var titleContentLower;
+            if (filterOption == "notifFavOnly") {
+                var favWordsTrimNotif = favWords.trim();
+                var favArrayNotif = favWordsTrimNotif.length > 0 ? favWordsTrimNotif.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+
+            } else if (filterOption == "notifExcludeHidden") {
+                var hiddenWordsTrimNotif = hideWords.trim();
+                var hiddenArrayNotif = hiddenWordsTrimNotif.length > 0 ? hiddenWordsTrimNotif.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+            }
+        }
         // Écouter les messages immédiatement
         window.addEventListener('message', function(event) {
             //console.log("PickMe :", event);
@@ -254,7 +272,20 @@ NOTES:
                     (event.data.info.toUpperCase() === "PRODUCT_AFA" && notifPartageAFA) ||
                     (event.data.info.toUpperCase() === "PRODUCT_AI" && notifPartageAI) ||
                     (event.data.info.toUpperCase() === "AUTRES" && notifAutres)) {
-                    requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
+                    if (notifFav && event.data.info.toUpperCase() === "PRODUCT_AI") {
+                        titleContentLower = event.data.description.toLowerCase().trim().replace(/\s+/g, '');
+                        if (filterOption == "notifFavOnly") {
+                            if (favArrayNotif.length > 0 && favArrayNotif.some(mot => titleContentLower.includes(mot))) {
+                                requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
+                            }
+                        } else if (filterOption == "notifExcludeHidden") {
+                            if (hiddenArrayNotif.length > 0 && !hiddenArrayNotif.some(mot => titleContentLower.includes(mot))) {
+                                requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
+                            }
+                        }
+                    } else {
+                        requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
+                    }
                 }
             }
         });
@@ -472,10 +503,8 @@ NOTES:
         let statsEnabled = GM_getValue("statsEnabled", false);
         let extendedEnabled = GM_getValue("extendedEnabled", false);
         let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
+        let wheelfixEnabledBeta = GM_getValue("wheelfixEnabledBeta", false);
         let autohideEnabled = GM_getValue("autohideEnabled", false);
-
-        let favWords = GM_getValue('favWords', '');
-        let hideWords = GM_getValue('hideWords', '');
 
         // Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
@@ -494,10 +523,8 @@ NOTES:
         GM_setValue("statsEnabled", statsEnabled);
         GM_setValue("extendedEnabled", extendedEnabled);
         GM_setValue("wheelfixEnabled", wheelfixEnabled);
+        GM_setValue("wheelfixEnabledBeta", wheelfixEnabledBeta);
         GM_setValue("autohideEnabled", autohideEnabled);
-
-        GM_setValue("favWords", favWords);
-        GM_setValue("hideWords", hideWords);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -2119,8 +2146,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
             // Poser la question pour les produits cachés et les favoris si purgeAll est vrai
             if (purgeAll) {
-                purgeHidden = confirm("Es-tu sur de vouloir supprimer tous les produits cachés ?");
-                purgeFavorites = confirm("Veux-tu supprimer tous les favoris ?");
+                purgeHidden = confirm("Êtes-vous sur de vouloir supprimer tous les produits cachés ?");
+                purgeFavorites = confirm("Voulez-vous supprimer tous les favoris ?");
             }
 
             for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -2478,6 +2505,17 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
             });
 
+            document.getElementById('wheelfixEnabled').addEventListener('change', function() {
+                if (this.checked) {
+                    // Demander à l'utilisateur s'il est sur mobile ou PC
+                    var wheelfixEnabledInfo = window.confirm("Souhaitez-vous utiliser la V2 du correctif ? (cela corrige plus de produits, mais avec plus de faux positifs, à utiliser si un produit n'est pas corriger avec le correctif classique)");
+
+                    // Utilisation de GM pour set la variable
+                    GM_setValue('wheelfixEnabledBeta', wheelfixEnabledInfo);
+                    wheelfixEnabledBeta = wheelfixEnabledInfo;
+                }
+            });
+
             document.getElementById('closePopup').addEventListener('click', () => {
                 document.getElementById('configPopup').remove();
             });
@@ -2491,7 +2529,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             document.getElementById('syncProducts').addEventListener('click', syncProducts);
             document.getElementById('setUrl').addEventListener('click', setUrl);
             document.getElementById('purgeStoredProducts').addEventListener('click', () => {
-                if (confirm("Es-tu sûr de vouloir supprimer les produits enregistrés pour la surbrillance ?")) {
+                if (confirm("Êtes-vous sûr de vouloir supprimer les produits enregistrés pour la surbrillance ?")) {
                     purgeStoredProducts(true);
                 }
             });
@@ -2662,7 +2700,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
     <h2>Configurer les Notifications<span id="closeNotifPopup" style="float: right; cursor: pointer;">&times;</span></h2>
     <div class="checkbox-container">
     <u class="full-width">Options :</u><br>
+    ${createCheckbox('notifFav', 'Filtrer "Autres articles"', 'Utilise les filtres (soit celui des favoris, soit celui pour exclure) pour ne remonter que les notifications favoris ou sans mots exclus et uniquement si c\'est un produit "Autres articles" (aucun filtre sur "Disponibles pour tous"). La notification apparaitra tout de même dans le centre de notifications. Prend en compte le filtre, même si l\'option des filtres est désactivée')}
     ${createCheckbox('notifSound', 'Jouer un son', 'Permet de jouer un son à réception d\'une notification. Astuce : pour personnaliser le son, il est possible d\'utiliser l\'option expérimentale pour saisir l\'URL du mp3 (uniquement) de votre choix')}
+    <select id="filterOptions" ${notifFav ? '' : 'disabled'} style="margin-bottom: 10px;">
+       <option value="notifFavOnly" ${filterOption === 'notifFavOnly' ? 'selected' : ''}>Ne voir que les favoris</option>
+       <option value="notifExcludeHidden" ${filterOption === 'notifExcludeHidden' ? 'selected' : ''}>Tout voir sauf mots exclus</option>
+    </select>
     ${createCheckbox('onMobile', 'Version mobile')}
     <u class="full-width">Type de notifications :</u><br>
     ${createCheckbox('notifUp', 'Up')}
@@ -2680,6 +2723,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             document.body.appendChild(popup);
             //dragElement(popup); // Utilise ta fonction existante pour rendre la popup déplaçable
 
+            document.getElementById('notifFav').addEventListener('change', function() {
+                document.getElementById('filterOptions').disabled = !this.checked;
+            });
+
             // Ajout des écouteurs d'événements pour les boutons
             document.getElementById('closeNotifPopup').addEventListener('click', function() {
                 popup.remove();
@@ -2694,7 +2741,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         function saveNotifConfig() {
             document.querySelectorAll('#notifConfigPopup input[type="checkbox"]').forEach(input => {
                 GM_setValue(input.name, input.checked);
+                if (input.name == "notifFav") {
+                    notifFav = input.checked;
+                }
             });
+            filterOption = document.getElementById('filterOptions').value;
+            GM_setValue('filterOption', document.getElementById('filterOptions').value);
             document.getElementById('notifConfigPopup').remove(); // Ferme la popup après enregistrement
         }
 
@@ -2720,10 +2772,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             <textarea id="favWords" name="favWords" style="width: 100%; height: 70px;">${GM_getValue('favWords', '')}</textarea>
         </div>
         <div style="margin-top: 10px;">
-            <label for="hideWords">Produits à cacher :</label>
+            <label for="hideWords">Produits à cacher/exclure :</label>
             <textarea id="hideWords" name="hideWords" style="width: 100%; height: 110px">${GM_getValue('hideWords', '')}</textarea>
         </div><br>
-<p style="font-size: 0.9em; color: #666;">Note&nbsp;: chaque recherche différente doit être séparée par une virgule. Les majuscules ne sont pas prises en compte. Exemple&nbsp;: coque iphone, chat, HUB.<br>Si un produit est à la fois favori et à cacher, il ne sera pas caché.</p>
+<p style="font-size: 0.9em; color: #666;">Note&nbsp;: chaque recherche différente doit être séparée par une virgule. Les majuscules ne sont pas prises en compte. Exemple&nbsp;: coque iphone, chat, HUB.<br>Si un produit est à la fois favori et exclu, il ne sera pas exclu (caché).</p>
         <div class="button-container final-buttons">
           <button class="full-width" id="saveFavConfig">Enregistrer</button>
           <button class="full-width" id="closeFavConfig">Fermer</button>
@@ -3363,7 +3415,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout" si l'élément de référence existe
                     container.insertBefore(infoDiv, referenceNode.nextSibling);
                 } else {
-                    // Si l'élément de référence n'existe pas, tu peux choisir un autre comportement,
+                    // Si l'élément de référence n'existe pas, on peut choisir un autre comportement,
                     // par exemple ajouter infoDiv à la fin du conteneur
                     container.appendChild(infoDiv);
                 }
@@ -3515,65 +3567,219 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
         //Wheel Fix
         if (wheelfixEnabled && apiOk) {
-            // Intercept Fetch requests
-            const origFetch = window.fetch;
-            var interceptor_LastParentVariant = null;
-            var interceptor_responseData = {};
-            var interceptor_postData = {};
+            if (wheelfixEnabledBeta) {
+                const origFetch = window.fetch;
+                var extHelper_LastParentVariant = null;
+                var extHelper_responseData = {};
+                var extHelper_postData = {};
 
-            unsafeWindow.fetch = async (...args) => {
-                let response = await origFetch(...args);
-                let lastParent = interceptor_LastParentVariant;
-                let regex = null;
+                unsafeWindow.fetch = async (...args) => {
+                    let response = await origFetch(...args);
+                    let lastParent = extHelper_LastParentVariant;
+                    let regex = null;
 
-                regex = /^api\/recommendations\/.*$/;
-                if (regex.test(args[0])) {
-                    await response
-                        .clone()
-                        .json()
-                        .then(function (data) {
-                        interceptor_responseData = data;
-                    })
-                        .catch((err) => console.error(err));
+                    const url = args[0] || "";
+                    if (url.startsWith("api/voiceOrders")) {
+                        extHelper_postData = JSON.parse(args[1].body);
+                        const asin = extHelper_postData.itemAsin;
 
-                    if (interceptor_responseData.result.variations !== undefined) {
-                        let variations = interceptor_responseData.result.variations;
-                        let fixed = 0;
-                        for (let i = 0; i < variations.length; ++i) {
-                            let value = variations[i];
-                            if (isObjectEmpty(value.dimensions)) {
-                                interceptor_responseData.result.variations[i].dimensions = {
-                                    asin_no: value.asin,
-                                };
-                                fixed++;
-                            }
+                        try {
+                            extHelper_responseData = await response.clone().json();
+                        } catch (e) {
+                            console.error(e);
                         }
 
-                        for (let i = 0; i < variations.length; ++i) {
-                            let variation = variations[i];
-                            let before = "";
-                            let arrKeys = Object.keys(variation.dimensions);
-                            for (let j = 0; j < arrKeys.length; j++) {
-                                before = variation.dimensions[arrKeys[j]];
-                                variation.dimensions[arrKeys[j]] = variation.dimensions[arrKeys[j]].replace(/[)(:\[\]&]/g, "");
+                        if (lastParent != null) {
+                            regex = /^.+?#(.+?)#.+$/;
+                            lastParent = extHelper_LastParentVariant.recommendationId.match(regex)[1];
+                        }
 
-                                if (before != variation.dimensions[arrKeys[j]]) {
+                        let data = {
+                            status: "success",
+                            error: null,
+                            parent_asin: lastParent,
+                            asin: asin,
+                        };
+                        if (extHelper_responseData.error !== null) {
+                            data = {
+                                status: "failed",
+                                error: extHelper_responseData.error, //CROSS_BORDER_SHIPMENT, SCHEDULED_DELIVERY_REQUIRED, ITEM_NOT_IN_ENROLLMENT
+                                parent_asin: lastParent,
+                                asin: asin,
+                            };
+                        }
+
+                        window.postMessage(
+                            {
+                                type: "order",
+                                data,
+                            },
+                            "*"
+                        );
+
+                        //Wait 500ms following an order to allow for the order report query to go through before the redirect happens.
+                        await new Promise((r) => setTimeout(r, 500));
+                        return response;
+                    }
+
+                    regex = /^api\/recommendations\/.*$/;
+                    if (url.startsWith("api/recommendations")) {
+                        try {
+                            extHelper_responseData = await response.clone().json();
+                        } catch (e) {
+                            console.error(e);
+                        }
+
+                        let { result, error } = extHelper_responseData;
+
+                        if (result === null) {
+                            if (error?.exceptionType) {
+                                window.postMessage(
+                                    {
+                                        type: "error",
+                                        data: {
+                                            error: error.exceptionType,
+                                        },
+                                    },
+                                    "*"
+                                );
+                            }
+                            return response;
+                        }
+
+                        // Find if the item is a parent
+                        if (result.variations !== undefined) {
+                            //The item has variations and so is a parent, store it for later interceptions
+                            extHelper_LastParentVariant = result;
+                        } else if (result.taxValue !== undefined) {
+                            // The item has an ETV value, let's find out if it's a child or a parent
+                            const isChild = !!lastParent?.variations?.some((v) => v.asin == result.asin);
+                            let data = {
+                                parent_asin: null,
+                                asin: result.asin,
+                                etv: result.taxValue,
+                            };
+                            if (isChild) {
+                                regex = /^.+?#(.+?)#.+$/;
+                                let arrMatchesP = lastParent.recommendationId.match(regex);
+                                data.parent_asin = arrMatchesP[1];
+                            } else {
+                                extHelper_LastParentVariant = null;
+                            }
+                            window.postMessage(
+                                {
+                                    type: "etv",
+                                    data,
+                                },
+                                "*"
+                            );
+                        }
+
+                        let fixed = 0;
+                        result.variations = result.variations?.map((variation) => {
+                            if (Object.keys(variation.dimensions || {}).length === 0) {
+                                variation.dimensions = {
+                                    asin_no: variation.asin,
+                                };
+                                fixed++;
+                                return variation;
+                            }
+                            var newValue;
+                            for (const key in variation.dimensions) {
+                                // The core of the issue is when a special character is at the end of a variation, the jQuery UI which amazon uses will attempt to evaluate it and fail since it attempts to utilize it as part of an html attribute.
+                                // In order to resolve this, we make the string safe for an html attribute by escaping the special characters.
+                                if (!variation.dimensions[key].match(/[a-z0-9]$/i)) {
+                                    variation.dimensions[key] = variation.dimensions[key] + ` VH${fixed}`;
+                                    fixed++;
+                                }
+
+                                // Any variation with a : or ) without a space after will crash, ensure : always has a space after.
+                                newValue = variation.dimensions[key].replace(/([:)])([^\s])/g, "$1 $2");
+                                if (newValue !== variation.dimensions[key]) {
+                                    variation.dimensions[key] = newValue;
+                                    fixed++;
+                                }
+
+                                // Any variation with a / with a space before it will crash, remove the space before.
+                                newValue = variation.dimensions[key].replace(/(\s[/])/g, "/");
+                                if (newValue !== variation.dimensions[key]) {
+                                    variation.dimensions[key] = newValue;
                                     fixed++;
                                 }
                             }
-                        }
+
+                            return variation;
+                        });
 
                         if (fixed > 0) {
-                            // Déclencher l'animation
                             showMagicStars();
                         }
+
+                        return new Response(JSON.stringify(extHelper_responseData));
                     }
 
-                    return new Response(JSON.stringify(interceptor_responseData));
-                } else {
                     return response;
-                }
-            };
+                };
+            } else {
+                const origFetch = window.fetch;
+                var interceptor_LastParentVariant = null;
+                var interceptor_responseData = {};
+                var interceptor_postData = {};
+
+                unsafeWindow.fetch = async (...args) => {
+                    let response = await origFetch(...args);
+                    let lastParent = interceptor_LastParentVariant;
+                    let regex = null;
+
+                    regex = /^api\/recommendations\/.*$/;
+                    if (regex.test(args[0])) {
+                        await response
+                            .clone()
+                            .json()
+                            .then(function (data) {
+                            interceptor_responseData = data;
+                        })
+                            .catch((err) => console.error(err));
+
+                        if (interceptor_responseData.result.variations !== undefined) {
+                            let variations = interceptor_responseData.result.variations;
+                            let fixed = 0;
+                            for (let i = 0; i < variations.length; ++i) {
+                                let value = variations[i];
+                                if (isObjectEmpty(value.dimensions)) {
+                                    interceptor_responseData.result.variations[i].dimensions = {
+                                        asin_no: value.asin,
+                                    };
+                                    fixed++;
+                                }
+                            }
+
+                            for (let i = 0; i < variations.length; ++i) {
+                                let variation = variations[i];
+                                let before = "";
+                                let arrKeys = Object.keys(variation.dimensions);
+                                for (let j = 0; j < arrKeys.length; j++) {
+                                    before = variation.dimensions[arrKeys[j]];
+                                    variation.dimensions[arrKeys[j]] = variation.dimensions[arrKeys[j]].replace(/[)(:\[\]&]/g, "");
+
+                                    if (before != variation.dimensions[arrKeys[j]]) {
+                                        fixed++;
+                                    }
+                                }
+                            }
+
+                            if (fixed > 0) {
+                                // Déclencher l'animation
+                                showMagicStars();
+                            }
+                        }
+
+                        return new Response(JSON.stringify(interceptor_responseData));
+                    } else {
+                        return response;
+                    }
+                };
+            }
 
 
             function showMagicStars() {
@@ -3585,7 +3791,6 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
             .star {
                 position: fixed;
-                color: #FFD700; /* Or */
                 font-size: 60px; /* Plus grand */
                 animation: sparkle 3s forwards; /* Durée plus longue */
                 animation-timing-function: ease-out;
@@ -3615,6 +3820,18 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         `;
                 document.head.appendChild(style);
 
+                var symbolColorPairs = [
+                    { symbol: '★', color: '#FFD700' },
+                    { symbol: '❆', color: '#07EEFD' },
+                    { symbol: '🐱', color: '#FFD700' },
+                    { symbol: '🔥', color: '#FFD700' },
+                    { symbol: '🦆', color: '#FFD700' },
+                    { symbol: '🐝', color: '#FFD700' },
+                    { symbol: '🐧', color: '#FFD700' },
+                    { symbol: '🥚', color: '#FFD700' },
+                    { symbol: '❤', color: '#FF69B4' }
+                ];
+
                 // Créer le texte "PickMe Fix"
                 var magicText = document.createElement('div');
                 magicText.className = 'magic-text';
@@ -3625,12 +3842,14 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 setTimeout(() => {
                     document.body.removeChild(magicText);
                 }, 3000);
-
-                // Créer et afficher les étoiles
+                let index = Math.floor(Math.random() * symbolColorPairs.length);
+                let pair = symbolColorPairs[index];
+                // Créer et afficher le symbole
                 for (let i = 0; i < 50; i++) {
                     let star = document.createElement('div');
                     star.className = 'star';
-                    star.textContent = '★';
+                    star.textContent = pair.symbol;
+                    star.style.color = pair.color;
                     star.style.top = `${Math.random() * window.innerHeight}px`;
                     star.style.left = `${Math.random() * window.innerWidth}px`;
                     document.body.appendChild(star);
