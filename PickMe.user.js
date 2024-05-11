@@ -806,6 +806,14 @@ NOTES:
 
         // Écouteur d'événements pour la navigation des pages
         document.addEventListener('keydown', function(e) {
+            const activeElement = document.activeElement; // Obtient l'élément actuellement en focus
+            const searchBox = document.getElementById('twotabsearchtextbox'); // L'élément du champ de recherche d'Amazon
+
+            // Vérifie si l'élément en focus est le champ de recherche
+            if (activeElement === searchBox) {
+                return; // Ignore le reste du code si le champ de recherche est en focus
+            }
+
             const existingPopupKey = document.getElementById('keyConfigPopup');
             if (existingPopupKey) {
                 return;
