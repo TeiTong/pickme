@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.5.1
+// @version      1.5.2
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -304,29 +304,50 @@ NOTES:
                 // Sélectionner le conteneur des onglets
                 var tabsContainer = document.querySelector('.a-tabs');
 
-                // Créer le nouvel onglet
-                var newTab = document.createElement('li');
-                newTab.className = 'a-tab-heading';
-                newTab.role = 'presentation';
+                // Créer le nouvel onglet pour Notifications
+                var newTab1 = document.createElement('li');
+                newTab1.className = 'a-tab-heading';
+                newTab1.role = 'presentation';
 
-                // Créer le lien à ajouter dans le nouvel onglet
-                var link = document.createElement('a');
-                link.href = "https://pickme.alwaysdata.net/sw/notification.php?key=" + encodeURIComponent(apiKey);
-                link.role = 'tab';
-                link.setAttribute('aria-selected', 'false');
-                link.tabIndex = -1;
-                link.textContent = 'Notifications';
-                link.target = '_blank';
-                link.style.color = '#f8a103';
-                link.style.backgroundColor = 'transparent';
-                link.style.border = 'none';
+                // Créer le lien à ajouter dans le nouvel onglet Notifications
+                var link1 = document.createElement('a');
+                link1.href = "https://pickme.alwaysdata.net/sw/notification.php?key=" + encodeURIComponent(apiKey);
+                link1.role = 'tab';
+                link1.setAttribute('aria-selected', 'false');
+                link1.tabIndex = -1;
+                link1.textContent = 'Notifications';
+                link1.target = '_blank';
+                link1.style.color = '#f8a103';
+                link1.style.backgroundColor = 'transparent';
+                link1.style.border = 'none';
 
-                // Ajouter le lien au nouvel onglet
-                newTab.appendChild(link);
+                // Ajouter le lien au nouvel onglet Notifications
+                newTab1.appendChild(link1);
 
-                // Ajouter le nouvel onglet au conteneur des onglets
+                // Créer le nouvel onglet pour Pickme Web
+                var newTab2 = document.createElement('li');
+                newTab2.className = 'a-tab-heading';
+                newTab2.role = 'presentation';
+
+                // Créer le lien à ajouter dans le nouvel onglet Pickme Web
+                var link2 = document.createElement('a');
+                link2.href = "https://pickme.alwaysdata.net/search.php";
+                link2.role = 'tab';
+                link2.setAttribute('aria-selected', 'false');
+                link2.tabIndex = -1;
+                link2.textContent = 'Pickme Web';
+                link2.target = '_blank';
+                link2.style.color = '#f8a103';
+                link2.style.backgroundColor = 'transparent';
+                link2.style.border = 'none';
+
+                // Ajouter le lien au nouvel onglet Pickme Web
+                newTab2.appendChild(link2);
+
+                // Ajouter les nouveaux onglets au conteneur des onglets
                 if (tabsContainer) {
-                    tabsContainer.appendChild(newTab);
+                    tabsContainer.appendChild(newTab1);
+                    tabsContainer.appendChild(newTab2);
                 }
             }
         });
