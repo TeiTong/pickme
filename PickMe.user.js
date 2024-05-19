@@ -336,7 +336,7 @@ NOTES:
                 link2.role = 'tab';
                 link2.setAttribute('aria-selected', 'false');
                 link2.tabIndex = -1;
-                link2.textContent = 'Pickme Web';
+                link2.textContent = 'PickMe Web';
                 link2.target = '_blank';
                 link2.style.color = '#f8a103';
                 link2.style.backgroundColor = 'transparent';
