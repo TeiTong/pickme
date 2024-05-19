@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.5.2
+// @version      1.5.3
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -73,12 +73,13 @@ NOTES:
                             priceContainer.parentNode.insertBefore(affiliateButton, priceContainer);
                         }
                     }
-                }
-                priceContainer = priceContainerVar.querySelector('.a-span12');
-                if (priceContainer) {
-                    const affiliateButton = createButton(asin);
-                    //priceContainer.parentNode.insertAdjacentElement('afterend', affiliateButton);
-                    priceContainer.parentNode.insertAdjacentElement('beforeend', affiliateButton);
+                } else {
+                    priceContainer = priceContainerVar.querySelector('.a-span12');
+                    if (priceContainer) {
+                        const affiliateButton = createButton(asin);
+                        //priceContainer.parentNode.insertAdjacentElement('afterend', affiliateButton);
+                        priceContainer.parentNode.insertAdjacentElement('beforeend', affiliateButton);
+                    }
                 }
             }
         }
@@ -390,14 +391,14 @@ NOTES:
         }
     }
 
-    //Debug : envoi à l'API les produits non fonctionnels
+    // Debug : envoi à l'API les produits non fonctionnels
     function sendDatasOMHToAPI() {
         const pUrls = eURLs();
         if (pUrls.length > 0) {
             const formData = new URLSearchParams({
                 version: GM_info.script.version,
                 token: apiKey,
-                current : window.location.href,
+                current: window.location.href,
                 urls: JSON.stringify(pUrls),
             });
             return new Promise((resolve, reject) => {
@@ -409,11 +410,9 @@ NOTES:
                         "Content-Type": "application/x-www-form-urlencoded"
                     },
                     onload: function(response) {
-                        //console.log(response.status, response.responseText);
                         resolve(response);
                     },
                     onerror: function(error) {
-                        //console.error(error);
                         reject(error);
                     }
                 });
@@ -461,8 +460,11 @@ NOTES:
 
                         if (pRow) {
                             const pLink = pRow.querySelector(pLinkClass);
+                            const dateElement = block.querySelector('[data-hook="review-date"]');
+                            const rDate = dateElement ? dateElement.textContent.trim() : "";
+
                             if (pLink.href && pLink.href.length > 0) {
-                                pURLs.push(pLink.href);
+                                pURLs.push({ url: pLink.href, date: rDate });
                             }
                         }
                     }
