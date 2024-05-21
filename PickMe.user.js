@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.5.3
+// @version      1.5.4
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -332,7 +332,7 @@ NOTES:
 
                 // Créer le lien à ajouter dans le nouvel onglet Pickme Web
                 var link2 = document.createElement('a');
-                link2.href = "https://pickme.alwaysdata.net/search.php";
+                link2.href = "https://pickme.alwaysdata.net/search.php?key=" + encodeURIComponent(apiKey);
                 link2.role = 'tab';
                 link2.setAttribute('aria-selected', 'false');
                 link2.tabIndex = -1;
