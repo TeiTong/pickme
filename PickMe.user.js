@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.5.4
+// @version      1.5.5
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -21,6 +21,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        unsafeWindow
 // @run-at       document-start
+// @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // ==/UserScript==
 
 /*
@@ -575,8 +576,10 @@ NOTES:
                 // Remplacer l'URL de l'image
                 img.src = 'https://i.ibb.co/NC96JrP/PM.png';
                 if (mobileEnabled || cssEnabled) {
-                    img.style.height = '35px'; // Définis une nouvelle hauteur pour l'image
-                    img.style.width = 'auto'; // Assure que la largeur s'ajuste pour conserver les proportions
+                    img.style.maxHeight = '50px';
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+                    img.style.width = 'auto';
                 }
                 // Modifier le comportement du lien pour empêcher le chargement de la page
                 link.onclick = function(event) {
@@ -599,10 +602,10 @@ NOTES:
             } else {
                 return new Promise((resolve, reject) => {
                     GM_xmlhttpRequest({
-                        method: "GET",
+                        method: "POST",
                         url: callUrl,
                         headers: {
-                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Content-Type": 'application/json',
                         },
                         onload: function(response) {
                             console.log(response.status, response.responseText);
@@ -611,7 +614,7 @@ NOTES:
                         onerror: function(error) {
                             console.error(error);
                             reject(error);
-                        },
+                        }
                     });
                 });
             }
@@ -2004,6 +2007,57 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             imgNew = true;
             updateCat(false);
         }
+
+        //Fleche pour cacher le menu
+        if (!mobileEnabled && apiOk) {
+
+            const styles = `
+				.hidden {
+					display: none;
+				}
+				.arrow {
+					cursor: pointer;
+					transition: transform 0.3s ease;
+					width: 20px;
+					height: 20px;
+					vertical-align: middle;
+				}
+				.rotate-180 {
+					transform: rotate(180deg);
+				}
+			`;
+
+            // Ajouter les styles à la page
+            const styleSheet = document.createElement("style");
+            styleSheet.type = "text/css";
+            styleSheet.innerText = styles;
+            document.head.appendChild(styleSheet);
+
+            // Ajouter la flèche à la page
+            const arrow = $('<img src="https://i.ibb.co/Jt13RLW/arrowyellowleft.png" alt="Toggle Menu" id="toggle-arrow" class="arrow">');
+            $('#vvp-browse-nodes-container').after(arrow);
+
+            // Sélectionner le menu
+            const $menu = $('#vvp-browse-nodes-container');
+            const $arrow = $('#toggle-arrow');
+
+            // Charger l'état initial du menu
+            const isMenuHidden = GM_getValue('isMenuHidden', false);
+            if (isMenuHidden) {
+                $menu.addClass('hidden');
+                $arrow.addClass('rotate-180');
+            }
+
+            // Gérer le clic sur la flèche
+            $arrow.on('click', function() {
+                $menu.toggleClass('hidden');
+                $arrow.toggleClass('rotate-180');
+
+                // Enregistrer l'état actuel du menu
+                GM_setValue('isMenuHidden', $menu.hasClass('hidden'));
+            });
+        }
+        //End
 
         //Affichage de la différence des catégories
         function updateCat(firstLoad = true) {
