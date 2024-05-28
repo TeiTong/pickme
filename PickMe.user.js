@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.5.5
+// @version      1.6
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @match        https://www.amazon.fr/vine/vine-reviews*
 // @match        https://www.amazon.fr/vine/orders*
+// @match        https://www.amazon.fr/vine/account
+// @match        https://www.amazon.fr/vine/resources
 // @match        https://www.amazon.fr/*
 // @match        https://pickme.alwaysdata.net/*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
@@ -37,7 +39,9 @@ NOTES:
         'https://www.amazon.fr/vine/vine-items',
         'https://www.amazon.fr/vine/vine-items?queue=*',
         'https://www.amazon.fr/vine/vine-reviews*',
-        'https://www.amazon.fr/vine/orders*'
+        'https://www.amazon.fr/vine/orders*',
+        'https://www.amazon.fr/vine/account',
+        'https://www.amazon.fr/vine/resources'
     ];
 
     // Fonction pour extraire l'ASIN
@@ -529,6 +533,8 @@ NOTES:
         let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
         let wheelfixEnabledBeta = GM_getValue("wheelfixEnabledBeta", false);
         let autohideEnabled = GM_getValue("autohideEnabled", false);
+        let savedTheme = GM_getValue('selectedTheme', 'default');
+        let savedButtonColor = GM_getValue('selectedButtonColor', 'default');
 
         // Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
@@ -549,6 +555,8 @@ NOTES:
         GM_setValue("wheelfixEnabled", wheelfixEnabled);
         GM_setValue("wheelfixEnabledBeta", wheelfixEnabledBeta);
         GM_setValue("autohideEnabled", autohideEnabled);
+        GM_setValue("selectedTheme", savedTheme);
+        GM_setValue("selectedButtonColor", savedButtonColor);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -1053,6 +1061,20 @@ NOTES:
             background-color: #007bff;
             color: white;
         }
+		.bouton-reset {
+			background-color: #f7ca00;
+			color: black;
+			font-weight: bold;
+			text-decoration: none;
+			display: inline-block;
+			border: 1px solid #dcdcdc;
+			border-radius: 20px;
+			padding: 3px 10px;
+			margin-left: 5px;
+			cursor: pointer;
+			outline: none;
+		}
+
     `;
 
             style.textContent += `
@@ -1411,7 +1433,7 @@ body {
   display: flex;
   align-items: center;
 }
-		`;
+`;
             document.head.appendChild(styleCss);
         }
         //Affichage mobile
@@ -1909,8 +1931,31 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   .a-truncate {
   max-height: var(--max-product-title) !important;
 }
-		`;
+`;
             document.head.appendChild(mobileCss);
+        }
+
+        //Gestion des thèmes couleurs
+        // Fonction pour charger le fichier CSS
+        function loadCSS(url) {
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = url;
+            document.getElementsByTagName('head')[0].appendChild(link);
+        }
+
+        //URL des CSS
+        var baseURLCSS = 'https://pickme.alwaysdata.net/';
+        //Thème
+        if (savedTheme != "default") {
+            loadCSS(baseURLCSS + savedTheme + '-theme.css');
+        }
+        //Boutons
+        if (savedTheme == "dark" && savedButtonColor == "default") {
+            loadCSS(baseURLCSS + 'yellow-buttons.css');
+        } else if (savedButtonColor != "default") {
+            loadCSS(baseURLCSS + savedButtonColor + '-buttons.css');
         }
         //End
 
@@ -2034,7 +2079,24 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             document.head.appendChild(styleSheet);
 
             // Ajouter la flèche à la page
-            const arrow = $('<img src="https://i.ibb.co/Jt13RLW/arrowyellowleft.png" alt="Toggle Menu" id="toggle-arrow" class="arrow">');
+            var imageUrl = "https://i.ibb.co/Jt13RLW/arrowyellowleft.png";
+            if (savedButtonColor == "blue") {
+                imageUrl = "https://i.ibb.co/hX9gBNn/arrowleft.png";
+            } else if (savedButtonColor == "black") {
+                imageUrl = "https://i.ibb.co/zQ5ZZNS/arrowdarkleft.png";
+            } else if (savedButtonColor == "pink") {
+                imageUrl = "https://i.ibb.co/KyW983N/arrowpinkleft.png";
+            } else if (savedButtonColor == "purple") {
+                imageUrl = "https://i.ibb.co/xS0D3J1/arrowpurpleleft.png";
+            } else if (savedButtonColor == "red") {
+                imageUrl = "https://i.ibb.co/z6fSv7J/arrowredleft.png";
+            } else if (savedButtonColor == "green") {
+                imageUrl = "https://i.ibb.co/sKPqvST/arrowgreenleft.png";
+            } else if (savedButtonColor == "orange") {
+                imageUrl = "https://i.ibb.co/Lh7KvtJ/arroworangeleft.png";
+            }
+            const arrow = $('<img src="' + imageUrl + '" alt="Toggle Menu" id="toggle-arrow" class="arrow">');
+
             $('#vvp-browse-nodes-container').after(arrow);
 
             // Sélectionner le menu
@@ -2139,18 +2201,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             // Création du bouton "Reset"
             const boutonReset = document.createElement('button');
             boutonReset.textContent = 'Reset';
-            // Application du style CSS spécifié
-            boutonReset.style.backgroundColor = '#f7ca00';
-            boutonReset.style.color = 'black';
-            boutonReset.style.fontWeight = 'bold';
-            boutonReset.style.textDecoration = 'none';
-            boutonReset.style.display = 'inline-block';
-            boutonReset.style.border = '1px solid #dcdcdc';
-            boutonReset.style.borderRadius = '20px';
-            boutonReset.style.padding = '3px 10px';
-            boutonReset.style.marginLeft = '5px';
-            boutonReset.style.cursor = 'pointer';
-            boutonReset.style.outline = 'none';
+            boutonReset.classList.add('bouton-reset');
             boutonReset.addEventListener('click', resetEtMiseAJour);
 
             // Sélection du conteneur où insérer le bouton "Reset"
@@ -2333,9 +2384,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   border: 2px solid #ccc; /* Ajout d'un contour */
   overflow: auto; /* Ajout de défilement si nécessaire */
   resize: both; /* Permet le redimensionnement horizontal et vertical */
+  max-height: 95vh;
 }
 
-.api-token-container label {
+.api-token-container label, .theme-container label {
   margin-bottom: 0 !important;
   display: block !important;
 }
@@ -2372,7 +2424,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 #configPopup .button-container,
 #configPopup .checkbox-container,
 #notifConfigPopup .button-container,
-#notifConfigPopup .checkbox-container{
+#notifConfigPopup .checkbox-container {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -2381,7 +2433,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 #configPopup .button-container button,
 #configPopup .checkbox-container label,
 #notifConfigPopup .button-container button,
-#notifConfigPopup .checkbox-container label{
+#notifConfigPopup .checkbox-container label {
   margin-bottom: 10px;
   flex-basis: 48%; /* Ajusté pour uniformiser l'apparence des boutons et des labels */
 }
@@ -2456,6 +2508,15 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   margin-right: 1% !important; /* Annuler la marge droite si elle est définie ailleurs */
   margin-left: 1% !important; /* Annuler la marge droite si elle est définie ailleurs */
 }
+
+/*Alignement des listes de thèmes*/
+.flex-container {
+  display: flex;
+  gap: 20px;
+}
+.flex-item {
+  flex: 1;
+}
 `;
         document.head.appendChild(styleMenu);
         // Assurez-vous que les boutons sont toujours accessibles
@@ -2529,6 +2590,18 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 isPremium = responsePremium && responsePremium.status === 200;
                 apiToken = API_TOKEN;
             }
+            //Style pour les deux listes déroulantes l'une a coté de l'autre
+            const style = document.createElement('style');
+            style.innerHTML = `
+  .flex-container-theme {
+    display: flex;
+    gap: 10px;
+  }
+  .flex-item-theme {
+    flex: 1;
+  }
+`;
+            document.head.appendChild(style);
             const popup = document.createElement('div');
             popup.id = "configPopup";
             popup.innerHTML = `
@@ -2554,10 +2627,37 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
      <div class="api-token-container">
       <label for="apiTokenInput">Clef API :</label>
       <input type="text" id="apiTokenInput" value="${apiToken}" style="width: 100%; max-width: 480px; margin-bottom: 10px;" />
+      <div class="flex-container-theme">
+    <div class="theme-container flex-item-theme">
+      <label for="themeSelect">Thème :</label>
+      <select id="themeSelect" style="width: 100%; max-width: 480px; margin-bottom: 10px; height: 31px;">
+        <option value="default">Clair (défaut)</option>
+        <option value="dark">Sombre</option>
+      </select>
+    </div>
+    <div class="button-color-container flex-item-theme">
+      <label for="buttonColorSelect">Boutons :</label>
+      <select id="buttonColorSelect" style="width: 100%; max-width: 480px; margin-bottom: 10px; height: 31px;">
+        <option value="default">Défaut</option>
+        <option value="black">Noir</option>
+        <option value="blue">Bleu</option>
+        <option value="pink">Rose</option>
+        <option value="purple">Violet</option>
+        <option value="red">Rouge</option>
+        <option value="green">Vert</option>
+        <option value="orange">Orange</option>
+      </select>
+    </div>
     </div>
     ${addActionButtons(!isPremium, !isPremiumPlus)}
   `;
             document.body.appendChild(popup);
+
+            //Initialiser le thème et choisir celui qui est actif dans la liste
+            document.getElementById('themeSelect').value = savedTheme;
+
+            //Initialiser la couleur des boutons et choisir celle qui est active dans la liste
+            document.getElementById('buttonColorSelect').value = savedButtonColor;
 
             document.getElementById('cssEnabled').addEventListener('change', function() {
                 if (this.checked) {
@@ -2675,7 +2775,14 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 alert("Clef API invalide !");
                 return
             }
-            //alert('Configuration sauvegardée.');
+            // Enregistrer le thème sélectionné
+            const selectedTheme = document.getElementById('themeSelect').value;
+            GM_setValue('selectedTheme', selectedTheme);
+
+            // Enregistrer la couleur des boutons sélectionnée
+            const selectedButtonColor = document.getElementById('buttonColorSelect').value;
+            GM_setValue('selectedButtonColor', selectedButtonColor);
+            //On recharge la page et on ferme le menu
             window.location.reload();
             document.getElementById('configPopup').remove();
         }
