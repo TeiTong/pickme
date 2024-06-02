@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.7.1
+// @version      1.7.2
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -236,6 +236,8 @@ NOTES:
 
     //Afficher l'onglet "Favoris"
     function mesFavoris() {
+        const MAX_FAVORIS = 200; // Limite des favoris affichés
+
         if (apiKey && hideEnabled) {
             // Ajouter un nouvel onglet dans le menu
             const menu = document.querySelector('.a-tabs');
@@ -250,45 +252,42 @@ NOTES:
             container.style.display = 'none';
             container.className = 'a-container vvp-body';
             container.innerHTML = `
-        <div class="a-box a-tab-content" role="tabpanel" tabindex="0">
-         <div class="a-box-inner">
-          <div class="a-section vvp-tab-content">
-
-            <div class="vvp-orders-table--heading-top" style="display: flex; justify-content: space-between; align-items: center;">
-                <h3>Favoris</h3>
-                <span class="a-button a-button-primary vvp-orders-table--action-btn">
-                  <span class="a-button-inner">
-                      <button id="supprimerTousFavoris" class="a-button-input" aria-labelledby="supprimer-tous"></button>
-                     <span class="a-button-text" aria-hidden="true" id="supprimer-tous">Tout supprimer</span>
-                  </span>
-                </span>
+            <div class="a-box a-tab-content" role="tabpanel" tabindex="0">
+                <div class="a-box-inner">
+                    <div class="a-section vvp-tab-content">
+                        <div class="vvp-orders-table--heading-top" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 id="favorisCount">Favoris (0)</h3>
+                            <span class="a-button a-button-primary vvp-orders-table--action-btn">
+                                <span class="a-button-inner">
+                                    <button id="supprimerTousFavoris" class="a-button-input" aria-labelledby="supprimer-tous"></button>
+                                    <span class="a-button-text" aria-hidden="true" id="supprimer-tous">Tout supprimer</span>
+                                </span>
+                            </span>
+                        </div>
+                        <table class="a-normal vvp-orders-table">
+                            <thead>
+                                <tr class="vvp-orders-table--heading-row">
+                                    <th id="vvp-orders-table--image-col-heading"></th>
+                                    <th id="vvp-orders-table--product-title-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 15px;">Produit</th>
+                                    <th id="vvp-orders-table--order-date-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 10px;">Vu pour la dernière fois</th>
+                                    <th id="vvp-orders-table--actions-col-heading"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="favorisList"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <table class="a-normal vvp-orders-table">
-                <thead>
-                    <tr class="vvp-orders-table--heading-row">
-                        <th id="vvp-orders-table--image-col-heading"></th>
-                        <th id="vvp-orders-table--product-title-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 15px;">Produit</th>
-                        <th id="vvp-orders-table--order-date-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 10px;">Vu pour la dernière fois</th>
-                        <th id="vvp-orders-table--actions-col-heading">
-
-                        </th>
-                    </tr>
-                </thead>
-                <tbody id="favorisList"></tbody>
-            </table>
-      </div>
-     </div>
-    </div>
         `;
             document.querySelector('#a-page > div.a-container.vvp-body > div.a-tab-container.vvp-tab-set-container').appendChild(container);
 
             // Ajouter du style pour l'espace au-dessus de la première ligne de produit
             const style = document.createElement('style');
             style.textContent = `
-        tr:first-child td, tr:first-child th {
-            padding-top: 15px;
-        }
-    `;
+            tr:first-child td, tr:first-child th {
+                padding-top: 15px;
+            }
+        `;
             document.head.appendChild(style);
 
             // Fonction pour afficher les favoris
@@ -297,7 +296,6 @@ NOTES:
                 favorisList.innerHTML = ''; // Réinitialiser la liste des favoris
 
                 const favoris = [];
-
                 const promises = Object.keys(localStorage).map(async (key) => {
                     if (key.endsWith('_favori')) {
                         const favori = JSON.parse(localStorage.getItem(key));
@@ -324,6 +322,12 @@ NOTES:
                     return a.timeDiff - b.timeDiff;
                 });
 
+                // Limiter les favoris à MAX_FAVORIS
+                const favorisAffiches = favoris.slice(0, MAX_FAVORIS);
+
+                // Mettre à jour le titre avec le nombre de favoris affichés
+                document.querySelector('#favorisCount').textContent = `Favoris (${favorisAffiches.length})`;
+
                 // Fonction pour convertir une date européenne en format de date interprétable
                 function parseEuropeanDate(dateStr) {
                     const [day, month, year, hours, minutes, seconds] = dateStr.split(/[/ :]/);
@@ -331,7 +335,7 @@ NOTES:
                 }
 
                 // Afficher les favoris triés
-                favoris.forEach(({ asin, key, productInfo, timeDiff }) => {
+                favorisAffiches.forEach(({ asin, key, productInfo, timeDiff }) => {
                     const tr = document.createElement('tr');
                     tr.className = 'vvp-orders-table--row';
                     const urlProduct = "https://www.amazon.fr/dp/" + asin;
@@ -341,14 +345,14 @@ NOTES:
                         <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Recommandation ou produit inconnu : ${asin}</a></td>
                         <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
                         <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
-                        `;
+                    `;
                     } else if (!productInfo.main_image && productInfo.title) {
                         tr.innerHTML = `
-                      <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://i.ibb.co/phYN0GT/Pas-d-image-disponible-svg.png"></td>
-                      <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Produit indisponible : ${productInfo.title}</a></td>
-                      <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
-                      <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
-                      `;
+                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://i.ibb.co/phYN0GT/Pas-d-image-disponible-svg.png"></td>
+                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Produit indisponible : ${productInfo.title}</a></td>
+                        <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
+                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
+                    `;
                     } else if (productInfo.title) {
                         // Vérifier la date et appliquer la couleur appropriée
                         let dateColor = '';
@@ -362,11 +366,11 @@ NOTES:
                             dateColor = 'color: #007FFF;';
                         }
                         tr.innerHTML = `
-                      <td class="vvp-orders-table--image-col"><img alt="${productInfo.title}" src="${productInfo.main_image}"></td>
-                      <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">${productInfo.title}</a></td>
-                      <td class="vvp-orders-table--text-col" style="${dateColor}"><strong>${productInfo.date_last_eu}</strong><br><a class="a-link-normal" target="_blank" rel="noopener" href="${productInfo.linkUrl}">${productInfo.linkText}</a></td>
-                      <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
-                  `;
+                        <td class="vvp-orders-table--image-col"><img alt="${productInfo.title}" src="${productInfo.main_image}"></td>
+                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">${productInfo.title}</a></td>
+                        <td class="vvp-orders-table--text-col" style="${dateColor}"><strong>${productInfo.date_last_eu}</strong><br><a class="a-link-normal" target="_blank" rel="noopener" href="${productInfo.linkUrl}">${productInfo.linkText}</a></td>
+                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
+                    `;
                     }
                     favorisList.appendChild(tr);
                 });
@@ -380,6 +384,9 @@ NOTES:
                         if (listItem) {
                             listItem.remove(); // Supprimer la ligne correspondante
                         }
+                        // Mettre à jour le titre avec le nombre de favoris affichés
+                        const nbFavorisRestants = document.querySelectorAll('#favorisList .vvp-orders-table--row').length;
+                        document.querySelector('#favorisCount').textContent = `Favoris (${nbFavorisRestants})`;
                     });
                 });
             }
