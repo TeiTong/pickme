@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.7
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -21,6 +21,7 @@
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_listValues
 // @grant        unsafeWindow
 // @run-at       document-start
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
@@ -143,9 +144,10 @@ NOTES:
     });
 
     //Notif
+    //On initialise les variables utiles pour cette partie du script
     let notifEnabled = GM_getValue("notifEnabled", false);
     let onMobile = GM_getValue("onMobile", false);
-    let callUrl = GM_getValue("callUrl", false);
+    let callUrl = GM_getValue("callUrl", "");
     var apiKey = GM_getValue("apiToken", false);
     let notifUp = GM_getValue('notifUp', true);
     let notifRecos = GM_getValue('notifRecos', false);
@@ -157,6 +159,7 @@ NOTES:
     let favWords = GM_getValue('favWords', '');
     let hideWords = GM_getValue('hideWords', '');
     let filterOption = GM_getValue('filterOption', 'notifFavOnly');
+    let hideEnabled = GM_getValue("hideEnabled", true);
     GM_setValue("notifEnabled", notifEnabled);
     GM_setValue("onMobile", onMobile);
     GM_setValue("callUrl", callUrl);
@@ -170,6 +173,247 @@ NOTES:
     GM_setValue("favWords", favWords);
     GM_setValue("hideWords", hideWords);
     GM_setValue("filterOption", filterOption);
+    GM_setValue("hideEnabled", hideEnabled);
+
+    //Convertir la date SQL en date lisible européenne
+    function convertToEuropeanDate(mysqlDate) {
+        if (!mysqlDate) return '';
+
+        const date = new Date(mysqlDate);
+        const day = ('0' + date.getDate()).slice(-2);
+        const month = ('0' + (date.getMonth() + 1)).slice(-2); // Les mois commencent à 0 en JavaScript
+        const year = date.getFullYear();
+        const hours = ('0' + date.getHours()).slice(-2);
+        const minutes = ('0' + date.getMinutes()).slice(-2);
+        const seconds = ('0' + date.getSeconds()).slice(-2);
+
+        return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    }
+
+    //Récupérer les infos d'un produit dans l'API
+    function infoProduct(asin) {
+        const formData = new URLSearchParams({
+            version: GM_info.script.version,
+            token: apiKey,
+            asin: asin,
+        });
+
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: "https://pickme.alwaysdata.net/shyrka/infoasin",
+                data: formData.toString(),
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                onload: function(response) {
+                    if (response && response.status == 200) {
+                        try {
+                            const data = JSON.parse(response.responseText);
+                            const { date_last, title, linkText, linkUrl, main_image } = data;
+                            const date_last_eu = convertToEuropeanDate(date_last);
+                            resolve({ date_last_eu, title, linkText, linkUrl, main_image });
+                        } catch (error) {
+                            console.error("Erreur lors de l'analyse de la réponse JSON:", error);
+                            reject(new Error("Erreur lors de l'analyse de la réponse JSON"));
+                        }
+                    } else if (response.status == 201) {
+                        //console.log(response.status, response.responseText);
+                        resolve(response.responseText);
+                    } else {
+                        // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
+                        console.error("Erreur HTTP:", response.status, response.statusText);
+                        reject(new Error(`Erreur HTTP: ${response.status} ${response.statusText}`));
+                    }
+                },
+                onerror: function(error) {
+                    console.error("Erreur de requête:", error);
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    //Afficher l'onglet "Favoris"
+    function mesFavoris() {
+        if (apiKey && hideEnabled) {
+            // Ajouter un nouvel onglet dans le menu
+            const menu = document.querySelector('.a-tabs');
+            const newTab = document.createElement('li');
+            newTab.className = 'a-tab-heading';
+            newTab.innerHTML = '<a href="javascript:void(0);" id="favorisTab" role="tab" aria-selected="false" tabindex="-1" style="color: #f8a103;">Favoris</a>';
+            menu.appendChild(newTab);
+
+            // Ajouter le conteneur pour afficher les favoris
+            const container = document.createElement('div');
+            container.id = 'favorisContainer';
+            container.style.display = 'none';
+            container.className = 'a-container vvp-body';
+            container.innerHTML = `
+        <div class="a-box a-tab-content" role="tabpanel" tabindex="0">
+         <div class="a-box-inner">
+          <div class="a-section vvp-tab-content">
+
+            <div class="vvp-orders-table--heading-top" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Favoris</h3>
+                <span class="a-button a-button-primary vvp-orders-table--action-btn">
+                  <span class="a-button-inner">
+                      <button id="supprimerTousFavoris" class="a-button-input" aria-labelledby="supprimer-tous"></button>
+                     <span class="a-button-text" aria-hidden="true" id="supprimer-tous">Tout supprimer</span>
+                  </span>
+                </span>
+            </div>
+            <table class="a-normal vvp-orders-table">
+                <thead>
+                    <tr class="vvp-orders-table--heading-row">
+                        <th id="vvp-orders-table--image-col-heading"></th>
+                        <th id="vvp-orders-table--product-title-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 15px;">Produit</th>
+                        <th id="vvp-orders-table--order-date-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 10px;">Vu pour la dernière fois</th>
+                        <th id="vvp-orders-table--actions-col-heading">
+
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="favorisList"></tbody>
+            </table>
+      </div>
+     </div>
+    </div>
+        `;
+            document.querySelector('#a-page > div.a-container.vvp-body > div.a-tab-container.vvp-tab-set-container').appendChild(container);
+
+            // Ajouter du style pour l'espace au-dessus de la première ligne de produit
+            const style = document.createElement('style');
+            style.textContent = `
+        tr:first-child td, tr:first-child th {
+            padding-top: 15px;
+        }
+    `;
+            document.head.appendChild(style);
+
+            // Fonction pour afficher les favoris
+            async function afficherFavoris() {
+                const favorisList = document.getElementById('favorisList');
+                favorisList.innerHTML = ''; // Réinitialiser la liste des favoris
+
+                const favoris = [];
+
+                const promises = Object.keys(localStorage).map(async (key) => {
+                    if (key.endsWith('_favori')) {
+                        const favori = JSON.parse(localStorage.getItem(key));
+                        if (favori.estFavori === true) {
+                            const asin = key.split('_favori')[0]; // Extraire l'ASIN de la clé
+                            try {
+                                const productInfo = await infoProduct(asin); // Appel à la fonction infoProduct avec l'ASIN
+                                const lastSeenDate = productInfo.date_last_eu ? parseEuropeanDate(productInfo.date_last_eu) : null;
+                                const timeDiff = lastSeenDate ? new Date() - lastSeenDate : 0;
+                                favoris.push({ asin, key, productInfo, timeDiff });
+                            } catch (error) {
+                                console.error("Erreur lors de la récupération des informations du produit:", error);
+                            }
+                        }
+                    }
+                });
+
+                await Promise.all(promises);
+
+                // Trier les favoris : ceux avec timeDiff = 0 en premier, puis par timeDiff croissant
+                favoris.sort((a, b) => {
+                    if (a.timeDiff === 0) return -1;
+                    if (b.timeDiff === 0) return 1;
+                    return a.timeDiff - b.timeDiff;
+                });
+
+                // Fonction pour convertir une date européenne en format de date interprétable
+                function parseEuropeanDate(dateStr) {
+                    const [day, month, year, hours, minutes, seconds] = dateStr.split(/[/ :]/);
+                    return new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}`);
+                }
+
+                // Afficher les favoris triés
+                favoris.forEach(({ asin, key, productInfo, timeDiff }) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'vvp-orders-table--row';
+                    const urlProduct = "https://www.amazon.fr/dp/" + asin;
+                    if (productInfo == "ASIN absent") {
+                        tr.innerHTML = `
+                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://i.ibb.co/phYN0GT/Pas-d-image-disponible-svg.png"></td>
+                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Recommandation ou produit inconnu : ${asin}</a></td>
+                        <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
+                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
+                        `;
+                    } else if (!productInfo.main_image && productInfo.title) {
+                        tr.innerHTML = `
+                      <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://i.ibb.co/phYN0GT/Pas-d-image-disponible-svg.png"></td>
+                      <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Produit indisponible : ${productInfo.title}</a></td>
+                      <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
+                      <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
+                      `;
+                    } else if (productInfo.title) {
+                        // Vérifier la date et appliquer la couleur appropriée
+                        let dateColor = '';
+
+                        const hoursDiff = timeDiff / (1000 * 60 * 60);
+                        const minutesDiff = timeDiff / (1000 * 60);
+
+                        if (hoursDiff > 12) {
+                            dateColor = 'color: #FF0000;';
+                        } else if (minutesDiff < 1) {
+                            dateColor = 'color: #007FFF;';
+                        }
+                        tr.innerHTML = `
+                      <td class="vvp-orders-table--image-col"><img alt="${productInfo.title}" src="${productInfo.main_image}"></td>
+                      <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">${productInfo.title}</a></td>
+                      <td class="vvp-orders-table--text-col" style="${dateColor}"><strong>${productInfo.date_last_eu}</strong><br><a class="a-link-normal" target="_blank" rel="noopener" href="${productInfo.linkUrl}">${productInfo.linkText}</a></td>
+                      <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
+                  `;
+                    }
+                    favorisList.appendChild(tr);
+                });
+
+                // Ajouter des écouteurs d'événement pour les boutons de suppression
+                document.querySelectorAll('.supprimerFavori').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const key = this.getAttribute('data-key');
+                        localStorage.removeItem(key);
+                        const listItem = this.closest('tr');
+                        if (listItem) {
+                            listItem.remove(); // Supprimer la ligne correspondante
+                        }
+                    });
+                });
+            }
+
+            // Fonction pour supprimer tous les favoris
+            function supprimerTousLesFavoris() {
+                if (confirm('Êtes-vous sûr de vouloir supprimer tous les favoris ?')) {
+                    Object.keys(localStorage).forEach(key => {
+                        if (key.endsWith('_favori')) {
+                            localStorage.removeItem(key);
+                        }
+                    });
+                    afficherFavoris(); // Rafraîchir la liste des favoris
+                }
+            }
+
+            // Ajouter le gestionnaire d'événement pour le bouton "Supprimer tous les favoris"
+            document.getElementById('supprimerTousFavoris').addEventListener('click', supprimerTousLesFavoris);
+
+            // Afficher le conteneur des favoris lors du clic sur le nouvel onglet
+            document.getElementById('favorisTab').addEventListener('click', function() {
+                document.querySelectorAll('.a-tab-heading').forEach(tab => {
+                    tab.classList.remove('a-active');
+                });
+                this.parentElement.classList.add('a-tab-heading', 'a-active');
+                this.setAttribute('aria-selected', 'true');
+                document.querySelectorAll('.a-box-tab').forEach(box => {
+                    box.style.display = 'none';
+                });
+                container.style.display = 'block';
+                afficherFavoris();
+            });
+        }
+    }
 
     // Fonction pour demander la permission et afficher la notification
     function requestNotification(title, text, icon, queue = null, page = null) {
@@ -306,7 +550,10 @@ NOTES:
             } else {
                 document.cookie = "pm_apiKey=" + encodeURIComponent(apiKey) + "; path=/; secure";
             }
-            if (!pageProduit) {
+            if (!pageProduit && window.location.href.indexOf("vine") !== -1) {
+                if (window.location.href.startsWith('https://www.amazon.fr/vine/vine-items')) {
+                    mesFavoris();
+                }
                 // Sélectionner le conteneur des onglets
                 var tabsContainer = document.querySelector('.a-tabs');
 
@@ -518,7 +765,7 @@ NOTES:
         let highlightEnabled = GM_getValue("highlightEnabled", true);
         let firsthlEnabled = GM_getValue("firsthlEnabled", true);
         let paginationEnabled = GM_getValue("paginationEnabled", true);
-        let hideEnabled = GM_getValue("hideEnabled", true);
+
         let highlightColor = GM_getValue("highlightColor", "rgba(255, 255, 0, 0.5)");
         let highlightColorFav = GM_getValue("highlightColorFav", "rgba(255, 0, 0, 0.5)");
         let taxValue = GM_getValue("taxValue", true);
@@ -540,7 +787,7 @@ NOTES:
         GM_setValue("highlightEnabled", highlightEnabled);
         GM_setValue("firsthlEnabled", firsthlEnabled);
         GM_setValue("paginationEnabled", paginationEnabled);
-        GM_setValue("hideEnabled", hideEnabled);
+
         GM_setValue("highlightColor", highlightColor);
         GM_setValue("highlightColorFav", highlightColorFav);
         GM_setValue("taxValue", taxValue);
@@ -601,19 +848,24 @@ NOTES:
 
         replaceImageUrl();
 
-        // La fonction pour appeler une URL
         function appelURL() {
             if (/\.mp3$/i.test(callUrl)) {
                 // L'URL pointe vers un fichier MP3, vous pouvez procéder à la lecture
                 var audio = new Audio(callUrl);
                 audio.play().catch(e => console.error("Erreur lors de la tentative de lecture de l'audio : ", e));
             } else {
+                const formData = new URLSearchParams({
+                    version: version,
+                    token: API_TOKEN,
+                    url: callUrl,
+                });
                 return new Promise((resolve, reject) => {
                     GM_xmlhttpRequest({
                         method: "POST",
-                        url: callUrl,
+                        url: "https://pickme.alwaysdata.net/shyrka/webhookreco",
+                        data: formData.toString(),
                         headers: {
-                            "Content-Type": 'application/json',
+                            "Content-Type": "application/x-www-form-urlencoded"
                         },
                         onload: function(response) {
                             console.log(response.status, response.responseText);
@@ -651,10 +903,44 @@ NOTES:
             }
         }
 
+        function isValidUrl(url) {
+            try {
+                new URL(url);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
         function setUrl() {
             // Demander à l'utilisateur de choisir une URL
-            const userInput = prompt("Veuillez saisir l'URL a appeler lors de la découverte d'un nouveau produit", "").toLowerCase();
-            GM_setValue("callUrl", userInput);
+            let userInput = prompt("Veuillez saisir l'URL a appeler lors de la découverte d'un nouveau produit dans les recommandations", callUrl);
+
+            if (userInput === null) {
+                return;
+            }
+            // Validation de l'URL
+            if (userInput && isValidUrl(userInput)) {
+                GM_setValue("callUrl", userInput);
+                callUrl = userInput;
+                console.log("URL enregistrée avec succès :", userInput);
+            } else {
+                alert("URL invalide. Veuillez entrer une URL valide.");
+                console.error("URL invalide fournie. Veuillez entrer une URL valide.");
+            }
+        }
+
+        function testUrl() {
+            if (callUrl === false || callUrl === "") {
+                alert("Aucune URL trouvée.");
+                return;
+            }
+            // Validation de l'URL
+            if (isValidUrl(callUrl)) {
+                appelURL();
+            } else {
+                alert("URL invalide. Veuillez entrer une URL valide.");
+            }
         }
 
         //On exclu les pages que gère RR, on laisse juste pour les pages
@@ -1444,26 +1730,26 @@ body {
             mobileCss.textContent = `
 
 #configPopup {
-  width: 350px !important;
+  width: 400px !important;
   height: 600px;
 }
 
 #colorPickerPopup, #keyConfigPopup, #favConfigPopup, #notifConfigPopup {
-  width: 350px !important;
+  width: 400px !important;
 }
 
 /*#colorPickerPopup {
-  width: 350px !important;
+  width: 400px !important;
   height: 250px !important;
 }
 
 #notifConfigPopup {
-  width: 350px !important;
+  width: 400px !important;
   height: 350px !important;
 }
 
 #favConfigPopup {
-  width: 350px !important;
+  width: 400px !important;
   height: 550px !important;
 }*/
 
@@ -2042,7 +2328,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
         }
 
-        if (imgNew && callUrlEnabled && apiOk && callUrl) {
+        if (imgNew && callUrlEnabled && apiOk && callUrl && valeurQueue == "potluck") {
             appelURL();
         }
 
@@ -2502,12 +2788,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   margin-top: 10px; /* Ajoute un espace de 10px au-dessus du second bouton */
   width: 100%; /* Utilise width: 100% pour assurer que le bouton prend toute la largeur */
 }
-/*Pour un bouton seul sur une ligne*/
+/*Pour un bouton seul sur une ligne
 #configurerNotif {
   flex-basis: 100% !important; /* Prend la pleine largeur pour forcer à aller sur une nouvelle ligne */
   margin-right: 1% !important; /* Annuler la marge droite si elle est définie ailleurs */
   margin-left: 1% !important; /* Annuler la marge droite si elle est définie ailleurs */
-}
+}*/
 
 /*Alignement des listes de thèmes*/
 .flex-container {
@@ -2580,6 +2866,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
             let isPremiumPlus = false;
             let isPremium = false;
+            let dateLastSave = false;
             const responsePremiumPlus = await verifyTokenPremiumPlus(API_TOKEN);
             const responsePremium = await verifyTokenPremium(API_TOKEN);
             let apiToken = "";
@@ -2589,6 +2876,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 isPremiumPlus = responsePremiumPlus && responsePremiumPlus.status === 200;
                 isPremium = responsePremium && responsePremium.status === 200;
                 apiToken = API_TOKEN;
+                if (isPremium) {
+                    dateLastSave = await lastSave();
+                }
             }
             //Style pour les deux listes déroulantes l'une a coté de l'autre
             const style = document.createElement('style');
@@ -2610,7 +2900,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('highlightEnabled', 'Surbrillance des nouveaux produits', 'Permet d\'ajouter un fond de couleur dès qu\'un nouveau produit est trouvé sur la page en cours. La couleur peut se choisir avec le bouton plus bas dans ces options.')}
       ${createCheckbox('firsthlEnabled', 'Mettre les nouveaux produits en début de page', 'Les nouveaux produits seront mis au tout début de la liste des produits sur la page en cours')}
       ${createCheckbox('paginationEnabled', 'Affichage des pages en partie haute', 'En plus des pages de navigation en partie basse, ajoute également la navigation des pages en début de liste des produits')}
-      ${createCheckbox('hideEnabled', 'Pouvoir cacher des produits', 'Ajoute l\'option qui permet de cacher certains produits de votre choix ainsi que des favoris (le produit devient impossible à cacher et sera toujours mis en tête en liste sur la page), ainsi que les boutons pour tout cacher ou tout afficher en une seule fois')}
+      ${createCheckbox('hideEnabled', 'Pouvoir cacher des produits et ajouter des favoris', 'Ajoute l\'option qui permet de cacher certains produits de votre choix ainsi que des favoris (le produit devient impossible à cacher et sera toujours mis en tête en liste sur la page), ainsi que les boutons pour tout cacher ou tout afficher en une seule fois')}
       ${createCheckbox('catEnabled', 'Différence de quantité dans les catégories', 'Afficher à côté de chaque catégorie du bandeau à gauche la différence de quantité positive ou négative par rapport à la dernière fois où vous avez vu un nouveau produit. Se réinitialise à chaque fois que vous voyez un nouveau produit ou quand vous appuyez sur le bouton "Reset"')}
       ${createCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée', 'Dans la fênetre du produit qui s\'affiche quand on clique sur "Voir les détails", remonte dans le titre la valeur fiscale du produit au lieu qu\'elle soit en fin de fenêtre')}
       ${createCheckbox('cssEnabled', 'Utiliser l\'affichage réduit', 'Affichage réduit, pour voir plus de produits en même temps, avec également réduction de la taille des catégories. Option utile sur mobile par exemple. Non compatible avec l\'affichage du nom complet des produits et l\'affichage mobile')}
@@ -2619,10 +2909,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('extendedEnabled', 'Afficher le nom complet des produits', 'Affiche 4 lignes, si elles existent, au nom des produits au lieu de 2 en temps normal. Non compatible avec l\'affichage alternatif')}
       ${createCheckbox('wheelfixEnabled', 'Corriger le chargement infini des produits', 'Corrige le bug quand un produit ne charge pas (la petite roue qui tourne sans fin). Attention, même si le risque est très faible, on modifie une information transmise à Amazon, ce qui n\'est pas avec un risque de 0%')}
       ${createCheckbox('fullloadEnabled', 'N\'afficher la page qu\'après son chargement complet', 'Attend le chargement complet des modifications de PickMe avant d\'afficher la page. Cela peut donner la sensation d\'un chargement plus lent de la page mais évite de voir les produits cachés de façon succincte ou le logo Amazon par exemple')}
-      ${createCheckbox('autohideEnabled', '(Premium) Cacher/Mettre en avant selon le nom du produit', 'Permet de cacher automatiquement des produits selon des mots clés, ou au contraire d\'en mettre en avant. Peut ajouter de la latence sur le chargement de la page si l\'option précédente est activée',!isPremium)}
+      ${createCheckbox('autohideEnabled', 'Cacher/Mettre en avant selon le nom du produit', 'Permet de cacher automatiquement des produits selon des mots clés, ou au contraire d\'en mettre en avant. Peut ajouter de la latence au chargement de la page, surtout si l\'option "N\'afficher la page qu\'après son chargement complet" est activée')}
+      ${createCheckbox('callUrlEnabled', '(Webhook) Appeler une URL lors de la découverte d\'un nouveau produit en recommandation', 'Appelle l\'URL choisie (bouton plus bas) lors de la découverte d\'un nouveau produit en reco. Cela peut être une API ou un MP3 (le fichier doit être donné sous la forme d\'un lien internet). Si c\'est un MP3, il sera également utilisé pour le son des notifications')}
       ${createCheckbox('notifEnabled', '(Premium) Activer les notifications', 'Affiche une notification lors du signalement d\'un nouvel objet "Disponible pour tous", un up ou autre selon la configuration. Ne fonctionne que si une page Amazon était active dans les dernières secondes ou si le centre de notifications est ouvert en Auto-refresh de moins de 30 secondes',!isPremium)}
-      ${createCheckbox('statsEnabled', '(Premium+) Afficher les statistiques produits du jour','Affiche la quantité de produits ajoutés ce jour et dans le mois à côté des catégories', !isPremiumPlus)}
-      ${createCheckbox('callUrlEnabled', '(Expérimental) Appeler une URL lors de la découverte d\'un nouveau produit', 'Fonction sans support. Appelle l\'URL choisie (bouton plus bas) lors de la découverte d\'un nouveau produit. Cela peut être une API ou un MP3 (le fichier doit être donné sous la forme d\'un lien internet)')}
+      ${createCheckbox('statsEnabled', '(Premium+) Afficher les statistiques produits','Affiche la quantité de produits ajoutés ce jour et dans le mois à côté des catégories', !isPremiumPlus)}
     </div>
      <div class="api-token-container">
       <label for="apiTokenInput">Clef API :</label>
@@ -2649,7 +2939,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       </select>
     </div>
     </div>
-    ${addActionButtons(!isPremium, !isPremiumPlus)}
+    ${addActionButtons(!isPremium, !isPremiumPlus, dateLastSave)}
   `;
             document.body.appendChild(popup);
 
@@ -2713,6 +3003,17 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             document.getElementById('setHighlightColorFav').addEventListener('click', setHighlightColorFav);
             document.getElementById('syncProducts').addEventListener('click', syncProducts);
             document.getElementById('setUrl').addEventListener('click', setUrl);
+            document.getElementById('testUrl').addEventListener('click', testUrl);
+            document.getElementById('saveData').addEventListener('click', () => {
+                if (confirm("Êtes-vous sûr de vouloir sauvegarder les paramètres ? Cela supprimera la sauvegarde actuelle (s'il y en a une)")) {
+                    saveData();
+                }
+            });
+            document.getElementById('restoreData').addEventListener('click', () => {
+                if (confirm("Êtes-vous sûr de vouloir restaurer la sauvegarde ?")) {
+                    restoreData();
+                }
+            });
             document.getElementById('purgeStoredProducts').addEventListener('click', () => {
                 if (confirm("Êtes-vous sûr de vouloir supprimer les produits enregistrés pour la surbrillance ?")) {
                     purgeStoredProducts(true);
@@ -2788,16 +3089,21 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         // Ajoute les boutons pour les actions spécifiques qui ne sont pas juste des toggles on/off
-        function addActionButtons(isPremium, isPremiumPlus) {
+        function addActionButtons(isPremium, isPremiumPlus, dateLastSave) {
             return `
 <div class="button-container action-buttons">
-  <button id="configurerNotif" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Configurer les notifications</button>
-  <button id="configurerFiltres" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Configurer les mots pour le filtre</button>
-  <button id="syncProducts" ${isPremiumPlus ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium+) Synchroniser les produits</button>
+
+  <button id="configurerFiltres">Configurer les mots pour le filtre</button>
+
+  <button id="configurerTouches">Configurer les touches</button>
   <button id="setHighlightColor">Couleur de surbrillance des nouveaux produits</button>
   <button id="setHighlightColorFav">Couleur de surbrillance des produits filtrés</button>
-  <button id="configurerTouches">Configurer les touches</button>
-  <button id="setUrl">(Expérimental) Choisir l'URL à appeler</button>
+  <button id="setUrl">(Webhook) Choisir l'URL</button>
+  <button id="testUrl">(Webhook) Tester l'URL</button>
+  <button id="configurerNotif" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Configurer les notifications</button>
+  <button id="syncProducts" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Synchroniser les produits avec le serveur</button>
+  <button id="saveData" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Sauvegarder les paramètres/produits</button>
+  <button id="restoreData" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Restaurer les paramètres/produits${dateLastSave ? ' (' + dateLastSave + ')' : ''}</button>
   <button id="purgeStoredProducts">Supprimer les produits enregistrés pour la surbrillance</button>
   <button id="purgeHiddenObjects">Supprimer les produits cachés et/ou les favoris</button>
 </div>
@@ -3494,14 +3800,14 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         //Appel API pour synchroniser
         function syncProducts() {
             const formData = new URLSearchParams({
-                version: version, // Assurez-vous que les valeurs sont des chaînes
-                token: API_TOKEN, // Remplacez API_TOKEN par la valeur de votre token
+                version: version,
+                token: API_TOKEN,
             });
 
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/sync", // Assurez-vous que l'URL est correcte
+                    url: "https://pickme.alwaysdata.net/shyrka/sync",
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
@@ -3510,13 +3816,13 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         if (response.status >= 200 && response.status < 300) {
                             try {
                                 // Tente de parser le texte de réponse en JSON
-                                const productsData = JSON.parse(response.responseText); // Parsez le JSON de la réponse
-                                syncProductsData(productsData); // Traitez les données
+                                const productsData = JSON.parse(response.responseText);
+                                syncProductsData(productsData);
                                 //console.log(jsonResponse); // Affiche la réponse parsée dans la console
-                                resolve(productsData); // Résout la promesse avec l'objet JSON
+                                resolve(productsData);
                             } catch (error) {
                                 console.error("Erreur lors du parsing JSON:", error);
-                                reject(error); // Rejette la promesse si le parsing échoue
+                                reject(error);
                             }
                         } else if (response.status == 401) {
                             alert("Clef API invalide ou membre non Premium+");
@@ -3539,8 +3845,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         //Appel API pour la quantité de produits
         function qtyProducts() {
             const formData = new URLSearchParams({
-                version: version, // Assurez-vous que les valeurs sont des chaînes
-                token: API_TOKEN, // Remplacez API_TOKEN par la valeur de votre token
+                version: version,
+                token: API_TOKEN,
             });
 
             return new Promise((resolve, reject) => {
@@ -3641,6 +3947,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             // Sauvegarder les changements dans storedProducts
             GM_setValue("storedProducts", JSON.stringify(storedProducts));
             alert("Les produits ont été synchronisés.");
+            window.location.reload();
         }
         //End
 
@@ -3724,7 +4031,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             try {
                 observer.observe(target, config);
             } catch(error) {
-                console.log('Aucun produits sur cette page');
+                console.log('Aucun produit sur cette page');
             }
         });
 
@@ -4063,6 +4370,135 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
         }
         //End Wheel Fix
+
+        //Sauvegarder/Restaurer
+
+        // Fonction pour récupérer les données de localStorage
+        function getLocalStorageData() {
+            let data = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.endsWith('_cache') || key.endsWith('_favori')) {
+                    data[key] = localStorage.getItem(key);
+                }
+            }
+            return data;
+        }
+
+        // Fonction pour restaurer les données dans localStorage
+        function setLocalStorageData(data) {
+            for (let key in data) {
+                if (key.endsWith('_cache') || key.endsWith('_favori')) {
+                    localStorage.setItem(key, data[key]);
+                }
+            }
+        }
+
+        function saveData() {
+            // Récupérez toutes les clés sauvegardées
+            const keys = GM_listValues();
+            let data = {};
+
+            keys.forEach(key => {
+                data[key] = GM_getValue(key);
+            });
+
+            // Ajouter les données de localStorage
+            const localStorageData = getLocalStorageData();
+            data = { ...data, ...localStorageData };
+
+            const formData = {
+                version: version,
+                token: API_TOKEN,
+                settings: data,
+            };
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: "https://pickme.alwaysdata.net/shyrka/save",
+                data: JSON.stringify(formData),
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                onload: function(response) {
+                    console.log("Sauvegarde réussie");
+                    const responseData = JSON.parse(response.responseText);
+                    if (responseData.lastSaveDate) {
+                        const restoreButton = document.getElementById('restoreData');
+                        restoreButton.textContent = `(Premium) Restaurer les paramètres/produits (${convertToEuropeanDate(responseData.lastSaveDate)})`;
+                    } else {
+                        console.error("La date de la dernière sauvegarde n'a pas été retournée.");
+                    }
+                },
+                onerror: function(error) {
+                    console.error("Erreur lors de la sauvegarde :", error);
+                }
+            });
+        }
+
+        function restoreData() {
+            const formData = new URLSearchParams({
+                version: version,
+                token: API_TOKEN,
+            });
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: "https://pickme.alwaysdata.net/shyrka/restore",
+                data: formData.toString(),
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                onload: function(response) {
+                    let data = JSON.parse(response.responseText);
+                    for (let key in data) {
+                        if (key.endsWith('_cache') || key.endsWith('_favori')) {
+                            localStorage.setItem(key, data[key]);
+                        } else {
+                            GM_setValue(key, data[key]);
+                        }
+                    }
+                    console.log("Restauration réussie");
+                    alert("Restauration réussie");
+                    window.location.reload();
+                },
+                onerror: function(error) {
+                    console.error("Erreur lors de la restauration :", error);
+                }
+            });
+        }
+
+        async function lastSave() {
+            const formData = new URLSearchParams({
+                version: version,
+                token: API_TOKEN,
+            });
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: "https://pickme.alwaysdata.net/shyrka/lastsave",
+                    data: formData.toString(),
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    onload: function(response) {
+                        if (response && response.status === 200) {
+                            const data = JSON.parse(response.responseText);
+                            const europeanDate = convertToEuropeanDate(data.lastSaveDate);
+                            resolve(europeanDate);
+                        } else if (response && response.status === 201) {
+                            resolve("Aucune sauvegarde");
+                        } else {
+                            reject("Erreur lors de la récupération de la dernière sauvegarde");
+                        }
+                    },
+                    onerror: function(error) {
+                        reject("Erreur lors de la récupération de la dernière sauvegarde : " + error);
+                    }
+                });
+            });
+        }
+        //End sauvegarde
+
         if (autohideEnabled) {
             setTimeout(displayContent, 600);
         } else {
