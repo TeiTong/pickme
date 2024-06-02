@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.7
+// @version      1.7.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -496,6 +496,13 @@ NOTES:
         };
     }
 
+    //Affichage de l'onglet "Favoris"
+    document.addEventListener("DOMContentLoaded", function() {
+        if (window.location.href.startsWith('https://www.amazon.fr/vine/vine-items')) {
+            mesFavoris();
+        }
+    });
+
     //Ecoute des messages entrants
     if (notifEnabled && apiKey) {
         var lastNotifId = null;
@@ -551,9 +558,6 @@ NOTES:
                 document.cookie = "pm_apiKey=" + encodeURIComponent(apiKey) + "; path=/; secure";
             }
             if (!pageProduit && window.location.href.indexOf("vine") !== -1) {
-                if (window.location.href.startsWith('https://www.amazon.fr/vine/vine-items')) {
-                    mesFavoris();
-                }
                 // Sélectionner le conteneur des onglets
                 var tabsContainer = document.querySelector('.a-tabs');
 
