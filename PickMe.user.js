@@ -108,10 +108,6 @@ NOTES:
         affiliateButton.style.backgroundColor = '#CC0033';
         affiliateButton.style.border = '1px solid white';
         affiliateButton.style.display = 'inline-block';
-        affiliateButton.style.justifyContent = 'center !important';
-        affiliateButton.style.alignItems = 'center !important';
-        affiliateButton.style.textAlign = 'center !important';
-        affiliateButton.style.display = 'flex';
         if (isAffiliateTagPresent()) {
             affiliateButton.innerText = 'Lien PickMe actif';
             affiliateButton.style.backgroundColor = 'green'; // Changez la couleur de fond en vert
