@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.8.1
+// @version      1.8.2
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -4102,26 +4102,35 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             });
         }
 
-        //Pour afficher les commandes et l'etv
-        function showOrdersCmd(data) {
+        //Pour afficher les commandes réussies ou non dans la liste des commandes
+        async function showOrdersCmd(data) {
             const items = document.querySelectorAll('.vvp-orders-table--row');
             if (items.length === 0) return;
 
-            items.forEach(item => {
+            for (const item of items) {
                 const imageElement = item.querySelector('.vvp-orders-table--image-col img');
                 let productLink = item.querySelector('.vvp-orders-table--text-col a');
                 let url;
+
                 if (!productLink) {
                     const asinElement = item.querySelector('.vvp-orders-table--text-col');
                     let asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
+                    const productInfo = await infoProduct(asin); // Assurez-vous que cette fonction retourne les informations nécessaires
+                    if (productInfo) {
+                        asinElement.childNodes[0].nodeValue = productInfo.title || asin;
+                        /*if (productInfo.main_image) {
+                            imageElement.src = productInfo.main_image;
+                        }*/
+                    }
                     url = "https://www.amazon.fr/dp/" + asin;
                 } else {
                     url = productLink.href;
                 }
-                if (!imageElement || !url) return;
+
+                if (!imageElement || !url) continue;
 
                 const orderData = data.find(d => d.url === url);
-                if (!orderData) return;
+                if (!orderData) continue;
 
                 const iconSources = {
                     success: "https://pickme.alwaysdata.net/img/orderok.png",
@@ -4146,8 +4155,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     imageElement.parentElement.appendChild(icon);
                     imageElement.parentElement.appendChild(count);
                 });
-            });
+            }
         }
+
 
         //Utilise les infos de RR pour avoir le nombre de commandes du jour
         function countOrdersToday() {
@@ -4932,9 +4942,14 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             // Récupérez toutes les clés sauvegardées
             const keys = GM_listValues();
             let data = {};
-
+            //On exclu les paramètres propres a un appareil, pour éviter d'avoir l'affichage mobile sur PC par exemple
+            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled'];
             keys.forEach(key => {
-                data[key] = GM_getValue(key);
+                if (!excludedKeys.includes(key)) {
+                    data[key] = GM_getValue(key);
+                } else {
+                    console.log(key);
+                }
             });
 
             // Ajouter les données de localStorage
