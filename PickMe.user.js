@@ -4109,10 +4109,17 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
             items.forEach(item => {
                 const imageElement = item.querySelector('.vvp-orders-table--image-col img');
-                const productLink = item.querySelector('.vvp-orders-table--text-col a');
-                if (!imageElement || !productLink) return;
+                let productLink = item.querySelector('.vvp-orders-table--text-col a');
+                let url;
+                if (!productLink) {
+                    const asinElement = item.querySelector('.vvp-orders-table--text-col');
+                    let asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
+                    url = "https://www.amazon.fr/dp/" + asin;
+                } else {
+                    url = productLink.href;
+                }
+                if (!imageElement || !url) return;
 
-                const url = productLink.href;
                 const orderData = data.find(d => d.url === url);
                 if (!orderData) return;
 
