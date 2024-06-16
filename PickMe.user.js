@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.7.2
+// @version      1.8
 // @description  Outils pour les membres du discord AVFR
-// @author       Ashemka et MegaMan (avec du code de lelouch_di_britannia, FMaz008 et Thorvarium)
+// @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @match        https://www.amazon.fr/vine/vine-reviews*
@@ -13,7 +13,7 @@
 // @match        https://www.amazon.fr/*
 // @match        https://pickme.alwaysdata.net/*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
-// @icon         https://i.ibb.co/Zd9vSZz/PM-ICO-2.png
+// @icon         https://pickme.alwaysdata.net/img/PM-ICO-2.png
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @downloadURL  https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @grant        GM_xmlhttpRequest
@@ -108,6 +108,10 @@ NOTES:
         affiliateButton.style.backgroundColor = '#CC0033';
         affiliateButton.style.border = '1px solid white';
         affiliateButton.style.display = 'inline-block';
+        affiliateButton.style.justifyContent = 'center !important';
+        affiliateButton.style.alignItems = 'center !important';
+        affiliateButton.style.textAlign = 'center !important';
+        affiliateButton.style.display = 'flex';
         if (isAffiliateTagPresent()) {
             affiliateButton.innerText = 'Lien PickMe actif';
             affiliateButton.style.backgroundColor = 'green'; // Changez la couleur de fond en vert
@@ -341,14 +345,14 @@ NOTES:
                     const urlProduct = "https://www.amazon.fr/dp/" + asin;
                     if (productInfo == "ASIN absent") {
                         tr.innerHTML = `
-                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://i.ibb.co/phYN0GT/Pas-d-image-disponible-svg.png"></td>
+                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png"></td>
                         <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Recommandation ou produit inconnu : ${asin}</a></td>
                         <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
                         <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
                     `;
                     } else if (!productInfo.main_image && productInfo.title) {
                         tr.innerHTML = `
-                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://i.ibb.co/phYN0GT/Pas-d-image-disponible-svg.png"></td>
+                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png"></td>
                         <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Produit indisponible : ${productInfo.title}</a></td>
                         <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
                         <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
@@ -789,10 +793,13 @@ NOTES:
         let statsEnabled = GM_getValue("statsEnabled", false);
         let extendedEnabled = GM_getValue("extendedEnabled", false);
         let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
-        let wheelfixEnabledBeta = GM_getValue("wheelfixEnabledBeta", false);
         let autohideEnabled = GM_getValue("autohideEnabled", false);
         let savedTheme = GM_getValue('selectedTheme', 'default');
         let savedButtonColor = GM_getValue('selectedButtonColor', 'default');
+        let fastCmdEnabled = GM_getValue('fastCmdEnabled', false);
+        let ordersEnabled = GM_getValue('ordersEnabled', true);
+        let ordersStatsEnabled = GM_getValue('ordersStatsEnabled', false);
+        let ordersInfos = GM_getValue('ordersInfos', false);
 
         // Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
@@ -811,10 +818,13 @@ NOTES:
         GM_setValue("statsEnabled", statsEnabled);
         GM_setValue("extendedEnabled", extendedEnabled);
         GM_setValue("wheelfixEnabled", wheelfixEnabled);
-        GM_setValue("wheelfixEnabledBeta", wheelfixEnabledBeta);
         GM_setValue("autohideEnabled", autohideEnabled);
         GM_setValue("selectedTheme", savedTheme);
         GM_setValue("selectedButtonColor", savedButtonColor);
+        GM_setValue("fastCmdEnabled", fastCmdEnabled);
+        GM_setValue("ordersEnabled", ordersEnabled);
+        GM_setValue("ordersStatsEnabled", ordersStatsEnabled);
+        GM_setValue("ordersInfos", ordersInfos);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -830,6 +840,12 @@ NOTES:
             toutAfficher = "Tout afficher";
         }
 
+        //On remplace le lien de l'onglet pour que tout se charge correctement
+        var lien = document.querySelector('#vvp-vine-items-tab a');
+        if (lien) {
+            lien.href = "https://www.amazon.fr/vine/vine-items?queue=last_chance";
+        }
+
         //On remplace l'image et son lien par notre menu
         function replaceImageUrl() {
             // Sélectionner le lien contenant l'image avec l'attribut alt "vine_logo_title"
@@ -840,7 +856,7 @@ NOTES:
                 // Sélectionner directement l'image à l'intérieur du lien
                 var img = link.querySelector('img');
                 // Remplacer l'URL de l'image
-                img.src = 'https://i.ibb.co/NC96JrP/PM.png';
+                img.src = 'https://pickme.alwaysdata.net/img/PM.png';
                 if (mobileEnabled || cssEnabled) {
                     img.style.maxHeight = '50px';
                     img.style.maxWidth = '100%';
@@ -1271,7 +1287,7 @@ NOTES:
                     etiquetteTemps.style.left = '5px'; // Position à gauche
                     etiquetteTemps.style.backgroundColor = 'rgba(255,255,255,0.7)';
                     etiquetteTemps.style.color = 'black';
-                    etiquetteTemps.style.padding = '2px 5px';
+                    etiquetteTemps.style.padding = '1px 2px';
                     etiquetteTemps.style.borderRadius = '5px';
                     etiquetteTemps.style.fontSize = '12px';
                     etiquetteTemps.style.whiteSpace = 'nowrap'; // Empêche le texte de passer à la ligne
@@ -1392,8 +1408,8 @@ NOTES:
             document.head.appendChild(style);
 
             //Icone pour cacher/montrer
-            const urlIcone = 'https://i.ibb.co/1R6HWMw/314858-hidden-eye-icon.png';
-            const urlIconeOeil = 'https://i.ibb.co/MNzxHrh/314859-eye-icon.png';
+            const urlIcone = 'https://pickme.alwaysdata.net/img/314858-hidden-eye-icon.png';
+            const urlIconeOeil = 'https://pickme.alwaysdata.net/img/314859-eye-icon.png';
             // Création des boutons avec le nouveau style
             const boutonVisibles = document.createElement('button');
             boutonVisibles.textContent = produitsVisibles;
@@ -1511,7 +1527,11 @@ NOTES:
 
                 const etatCache = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: true };
                 iconeOeil.setAttribute('src', etatCache.estCache ? urlIcone : urlIconeOeil);
-                iconeOeil.style.cssText = 'position: absolute; top: 0px; right: 5px; cursor: pointer; width: 35px; height: 35px; z-index: 10;';
+                if (cssEnabled || mobileEnabled) {
+                    iconeOeil.style.cssText = 'position: absolute; top: 0px; right: 1px; cursor: pointer; width: 35px; height: 35px; z-index: 10;';
+                } else {
+                    iconeOeil.style.cssText = 'position: absolute; top: 0px; right: 5px; cursor: pointer; width: 35px; height: 35px; z-index: 10;';
+                }
 
                 iconeOeil.addEventListener('click', () => {
                     const etatFavoriKey = asin + '_favori';
@@ -1531,10 +1551,8 @@ NOTES:
                     afficherProduits(!boutonCaches.classList.contains('active'));
                 });
 
-                //const urlIconeFavoriGris = 'https://i.ibb.co/H7LPnYS/coeurgris.png';
-                //const urlIconeFavoriRouge = 'https://i.ibb.co/kcdswPQ/coeurrouge.png';
-                const urlIconeFavoriGris = 'https://i.ibb.co/2cTkDm5/coeurgris2.png';
-                const urlIconeFavoriRouge = 'https://i.ibb.co/cxttfV7/coeurrouge2.png';
+                const urlIconeFavoriGris = 'https://pickme.alwaysdata.net/img/coeurgris2.png';
+                const urlIconeFavoriRouge = 'https://pickme.alwaysdata.net/img/coeurrouge2.png';
                 const iconeFavori = document.createElement('img');
 
                 const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey));
@@ -1543,9 +1561,9 @@ NOTES:
                 if (cssEnabled || mobileEnabled) {
                     //On test si le produit est nouveau
                     if (!storedProducts.hasOwnProperty(asin) || !highlightEnabled) {
-                        iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
+                        iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 4px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
                     } else {
-                        iconeFavori.style.cssText = 'position: absolute; top: 30px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
+                        iconeFavori.style.cssText = 'position: absolute; top: 30px; left: 4px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
                     }
                 } else {
                     iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
@@ -1622,6 +1640,19 @@ body {
 `
             document.head.appendChild(styleHeader);
         }
+        //Agrandir la fenetre des adresses
+        if (fastCmdEnabled && apiOk) {
+            var styleAddress = document.createElement('style');
+
+            styleAddress.textContent = `
+#a-popover-6 {
+    height: 480px !important;
+    width: 900px !important;
+}
+`
+            document.head.appendChild(styleAddress);
+        }
+
 
         //Pour monter la valeur de la taxe
         if (taxValue && apiOk) {
@@ -2131,7 +2162,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
 #vvp-browse-nodes-container:not(:hover) p,
 #vvp-browse-nodes-container:not(:hover) .parent-node,
-#vvp-browse-nodes-container:not(:hover) .child-node {
+#vvp-browse-nodes-container:not(:hover) .child-node,
+#vvp-browse-nodes-container:not(:hover) #info-container {
   display: none !important;
 }
 
@@ -2246,7 +2278,11 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         var baseURLCSS = 'https://pickme.alwaysdata.net/';
         //Thème
         if (savedTheme != "default") {
-            loadCSS(baseURLCSS + savedTheme + '-theme.css');
+            if (mobileEnabled) {
+                loadCSS(baseURLCSS + savedTheme + '-theme-mobile.css');
+            } else {
+                loadCSS(baseURLCSS + savedTheme + '-theme.css');
+            }
         }
         //Boutons
         if (savedTheme == "dark" && savedButtonColor == "default") {
@@ -2342,8 +2378,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         if (imgNew && callUrlEnabled && apiOk && callUrl && valeurQueue == "potluck") {
             appelURL();
         }
-
-        sendDatasToAPI(listElements);
+        if (listElements.length > 0) {
+            sendDatasToAPI(listElements);
+            if (ordersInfos && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
+                ordersPost(listElements);
+            }
+        }
 
         function resetEtMiseAJour() {
             imgNew = true;
@@ -2363,6 +2403,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 					width: 20px;
 					height: 20px;
 					vertical-align: middle;
+                    margin-right:2px;
 				}
 				.rotate-180 {
 					transform: rotate(180deg);
@@ -2376,21 +2417,21 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             document.head.appendChild(styleSheet);
 
             // Ajouter la flèche à la page
-            var imageUrl = "https://i.ibb.co/Jt13RLW/arrowyellowleft.png";
+            var imageUrl = "https://pickme.alwaysdata.net/img/arrowyellowleft.png";
             if (savedButtonColor == "blue") {
-                imageUrl = "https://i.ibb.co/hX9gBNn/arrowleft.png";
+                imageUrl = "https://pickme.alwaysdata.net/img/arrowleft.png";
             } else if (savedButtonColor == "black") {
-                imageUrl = "https://i.ibb.co/zQ5ZZNS/arrowdarkleft.png";
+                imageUrl = "https://pickme.alwaysdata.net/img/arrowdarkleft.png";
             } else if (savedButtonColor == "pink") {
-                imageUrl = "https://i.ibb.co/KyW983N/arrowpinkleft.png";
+                imageUrl = "https://pickme.alwaysdata.net/img/arrowpinkleft.png";
             } else if (savedButtonColor == "purple") {
-                imageUrl = "https://i.ibb.co/xS0D3J1/arrowpurpleleft.png";
+                imageUrl = "https://pickme.alwaysdata.net/img/arrowpurpleleft.png";
             } else if (savedButtonColor == "red") {
-                imageUrl = "https://i.ibb.co/z6fSv7J/arrowredleft.png";
+                imageUrl = "https://pickme.alwaysdata.net/img/arrowredleft.png";
             } else if (savedButtonColor == "green") {
-                imageUrl = "https://i.ibb.co/sKPqvST/arrowgreenleft.png";
+                imageUrl = "https://pickme.alwaysdata.net/img/arrowgreenleft.png";
             } else if (savedButtonColor == "orange") {
-                imageUrl = "https://i.ibb.co/Lh7KvtJ/arroworangeleft.png";
+                imageUrl = "https://pickme.alwaysdata.net/img/arroworangeleft.png";
             }
             const arrow = $('<img src="' + imageUrl + '" alt="Toggle Menu" id="toggle-arrow" class="arrow">');
 
@@ -2512,7 +2553,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         if (imgNew) {
             // Créer l'élément image
             const imageElement = document.createElement('img');
-            imageElement.src = 'https://i.ibb.co/qsNvMQx/new-10785605-2-2.png';
+            imageElement.src = 'https://pickme.alwaysdata.net/img/new-10785605-2-2.png';
             imageElement.style.cssText = 'height: 15px; width: 35px; margin-left: 10px; vertical-align: middle;';
 
             // Trouver l'élément après lequel insérer l'image
@@ -2921,9 +2962,13 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('wheelfixEnabled', 'Corriger le chargement infini des produits', 'Corrige le bug quand un produit ne charge pas (la petite roue qui tourne sans fin). Attention, même si le risque est très faible, on modifie une information transmise à Amazon, ce qui n\'est pas avec un risque de 0%')}
       ${createCheckbox('fullloadEnabled', 'N\'afficher la page qu\'après son chargement complet', 'Attend le chargement complet des modifications de PickMe avant d\'afficher la page. Cela peut donner la sensation d\'un chargement plus lent de la page mais évite de voir les produits cachés de façon succincte ou le logo Amazon par exemple')}
       ${createCheckbox('autohideEnabled', 'Cacher/Mettre en avant selon le nom du produit', 'Permet de cacher automatiquement des produits selon des mots clés, ou au contraire d\'en mettre en avant. Peut ajouter de la latence au chargement de la page, surtout si l\'option "N\'afficher la page qu\'après son chargement complet" est activée')}
+      ${createCheckbox('ordersEnabled', 'Afficher code erreur/Envoyer mes commandes', 'Afficher un code erreur quand une commande ne passe pas. Attention, cela envoi également vos commandes sur le serveur pour le besoin de certaines fonctions')}
+      ${createCheckbox('fastCmdEnabled', '(PC) Accélérer le processus de commandes', 'Met le focus sur le bouton pour commander (il suffira donc de faire "Entrée" pour valider) et agrandir la fenêtre contenant les fenêtres, ce qui alignera les boutons de validation des deux fenêtres si vous souhaitez cliquer')}
       ${createCheckbox('callUrlEnabled', '(Webhook) Appeler une URL lors de la découverte d\'un nouveau produit en recommandation', 'Appelle l\'URL choisie (bouton plus bas) lors de la découverte d\'un nouveau produit en reco. Cela peut être une API ou un MP3 (le fichier doit être donné sous la forme d\'un lien internet). Si c\'est un MP3, il sera également utilisé pour le son des notifications')}
       ${createCheckbox('notifEnabled', '(Premium) Activer les notifications', 'Affiche une notification lors du signalement d\'un nouvel objet "Disponible pour tous", un up ou autre selon la configuration. Ne fonctionne que si une page Amazon était active dans les dernières secondes ou si le centre de notifications est ouvert en Auto-refresh de moins de 30 secondes',!isPremium)}
+      ${createCheckbox('ordersInfos', '(Premium) Afficher l\'ETV et les informations de la communauté sur les commandes','Affiche l\'ETV du produit (si disponible) ainsi que le nombre de personnes ayant pu commander ou non le produit (rond vert : commande réussie, rond rouge : commande en erreur)', !isPremium)}
       ${createCheckbox('statsEnabled', '(Premium+) Afficher les statistiques produits','Affiche la quantité de produits ajoutés ce jour et dans le mois à côté des catégories', !isPremiumPlus)}
+      ${createCheckbox('ordersStatsEnabled', '(Premium+) Afficher le nombre de commandes du jour','Affiche le nombre de commandes passées sur la journée et le mois en cours', !isPremiumPlus)}
     </div>
      <div class="api-token-container">
       <label for="apiTokenInput">Clef API :</label>
@@ -2971,12 +3016,19 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 if (this.checked) {
                     document.getElementById('extendedEnabled').checked = false;
                     document.getElementById('cssEnabled').checked = false;
+                    document.getElementById('fastCmdEnabled').checked = false;
                 }
             });
 
             document.getElementById('extendedEnabled').addEventListener('change', function() {
                 if (this.checked) {
                     document.getElementById('cssEnabled').checked = false;
+                    document.getElementById('mobileEnabled').checked = false;
+                }
+            });
+
+            document.getElementById('fastCmdEnabled').addEventListener('change', function() {
+                if (this.checked) {
                     document.getElementById('mobileEnabled').checked = false;
                 }
             });
@@ -2991,16 +3043,34 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
             });
 
-            document.getElementById('wheelfixEnabled').addEventListener('change', function() {
+            document.getElementById('ordersStatsEnabled').addEventListener('change', function() {
+                var ordersEnabledCheckbox = document.getElementById('ordersEnabled');
                 if (this.checked) {
-                    // Demander à l'utilisateur s'il est sur mobile ou PC
-                    var wheelfixEnabledInfo = window.confirm("Souhaitez-vous utiliser la V2 du correctif ? (cela corrige plus de produits, mais avec plus de faux positifs, à utiliser si un produit n'est pas corriger avec le correctif classique)");
-
-                    // Utilisation de GM pour set la variable
-                    GM_setValue('wheelfixEnabledBeta', wheelfixEnabledInfo);
-                    wheelfixEnabledBeta = wheelfixEnabledInfo;
+                    ordersEnabledCheckbox.checked = true;
+                    ordersEnabledCheckbox.disabled = true;
+                } else {
+                    ordersEnabledCheckbox.disabled = false;
                 }
             });
+
+            function handleOrdersCheckboxes() {
+                var ordersEnabledCheckbox = document.getElementById('ordersEnabled');
+                var ordersStatsEnabledCheckbox = document.getElementById('ordersStatsEnabled');
+                var ordersInfosCheckbox = document.getElementById('ordersInfos');
+
+                if (ordersStatsEnabledCheckbox.checked || ordersInfosCheckbox.checked) {
+                    ordersEnabledCheckbox.checked = true;
+                    ordersEnabledCheckbox.disabled = true;
+                } else {
+                    ordersEnabledCheckbox.disabled = false;
+                }
+            }
+
+            document.getElementById('ordersStatsEnabled').addEventListener('change', handleOrdersCheckboxes);
+            document.getElementById('ordersInfos').addEventListener('change', handleOrdersCheckboxes);
+
+            // Initialiser l'état des cases à cocher au chargement de la page
+            handleOrdersCheckboxes();
 
             document.getElementById('closePopup').addEventListener('click', () => {
                 document.getElementById('configPopup').remove();
@@ -3774,9 +3844,43 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         //PickMe add
-        if (statsEnabled && apiOk && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
-            // Appeler la fonction pour afficher les stats
-            qtyProducts();
+        if (apiOk && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
+            // Appeler la fonction pour afficher les commandes
+            if (ordersStatsEnabled || statsEnabled) {
+                afficherInfos();
+            }
+        }
+
+        function afficherInfos() {
+            // Créer un tableau de promesses
+            const promises = [];
+
+            if (ordersStatsEnabled) {
+                // Ajouter qtyOrders() directement au tableau des promesses
+                const qtyOrdersPromise = qtyOrders();
+                promises.push(qtyOrdersPromise);
+
+                if (statsEnabled) {
+                    // Lancer qtyProducts après le lancement de qtyOrders, sans attendre sa résolution
+                    const qtyProductsPromise = qtyOrdersPromise.then(() => qtyProducts());
+                    promises.push(qtyProductsPromise);
+                }
+            } else if (statsEnabled) {
+                // Si ordersStatsEnabled est faux, lancer qtyProducts directement
+                promises.push(qtyProducts());
+            }
+
+            // Attendre que toutes les promesses soient résolues
+            Promise.all(promises).then(() => {
+                // Afficher le conteneur une fois que toutes les données sont disponibles
+                const infoContainer = document.getElementById('info-container');
+                if (infoContainer) {
+                    infoContainer.style.display = 'block';
+                }
+                //console.log("Toutes les informations ont été affichées.");
+            }).catch((error) => {
+                console.error("Erreur lors de l'affichage des informations:", error);
+            });
         }
 
         function sendDatasToAPI(data) {
@@ -3806,6 +3910,208 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     }
                 });
             });
+        }
+
+        function extractASIN(input) {
+            // Expression régulière pour identifier un ASIN dans une URL ou directement
+            const regex = /\/dp\/([A-Z0-9]{10})|([A-Z0-9]{10})/;
+            const match = input.match(regex);
+            if (match) {
+                return match[1] || match[2];
+            }
+            return null;
+        }
+
+        //Remonte les commandes sur le serveur, au cas ou on les a pas
+        function saveOrders() {
+            if (window.location.href.includes('orders')) {
+                // Extraction des données de chaque ligne de produit
+                document.querySelectorAll('.vvp-orders-table--row').forEach(row => {
+                    let productUrl = row.querySelector('.vvp-orders-table--text-col a');
+                    let asin;
+                    if (productUrl) {
+                        productUrl = productUrl.href;
+                        asin = extractASIN(productUrl);
+                    } else {
+                        const asinElement = row.querySelector('.vvp-orders-table--text-col');
+                        asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
+                    }
+                    const timestampElement = row.querySelector('[data-order-timestamp]');
+                    const date = new Date(parseInt(timestampElement.getAttribute('data-order-timestamp')));
+                    const year = date.getFullYear();
+                    const month = ('0' + (date.getMonth() + 1)).slice(-2); // les mois sont indexés à partir de 0
+                    const day = ('0' + date.getDate()).slice(-2);
+                    const hours = ('0' + date.getHours()).slice(-2);
+                    const minutes = ('0' + date.getMinutes()).slice(-2);
+                    const seconds = ('0' + date.getSeconds()).slice(-2);
+                    const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+                    const imageUrl = row.querySelector('.vvp-orders-table--image-col img').src;
+                    let productName = row.querySelector('.vvp-orders-table--text-col a .a-truncate-full')
+                    if (productName) {
+                        productName = productName.textContent.trim();
+                    } else {
+                        productName = "Indispo";
+                    }
+                    const etv = row.querySelector('.vvp-orders-table--text-col.vvp-text-align-right').textContent.trim();
+                    let formData = new URLSearchParams({
+                        version: version,
+                        token: API_TOKEN,
+                        asin: asin,
+                        date: formattedDate,
+                        etv: etv,
+                        imageUrl : imageUrl,
+                        title : productName,
+                    });
+                    return new Promise((resolve, reject) => {
+                        GM_xmlhttpRequest({
+                            method: "POST",
+                            url: "https://pickme.alwaysdata.net/shyrka/orderlist",
+                            data: formData.toString(),
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded"
+                            },
+                            onload: function(response) {
+                                if (response.status == 200) {
+                                    //resolve(response.responseText);
+                                } else {
+                                    //reject(`Error: ${response.status} ${response.statusText}`);
+                                }
+                            },
+                            onerror: function(error) {
+                                console.error(error);
+                                reject(error);
+                            }
+                        });
+                    });
+                });
+            }
+        }
+
+        if (ordersEnabled) {
+            saveOrders();
+        }
+
+        function ordersPost(data) {
+            const formData = new URLSearchParams({
+                version: version,
+                token: API_TOKEN,
+                urls: JSON.stringify(data),
+                queue: valeurQueue,
+            });
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: "https://pickme.alwaysdata.net/shyrka/asinsinfo",
+                    data: formData.toString(),
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    onload: function(response) {
+                        if (response.status == 200) {
+                            const productsData = JSON.parse(response.responseText);
+                            showOrders(productsData);
+                            resolve(productsData);
+                        } else {
+                            reject(`Error: ${response.status} ${response.statusText}`);
+                        }
+                    },
+                    onerror: function(error) {
+                        //console.error(error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+
+        //Pour afficher les commandes et l'etv
+        function showOrders(data) {
+            const items = document.querySelectorAll('.vvp-item-tile');
+            if (items.length === 0) return;
+
+            items.forEach(item => {
+                const asin = item.getAttribute('data-asin') || item.querySelector('.vvp-details-btn input').getAttribute('data-asin');
+                const url = "https://www.amazon.fr/dp/" + asin;
+                const orderData = data.find(d => d.url === url);
+                if (!orderData) return;
+
+                item.style.position = 'relative';
+
+                const iconSources = {
+                    success: "https://pickme.alwaysdata.net/img/orderok.png",
+                    error: "https://pickme.alwaysdata.net/img/ordererror.png"
+                };
+
+                const positions = mobileEnabled ? 'bottom: 50%;' : (cssEnabled ? 'bottom: 40%;' : 'bottom: 46%;');
+                const iconSize = mobileEnabled || cssEnabled ? '21px' : '28px';
+                const fontSize = mobileEnabled || cssEnabled ? '12px' : '14px';
+                const sidePadding = mobileEnabled || cssEnabled ? '3px' : '8px';
+
+                ['success', 'error'].forEach(type => {
+                    const icon = document.createElement('img');
+                    icon.setAttribute('src', iconSources[type]);
+                    icon.style.cssText = `position: absolute; ${positions} ${type === 'success' ? `left: ${sidePadding};` : `right: ${sidePadding};`} cursor: pointer; width: ${iconSize}; height: ${iconSize}; z-index: 10;`;
+
+                    const count = document.createElement('span');
+                    count.textContent = type === 'success' ? orderData.qty_orders_success : orderData.qty_orders_failed;
+                    count.style.cssText = `position: absolute; ${positions} ${type === 'success' ? `left: ${sidePadding};` : `right: ${sidePadding};`} width: ${iconSize}; height: ${iconSize}; display: flex; align-items: center; justify-content: center; font-size: ${fontSize}; font-weight: bold; z-index: 20;`;
+
+                    item.appendChild(icon);
+                    item.appendChild(count);
+                });
+
+                if (orderData.etv_real !== null) {
+                    const etvReal = document.createElement('div');
+                    etvReal.textContent = orderData.etv_real + "€";
+                    etvReal.style.cssText = `position: absolute; ${positions} left: 50%; transform: translateX(-50%); background-color: rgba(255, 255, 255, 0.7); color: ${orderData.etv_real === "0.00" ? 'red' : 'black'}; padding: 1px 2px; border-radius: 5px; font-size: 12px; white-space: nowrap; z-index: 20;`;
+
+                    item.appendChild(etvReal);
+                }
+            });
+        }
+
+        //Utilise les infos de RR pour avoir le nombre de commandes du jour
+        function countOrdersToday() {
+            const today = new Date().toLocaleDateString("fr-FR");
+            let count = 0;
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('order_')) {
+                    const order = JSON.parse(localStorage.getItem(key));
+                    if (order.orderDate === today) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function extractMonthYearFromDate(dateString) {
+            const [day, month, year] = dateString.split('/').map(part => parseInt(part, 10));
+            return { month: month - 1, year }; // mois est indexé à partir de 0 en JavaScript
+        }
+
+        //Utilise les infos de RR pour avoir le nombre de commandes du mois
+        function countOrdersThisMonth() {
+            const today = new Date();
+            const currentMonth = today.getMonth(); // 0-indexed month
+            const currentYear = today.getFullYear();
+            let count = 0;
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('order_')) {
+                    const order = JSON.parse(localStorage.getItem(key));
+                    if (order.orderDate) {
+                        const { month, year } = extractMonthYearFromDate(order.orderDate);
+                        if (month === currentMonth && year === currentYear) {
+                            count++;
+                        }
+                    }
+                }
+            }
+            return count;
         }
 
         //Appel API pour synchroniser
@@ -3898,37 +4204,154 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             });
         }
 
-        //Affichage des données reçu par l'API
+        //Affichage des données reçu par l'API, le délai est pour avoir le bon ordre d'affichage
         function qtyProductsData(productsData) {
-            // Trouve le conteneur où ajouter les informations
-            const container = document.getElementById('vvp-browse-nodes-container');
+            const infoContainer = createInfoContainer();
 
-            // Crée un nouveau div pour afficher les informations
-            const infoDiv = document.createElement('div');
-            infoDiv.style.padding = '0';
-            infoDiv.style.margin = '0';
+            // Trouve ou crée le div pour les produits
+            let productsDiv = document.getElementById('products-info');
+            if (!productsDiv) {
+                productsDiv = document.createElement('div');
+                productsDiv.id = 'products-info';
+                productsDiv.style.padding = '0';
+                productsDiv.style.margin = '0';
+                infoContainer.appendChild(productsDiv);
+            }
 
             // Ajoute les informations au div
-            infoDiv.innerHTML = `
+            productsDiv.innerHTML = `
         <p style="margin:0; font-weight: bold; text-decoration: underline;">Nouveaux produits :</p>
         <p style="margin:0;">Autres articles : ${productsData[0].ai}${productsData[0].ai_recent !== '0' ? `<span style="color: green;"> (+${productsData[0].ai_recent})</span>` : ''}</p>
         <p style="margin:0;">Disponible pour tous : ${productsData[0].afa}${productsData[0].afa_recent !== '0' ? `<span style="color: green;"> (+${productsData[0].afa_recent})</span>` : ''}</p>
         <p style="margin:0;">Total jour : ${productsData[0].total}</p>
-        <p style="margin:0; margin-bottom: 1em;">Total mois : ${productsData[0].total_month}</p>
+        <p style="margin:0;">Total mois : ${productsData[0].total_month}</p>
     `;
+        }
 
-            // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout"
-            if (container) {
-                const referenceNode = container.querySelector('p');
-                if (referenceNode) {
-                    // Insère le nouveau div dans le conteneur, sous le bouton "Afficher tout" si l'élément de référence existe
-                    container.insertBefore(infoDiv, referenceNode.nextSibling);
-                } else {
-                    // Si l'élément de référence n'existe pas, on peut choisir un autre comportement,
-                    // par exemple ajouter infoDiv à la fin du conteneur
-                    container.appendChild(infoDiv);
+        //Appel API pour commandes du jour
+        function qtyOrders() {
+            const formData = new URLSearchParams({
+                version: version,
+                token: API_TOKEN,
+            });
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: "https://pickme.alwaysdata.net/shyrka/qtyorders", // Assurez-vous que l'URL est correcte
+                    data: formData.toString(),
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    onload: function(response) {
+                        if (response.status >= 200 && response.status < 300) {
+                            try {
+                                // Tente de parser le texte de réponse en JSON
+                                const ordersData = JSON.parse(response.responseText); // Parsez le JSON de la réponse
+                                qtyOrdersData(ordersData); // Traitez les données
+                                //console.log(jsonResponse); // Affiche la réponse parsée dans la console
+                                resolve(ordersData); // Résout la promesse avec l'objet JSON
+                            } catch (error) {
+                                console.error("Erreur lors du parsing JSON:", error);
+                                reject(error); // Rejette la promesse si le parsing échoue
+                            }
+                        } else if (response.status == 401) {
+                            //alert("Token invalide ou membre non Premium+");
+                            console.log(response.status, response.responseText);
+                            resolve(response);
+                        } else {
+                            // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
+                            console.error("Erreur HTTP:", response.status, response.statusText);
+                            reject(new Error(`Erreur HTTP: ${response.status} ${response.statusText}`));
+                        }
+                    },
+                    onerror: function(error) {
+                        console.error("Erreur de requête:", error);
+                        reject(error); // Rejette la promesse en cas d'erreur de requête
+                    }
+                });
+            });
+        }
+
+        function detectTier() {
+            var silverElement = document.getElementById("vvp-silver-tier-label");
+            var goldElement = document.getElementById("vvp-gold-tier-label");
+            var tier;
+
+            if (silverElement && silverElement.textContent.includes("Argent")) {
+                tier = "silver";
+            } else if (goldElement && goldElement.textContent.includes("Or")) {
+                tier = "gold";
+            } else {
+                tier = null; // Pas de correspondance trouvée
+            }
+
+            return tier;
+        }
+
+        //Affichage des données reçu par l'API
+        function qtyOrdersData(ordersData) {
+            const infoContainer = createInfoContainer();
+
+            // Trouve ou crée le div pour les commandes
+            let ordersDiv = document.getElementById('orders-info');
+            if (!ordersDiv) {
+                ordersDiv = document.createElement('div');
+                ordersDiv.id = 'orders-info';
+                ordersDiv.style.padding = '0';
+                ordersDiv.style.margin = '0';
+                infoContainer.appendChild(ordersDiv);
+            }
+
+            //const ordersMonth = countOrdersThisMonth();
+            //const ordersToday = countOrdersToday();
+
+            // Détermine les valeurs à afficher
+            //const displayOrdersToday = ordersToday > ordersData.qty_orders_today ? ordersToday : ordersData.qty_orders_today;
+            //const displayOrdersMonth = ordersMonth > ordersData.qty_orders_month ? ordersMonth : ordersData.qty_orders_month;
+            var tier = detectTier();
+            // Détermine le suffixe basé sur le tier
+            const suffix = tier === 'gold' ? '/8' : '/3';
+            const displayOrdersTodayWithSuffix = `${ordersData.qty_orders_today}${suffix}`;
+            // Ajoute les informations au div
+            ordersDiv.innerHTML = `
+        <p style="margin:0; font-weight: bold; text-decoration: underline;">Mes commandes</p>
+        <p style="margin:0;">Aujourd'hui : ${displayOrdersTodayWithSuffix}</p>
+        <p style="margin:0; ${statsEnabled ? 'margin-bottom: 1em;' : ''}">Mois en cours : ${ordersData.qty_orders_month}</p>
+    `;
+        }
+
+        //Conteneur des stats premium+
+        function createInfoContainer() {
+            // Trouve le conteneur principal
+            const container = document.getElementById('vvp-browse-nodes-container');
+
+            // Crée un conteneur parent pour les informations s'il n'existe pas
+            let infoContainer = document.getElementById('info-container');
+            if (!infoContainer) {
+                infoContainer = document.createElement('div');
+                infoContainer.id = 'info-container';
+                infoContainer.style.border = '3px solid #ccc';
+                infoContainer.style.padding = '10px';
+                infoContainer.style.marginTop = '10px';
+                infoContainer.style.marginBottom = '10px';
+                infoContainer.style.display = 'none';
+                infoContainer.style.width = 'fit-content';
+                infoContainer.style.whiteSpace = 'nowrap';
+                infoContainer.style.borderRadius = '10px';
+
+                // Insère le conteneur au bon endroit, sous le bouton "Afficher tout"
+                if (container) {
+                    const referenceNode = container.querySelector('p');
+                    if (referenceNode) {
+                        container.insertBefore(infoContainer, referenceNode.nextSibling);
+                    } else {
+                        container.appendChild(infoContainer);
+                    }
                 }
             }
+
+            return infoContainer;
         }
 
         //Ajout des données reçu par l'API pour synchroniser
@@ -4027,16 +4450,20 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 var isModalHidden = (document.querySelector("a#vvp-product-details-modal--product-title").style.visibility === 'hidden') ? true : false;
 
                 if (hasError || queueType == null || queueType == "potluck" || window.location.href.includes('?search')) {
-                    // Hide the Share button; no need to show it when there are errors
+                    //Cacher le bouton si reco, reco ou autres
                     document.querySelector("button.a-button-discord").style.display = 'none';
                 } else if (wasPosted === queueType) {
-                    // Product was already posted from the same queue before
+                    //Produit déjà posté
                     updateButtonIcon(4);
                 } else if (!isModalHidden) {
                     updateButtonIcon(0);
-                    document.querySelector("button.a-button-discord").addEventListener("click", buttonHandler);
                 }
-
+                if (fastCmdEnabled) {
+                    document.querySelector("button.a-button-discord").addEventListener("click", buttonHandler);
+                    focusButton('input.a-button-input[aria-labelledby="vvp-product-details-modal--request-btn-announce"]', 0);
+                    // Mettre le focus sur le bouton "Envoyer à cette adresse"
+                    observeShippingModal();
+                }
             });
 
             try {
@@ -4044,8 +4471,75 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             } catch(error) {
                 console.log('Aucun produit sur cette page');
             }
-        });
 
+            function focusButton(selector, timeout = 300) {
+                var button = document.querySelector(selector);
+                if (button && document.activeElement !== button) {
+                    // Faire défiler pour s'assurer que le bouton est visible
+                    button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Attendre un court instant avant de mettre le focus
+                    setTimeout(function () {
+                        // Mettre le focus sur le bouton
+                        button.focus();
+                        // Forcer le focus si nécessaire
+                        if (document.activeElement !== button) {
+                            button.setAttribute('tabindex', '-1'); // Rendre le bouton focusable si ce n'est pas déjà le cas
+                            button.focus();
+                        }
+                    }, timeout);
+                }
+            }
+
+            function observeShippingModal() {
+                var shippingModalTarget = document.querySelector("#vvp-shipping-address-modal");
+
+                if (shippingModalTarget) {
+                    var shippingObserver = new MutationObserver(function (mutations) {
+                        focusButton('input.a-button-input[aria-labelledby="vvp-shipping-address-modal--submit-btn-announce"]');
+                    });
+
+                    var shippingConfig = {
+                        characterData: false,
+                        attributes: true,
+                        childList: false,
+                        subtree: false
+                    };
+
+                    try {
+                        shippingObserver.observe(shippingModalTarget, shippingConfig);
+                    } catch (error) {
+                        console.log('Erreur lors de l\'observation du modal de l\'adresse d\'expédition');
+                    }
+                }
+            }
+
+            /*function observeShippingModal() {
+                var shippingModalObserver = new MutationObserver(function (mutations) {
+                    mutations.forEach(function (mutation) {
+                        if (mutation.addedNodes.length > 0) {
+                            mutation.addedNodes.forEach(function (node) {
+                                if (node.nodeType === 1 && node.matches('#vvp-shipping-address-modal--submit-btn')) {
+                                    // Focus sur le bouton "Envoyer à cette adresse"
+                                    focusButton('input.a-button-input[aria-labelledby="vvp-shipping-address-modal--submit-btn-announce"]');
+                                }
+                            });
+                        }
+                    });
+                });
+
+                var shippingModalTarget = document.querySelector("#vvp-shipping-address-modal");
+
+                if (shippingModalTarget) {
+                    shippingModalObserver.observe(shippingModalTarget, {
+                        childList: true,
+                        subtree: true
+                    });
+                } else {
+                    console.log('Le modal d\'adresse d\'expédition n\'a pas été trouvé');
+                }
+            }*/
+
+        });
 
         //Afficher le nom complet du produit
         if (extendedEnabled && apiOk) {
@@ -4076,221 +4570,172 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         //Wheel Fix
-        if (wheelfixEnabled && apiOk) {
-            if (wheelfixEnabledBeta) {
+        if (apiOk) {
+            if (wheelfixEnabled || ordersEnabled) {
                 const origFetch = window.fetch;
-                var extHelper_LastParentVariant = null;
-                var extHelper_responseData = {};
-                var extHelper_postData = {};
-
+                var lastParentVariant = null;
+                var responseData = {};
+                var postData = {};
                 unsafeWindow.fetch = async (...args) => {
                     let response = await origFetch(...args);
-                    let lastParent = extHelper_LastParentVariant;
+                    let lastParent = lastParentVariant;
                     let regex = null;
 
                     const url = args[0] || "";
-                    if (url.startsWith("api/voiceOrders")) {
-                        extHelper_postData = JSON.parse(args[1].body);
-                        const asin = extHelper_postData.itemAsin;
+                    if (ordersEnabled) {
+                        if (url.startsWith("api/voiceOrders")) {
+                            postData = JSON.parse(args[1].body);
+                            const asin = postData.itemAsin;
 
-                        try {
-                            extHelper_responseData = await response.clone().json();
-                        } catch (e) {
-                            console.error(e);
-                        }
+                            try {
+                                responseData = await response.clone().json();
+                            } catch (e) {
+                                console.error(e);
+                            }
 
-                        if (lastParent != null) {
-                            regex = /^.+?#(.+?)#.+$/;
-                            lastParent = extHelper_LastParentVariant.recommendationId.match(regex)[1];
-                        }
+                            if (lastParent != null) {
+                                regex = /^.+?#(.+?)#.+$/;
+                                lastParent = lastParentVariant.recommendationId.match(regex)[1];
+                            }
 
-                        let data = {
-                            status: "success",
-                            error: null,
-                            parent_asin: lastParent,
-                            asin: asin,
-                        };
-                        if (extHelper_responseData.error !== null) {
-                            data = {
-                                status: "failed",
-                                error: extHelper_responseData.error, //CROSS_BORDER_SHIPMENT, SCHEDULED_DELIVERY_REQUIRED, ITEM_NOT_IN_ENROLLMENT
+                            let formData = new URLSearchParams({
+                                version: version,
+                                token: API_TOKEN,
                                 parent_asin: lastParent,
                                 asin: asin,
-                            };
+                                queue: valeurQueue,
+                                success: "success",
+                            });
+                            if (responseData.error !== null) {
+                                formData = new URLSearchParams({
+                                    version: version,
+                                    token: API_TOKEN,
+                                    parent_asin: lastParent,
+                                    asin: asin,
+                                    queue: valeurQueue,
+                                    success: "failed",
+                                    reason: responseData.error, //CROSS_BORDER_SHIPMENT, SCHEDULED_DELIVERY_REQUIRED, ITEM_NOT_IN_ENROLLMENT, ITEM_ALREADY_ORDERED
+                                });
+                                // Sélectionner tous les éléments avec la classe "a-alert-content"
+                                var alertContents = document.querySelectorAll('.a-alert-content');
+
+                                // Texte à ajouter en gras avec un retour à la ligne avant
+                                var texteAAjouter = "<br><strong> (PickMe) Code erreur  : " + responseData.error + "</strong>";
+
+                                // Parcourir tous les éléments sélectionnés
+                                alertContents.forEach(function(alertContent) {
+                                    // Ajouter le texte après le contenu actuel
+                                    alertContent.innerHTML += texteAAjouter;
+                                });
+                            }
+
+                            GM_xmlhttpRequest({
+                                method: "POST",
+                                url: "https://pickme.alwaysdata.net/shyrka/order",
+                                data: formData.toString(),
+                                headers: {
+                                    "Content-Type": "application/x-www-form-urlencoded"
+                                },
+                            });
+
+                            //Wait 500ms following an order to allow for the order report query to go through before the redirect happens.
+                            await new Promise((r) => setTimeout(r, 500));
+                            return response;
                         }
-
-                        window.postMessage(
-                            {
-                                type: "order",
-                                data,
-                            },
-                            "*"
-                        );
-
-                        //Wait 500ms following an order to allow for the order report query to go through before the redirect happens.
-                        await new Promise((r) => setTimeout(r, 500));
-                        return response;
                     }
 
                     regex = /^api\/recommendations\/.*$/;
                     if (url.startsWith("api/recommendations")) {
                         try {
-                            extHelper_responseData = await response.clone().json();
+                            responseData = await response.clone().json();
                         } catch (e) {
                             console.error(e);
                         }
 
-                        let { result, error } = extHelper_responseData;
+                        let { result, error } = responseData;
 
                         if (result === null) {
-                            if (error?.exceptionType) {
-                                window.postMessage(
-                                    {
-                                        type: "error",
-                                        data: {
-                                            error: error.exceptionType,
-                                        },
-                                    },
-                                    "*"
-                                );
-                            }
                             return response;
                         }
 
-                        // Find if the item is a parent
                         if (result.variations !== undefined) {
                             //The item has variations and so is a parent, store it for later interceptions
-                            extHelper_LastParentVariant = result;
+                            lastParentVariant = result;
                         } else if (result.taxValue !== undefined) {
                             // The item has an ETV value, let's find out if it's a child or a parent
                             const isChild = !!lastParent?.variations?.some((v) => v.asin == result.asin);
-                            let data = {
-                                parent_asin: null,
-                                asin: result.asin,
-                                etv: result.taxValue,
-                            };
+                            var asinData = result.asin;
+                            //On test si le produit a des variantes, on récupère le parent pour notre base de données
                             if (isChild) {
                                 regex = /^.+?#(.+?)#.+$/;
                                 let arrMatchesP = lastParent.recommendationId.match(regex);
-                                data.parent_asin = arrMatchesP[1];
-                            } else {
-                                extHelper_LastParentVariant = null;
+                                asinData = arrMatchesP[1];
                             }
-                            window.postMessage(
-                                {
-                                    type: "etv",
-                                    data,
-                                },
-                                "*"
-                            );
+                            var formDataETV = new URLSearchParams({
+                                version: version,
+                                token: API_TOKEN,
+                                asin: asinData,
+                                etv: result.taxValue,
+                                queue: valeurQueue,
+                            });
+                            if (ordersEnabled) {
+                                GM_xmlhttpRequest({
+                                    method: "POST",
+                                    url: "https://pickme.alwaysdata.net/shyrka/etv",
+                                    data: formDataETV.toString(),
+                                    headers: {
+                                        "Content-Type": "application/x-www-form-urlencoded"
+                                    },
+                                });
+                            }
                         }
-
-                        let fixed = 0;
-                        result.variations = result.variations?.map((variation) => {
-                            if (Object.keys(variation.dimensions || {}).length === 0) {
-                                variation.dimensions = {
-                                    asin_no: variation.asin,
-                                };
-                                fixed++;
-                                return variation;
-                            }
-                            var newValue;
-                            for (const key in variation.dimensions) {
-                                // The core of the issue is when a special character is at the end of a variation, the jQuery UI which amazon uses will attempt to evaluate it and fail since it attempts to utilize it as part of an html attribute.
-                                // In order to resolve this, we make the string safe for an html attribute by escaping the special characters.
-                                if (!variation.dimensions[key].match(/[a-z0-9]$/i)) {
-                                    variation.dimensions[key] = variation.dimensions[key] + ` VH${fixed}`;
-                                    fixed++;
-                                }
-
-                                // Any variation with a : or ) without a space after will crash, ensure : always has a space after.
-                                newValue = variation.dimensions[key].replace(/([:)])([^\s])/g, "$1 $2");
-                                if (newValue !== variation.dimensions[key]) {
-                                    variation.dimensions[key] = newValue;
-                                    fixed++;
-                                }
-
-                                // Any variation with a / with a space before it will crash, remove the space before.
-                                newValue = variation.dimensions[key].replace(/(\s[/])/g, "/");
-                                if (newValue !== variation.dimensions[key]) {
-                                    variation.dimensions[key] = newValue;
-                                    fixed++;
-                                }
-                            }
-
-                            return variation;
-                        });
-
-                        if (fixed > 0) {
-                            showMagicStars();
-                        }
-
-                        return new Response(JSON.stringify(extHelper_responseData));
-                    }
-
-                    return response;
-                };
-            } else {
-                const origFetch = window.fetch;
-                var interceptor_LastParentVariant = null;
-                var interceptor_responseData = {};
-                var interceptor_postData = {};
-
-                unsafeWindow.fetch = async (...args) => {
-                    let response = await origFetch(...args);
-                    let lastParent = interceptor_LastParentVariant;
-                    let regex = null;
-
-                    regex = /^api\/recommendations\/.*$/;
-                    if (regex.test(args[0])) {
-                        await response
-                            .clone()
-                            .json()
-                            .then(function (data) {
-                            interceptor_responseData = data;
-                        })
-                            .catch((err) => console.error(err));
-
-                        if (interceptor_responseData.result.variations !== undefined) {
-                            let variations = interceptor_responseData.result.variations;
+                        if (wheelfixEnabled) {
                             let fixed = 0;
-                            for (let i = 0; i < variations.length; ++i) {
-                                let value = variations[i];
-                                if (isObjectEmpty(value.dimensions)) {
-                                    interceptor_responseData.result.variations[i].dimensions = {
-                                        asin_no: value.asin,
+                            result.variations = result.variations?.map((variation) => {
+                                if (Object.keys(variation.dimensions || {}).length === 0) {
+                                    variation.dimensions = {
+                                        asin_no: variation.asin,
                                     };
                                     fixed++;
+                                    return variation;
                                 }
-                            }
 
-                            for (let i = 0; i < variations.length; ++i) {
-                                let variation = variations[i];
-                                let before = "";
-                                let arrKeys = Object.keys(variation.dimensions);
-                                for (let j = 0; j < arrKeys.length; j++) {
-                                    before = variation.dimensions[arrKeys[j]];
-                                    variation.dimensions[arrKeys[j]] = variation.dimensions[arrKeys[j]].replace(/[)(:\[\]&]/g, "");
+                                for (const key in variation.dimensions) {
+                                    // Échapper les caractères spéciaux
+                                    variation.dimensions[key] = variation.dimensions[key]
+                                        .replace(/&/g, "&amp;")
+                                        .replace(/</g, "&lt;")
+                                        .replace(/>/g, "&gt;")
+                                        .replace(/"/g, "&quot;")
+                                        .replace(/'/g, "&#039;");
 
-                                    if (before != variation.dimensions[arrKeys[j]]) {
+                                    // Ajout de VH{fixed} si le dernier caractère n'est pas alphanumérique
+                                    if (!variation.dimensions[key].match(/[a-z0-9]$/i)) {
+                                        //variation.dimensions[key] = variation.dimensions[key] + ` VH${fixed}`;
+                                        variation.dimensions[key] = variation.dimensions[key];
                                         fixed++;
                                     }
+
+                                    // Ajout d'un espace après ':' ou ')' si nécessaire
+                                    variation.dimensions[key] = variation.dimensions[key].replace(/([:)])([^\s])/g, "$1 $2");
+
+                                    // Suppression de l'espace avant un '/'
+                                    variation.dimensions[key] = variation.dimensions[key].replace(/(\s[/])/g, "/");
                                 }
-                            }
+
+                                return variation;
+                            });
 
                             if (fixed > 0) {
-                                // Déclencher l'animation
                                 showMagicStars();
                             }
-                        }
 
-                        return new Response(JSON.stringify(interceptor_responseData));
-                    } else {
-                        return response;
+                            return new Response(JSON.stringify(responseData));
+                        }
                     }
+                    return response;
                 };
             }
-
 
             function showMagicStars() {
                 var style = document.createElement('style');
@@ -4383,7 +4828,6 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         //End Wheel Fix
 
         //Sauvegarder/Restaurer
-
         // Fonction pour récupérer les données de localStorage
         function getLocalStorageData() {
             let data = {};
