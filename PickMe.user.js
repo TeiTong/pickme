@@ -4116,7 +4116,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     const asinElement = item.querySelector('.vvp-orders-table--text-col');
                     let asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
                     const productInfo = await infoProduct(asin);
-                    if (productInfo) {
+                    if (productInfo && productInfo.title) {
                         asinElement.childNodes[0].nodeValue = "(" + asin + ") " + productInfo.title || asin;
                     }
                     url = "https://www.amazon.fr/dp/" + asin;
