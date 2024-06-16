@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.8
+// @version      1.8.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -3921,6 +3921,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         //Remonte les commandes sur le serveur, au cas ou on les a pas
         function saveOrders() {
             if (window.location.href.includes('orders')) {
+                const listASINS = [];
                 // Extraction des données de chaque ligne de produit
                 document.querySelectorAll('.vvp-orders-table--row').forEach(row => {
                     let productUrl = row.querySelector('.vvp-orders-table--text-col a');
@@ -3932,6 +3933,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         const asinElement = row.querySelector('.vvp-orders-table--text-col');
                         asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
                     }
+                    //On ajoute chaque asin à la liste pour appeler les infos de commandes
+                    listASINS.push("https://www.amazon.fr/dp/" + asin);
                     const timestampElement = row.querySelector('[data-order-timestamp]');
                     const date = new Date(parseInt(timestampElement.getAttribute('data-order-timestamp')));
                     const year = date.getFullYear();
@@ -3980,6 +3983,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         });
                     });
                 });
+                ordersPostCmd(listASINS);
             }
         }
 
@@ -4007,6 +4011,38 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         if (response.status == 200) {
                             const productsData = JSON.parse(response.responseText);
                             showOrders(productsData);
+                            resolve(productsData);
+                        } else {
+                            reject(`Error: ${response.status} ${response.statusText}`);
+                        }
+                    },
+                    onerror: function(error) {
+                        //console.error(error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+
+        function ordersPostCmd(data) {
+            const formData = new URLSearchParams({
+                version: version,
+                token: API_TOKEN,
+                urls: JSON.stringify(data),
+            });
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: "https://pickme.alwaysdata.net/shyrka/asinsinfocmd",
+                    data: formData.toString(),
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    onload: function(response) {
+                        if (response.status == 200) {
+                            const productsData = JSON.parse(response.responseText);
+                            showOrdersCmd(productsData);
                             resolve(productsData);
                         } else {
                             reject(`Error: ${response.status} ${response.statusText}`);
@@ -4063,6 +4099,46 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
                     item.appendChild(etvReal);
                 }
+            });
+        }
+
+        //Pour afficher les commandes et l'etv
+        function showOrdersCmd(data) {
+            const items = document.querySelectorAll('.vvp-orders-table--row');
+            if (items.length === 0) return;
+
+            items.forEach(item => {
+                const imageElement = item.querySelector('.vvp-orders-table--image-col img');
+                const productLink = item.querySelector('.vvp-orders-table--text-col a');
+                if (!imageElement || !productLink) return;
+
+                const url = productLink.href;
+                const orderData = data.find(d => d.url === url);
+                if (!orderData) return;
+
+                const iconSources = {
+                    success: "https://pickme.alwaysdata.net/img/orderok.png",
+                    error: "https://pickme.alwaysdata.net/img/ordererror.png"
+                };
+
+                const positions = mobileEnabled ? 'bottom: 10%;' : 'bottom: 10%;';
+                const iconSize = mobileEnabled ? '28px' : '28px';
+                const fontSize = mobileEnabled ? '14px' : '14px';
+                const sidePadding = mobileEnabled ? '30%' : '8px';
+
+                ['success', 'error'].forEach(type => {
+                    const icon = document.createElement('img');
+                    icon.setAttribute('src', iconSources[type]);
+                    icon.style.cssText = `position: absolute; ${positions} ${type === 'success' ? `left: ${sidePadding};` : `right: ${sidePadding};`} cursor: pointer; width: ${iconSize}; height: ${iconSize}; z-index: 10;`;
+
+                    const count = document.createElement('span');
+                    count.textContent = type === 'success' ? orderData.qty_orders_success : orderData.qty_orders_failed;
+                    count.style.cssText = `position: absolute; ${positions} ${type === 'success' ? `left: ${sidePadding};` : `right: ${sidePadding};`} width: ${iconSize}; height: ${iconSize}; display: flex; align-items: center; justify-content: center; font-size: ${fontSize}; font-weight: bold; z-index: 20;`;
+
+                    imageElement.parentElement.style.position = 'relative';
+                    imageElement.parentElement.appendChild(icon);
+                    imageElement.parentElement.appendChild(count);
+                });
             });
         }
 
