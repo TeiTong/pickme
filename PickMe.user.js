@@ -4115,12 +4115,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 if (!productLink) {
                     const asinElement = item.querySelector('.vvp-orders-table--text-col');
                     let asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
-                    const productInfo = await infoProduct(asin); // Assurez-vous que cette fonction retourne les informations nécessaires
+                    const productInfo = await infoProduct(asin);
                     if (productInfo) {
-                        asinElement.childNodes[0].nodeValue = productInfo.title || asin;
-                        /*if (productInfo.main_image) {
-                            imageElement.src = productInfo.main_image;
-                        }*/
+                        asinElement.childNodes[0].nodeValue = "(" + asin + ") " + productInfo.title || asin;
                     }
                     url = "https://www.amazon.fr/dp/" + asin;
                 } else {
