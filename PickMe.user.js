@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.8.3
+// @version      1.8.4
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -769,10 +769,10 @@ NOTES:
 
         var version = GM_info.script.version;
 
-        (GM_getValue("config")) ? GM_getValue("config") : GM_setValue("config", {}); // initialize the list of items that were posted to Discord
+        (GM_getValue("config")) ? GM_getValue("config") : GM_setValue("config", {});
 
         //PickMe add
-        // Initialiser ou lire la configuration existante
+        //Initialiser ou lire la configuration existante
         let highlightEnabled = GM_getValue("highlightEnabled", true);
         let firsthlEnabled = GM_getValue("firsthlEnabled", true);
         let paginationEnabled = GM_getValue("paginationEnabled", true);
@@ -1766,7 +1766,6 @@ body {
             var mobileCss = document.createElement('style');
 
             mobileCss.textContent = `
-
 #configPopup {
   width: 400px !important;
   height: 600px;
@@ -2083,6 +2082,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 }
 
 /* PRODUCT MODAL */
+.vvp-modal-footer #vvp-product-details-modal--back-btn,
+.vvp-modal-footer .a-button-discord,
+.vvp-modal-footer #vvp-product-details-modal--request-btn {
+    margin-bottom: 10px;
+}
+
 .a-popover.a-popover-modal.a-declarative.a-popover-modal-fixed-height {
   height: calc(100% - 100px) !important;
   width: 100% !important;
@@ -2147,7 +2152,6 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 }
 
 /* COLLAPSABLE CATEGORIES */
-
 .vvp-items-container {
   margin: 0rem !important;
 }
@@ -2958,7 +2962,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('wheelfixEnabled', 'Corriger le chargement infini des produits', 'Corrige le bug quand un produit ne charge pas (la petite roue qui tourne sans fin). Attention, même si le risque est très faible, on modifie une information transmise à Amazon, ce qui n\'est pas avec un risque de 0%')}
       ${createCheckbox('fullloadEnabled', 'N\'afficher la page qu\'après son chargement complet', 'Attend le chargement complet des modifications de PickMe avant d\'afficher la page. Cela peut donner la sensation d\'un chargement plus lent de la page mais évite de voir les produits cachés de façon succincte ou le logo Amazon par exemple')}
       ${createCheckbox('autohideEnabled', 'Cacher/Mettre en avant selon le nom du produit', 'Permet de cacher automatiquement des produits selon des mots clés, ou au contraire d\'en mettre en avant. Peut ajouter de la latence au chargement de la page, surtout si l\'option "N\'afficher la page qu\'après son chargement complet" est activée')}
-      ${createCheckbox('ordersEnabled', 'Afficher code erreur/Envoyer mes commandes', 'Afficher un code erreur quand une commande ne passe pas. Attention, cela envoi également vos commandes sur le serveur pour le besoin de certaines fonctions')}
+      ${createCheckbox('ordersEnabled', 'Afficher code erreur/Envoyer mes commandes', 'Afficher un code erreur quand une commande ne passe pas. Attention, cela envoi également vos commandes sur le serveur pour le besoin de certaines fonctions (comme pouvoir voir le prix par mois/année de vos commandes sur le discord)')}
       ${createCheckbox('fastCmdEnabled', '(PC) Accélérer le processus de commandes', 'Met le focus sur le bouton pour commander (il suffira donc de faire "Entrée" pour valider) et agrandir la fenêtre contenant les adresses, ce qui alignera les boutons de validation des deux fenêtres si vous souhaitez cliquer')}
       ${createCheckbox('callUrlEnabled', '(Webhook) Appeler une URL lors de la découverte d\'un nouveau produit en recommandation', 'Appelle l\'URL choisie (bouton plus bas) lors de la découverte d\'un nouveau produit en reco. Cela peut être une API ou un MP3 (le fichier doit être donné sous la forme d\'un lien internet). Si c\'est un MP3, il sera également utilisé pour le son des notifications')}
       ${createCheckbox('notifEnabled', '(Premium) Activer les notifications', 'Affiche une notification lors du signalement d\'un nouvel objet "Disponible pour tous", un up ou autre selon la configuration. Ne fonctionne que si une page Amazon était active dans les dernières secondes ou si le centre de notifications est ouvert en Auto-refresh de moins de 30 secondes',!isPremium)}
@@ -3467,7 +3471,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         "Content-Type": "application/x-www-form-urlencoded",
                     },
                     onload: function(response) {
-                        console.log(response.status, response.responseText);
+                        //console.log(response.status, response.responseText);
                         resolve(response);
                     },
                     onerror: function(error) {
@@ -3487,7 +3491,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         "Content-Type": "application/x-www-form-urlencoded",
                     },
                     onload: function(response) {
-                        console.log(response.status, response.responseText);
+                        //console.log(response.status, response.responseText);
                         resolve(response);
                     },
                     onerror: function(error) {
@@ -3507,7 +3511,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         "Content-Type": "application/x-www-form-urlencoded",
                     },
                     onload: function(response) {
-                        console.log(response.status, response.responseText);
+                        //console.log(response.status, response.responseText);
                         resolve(response);
                     },
                     onerror: function(error) {
@@ -3639,7 +3643,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         // Triggers when the Discord button is clicked
         async function buttonHandler() {
 
-            // Prepping data to be sent to the API
+            //Données pour transmissions
             var productData = {};
             var childAsin = document.querySelector("a#vvp-product-details-modal--product-title").href.match(/amazon..+\/dp\/([A-Z0-9]+).*$/)[1];
             var childImage = document.querySelector('#vvp-product-details-img-container > img');
@@ -3653,15 +3657,13 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             productData.queue = queueType;
             productData.seller = document.querySelector("#vvp-product-details-modal--by-line").innerText.replace(/^par /, '');
             productData.comments = writeComment(productData);
-            // possibly more things to come...
 
             const response = await sendDataToAPI(productData);
 
             var listOfItems = GM_getValue('config');
 
             if (response) {
-                // deal with the API response
-                if (response.status == 200) { // successfully posted to Discord
+                if (response.status == 200) {
                     listOfItems[productData.asin] = {};
                     listOfItems[productData.asin].status = 'Posted';
                     listOfItems[productData.asin].queue = productData.queue;
@@ -3706,13 +3708,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
         let productDetailsModal;
 
-        // Update position of the button
         function updateButtonPosition() {
             const button = document.querySelector('.a-button-discord');
             const container = productDetailsModal;
 
             // check the size of the modal first before determining where the button goes
-            if (container.offsetWidth < container.offsetHeight) {
+            /*if (container.offsetWidth < container.offsetHeight) {
                 // the See Details modal is taller, so moving it toward the bottom
                 button.classList.add('mobile-vertical');
                 button.parentElement.appendChild(button);
@@ -3720,9 +3721,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 // revert to the original button placement
                 button.classList.remove('mobile-vertical');
                 button.parentElement.prepend(button);
-            }
-
-            button.removeElement; // remove the old button
+            }*/
+            button.classList.remove('mobile-vertical');
+            button.parentElement.prepend(button);
+            button.removeElement;
             button.addEventListener("click", buttonHandler);
         }
 
@@ -3933,7 +3935,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         const asinElement = row.querySelector('.vvp-orders-table--text-col');
                         asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
                     }
-                    //On ajoute chaque asin à la liste pour appeler les infos de commandes
+                    // On ajoute chaque asin à la liste pour appeler les infos de commandes
                     listASINS.push("https://www.amazon.fr/dp/" + asin);
                     const timestampElement = row.querySelector('[data-order-timestamp]');
                     const date = new Date(parseInt(timestampElement.getAttribute('data-order-timestamp')));
@@ -3958,10 +3960,105 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         asin: asin,
                         date: formattedDate,
                         etv: etv,
-                        imageUrl : imageUrl,
-                        title : productName,
+                        imageUrl: imageUrl,
+                        title: productName,
                     });
-                    return new Promise((resolve, reject) => {
+                    if (ordersEnabled) {
+                        const buttonDetails = row.querySelector('.vvp-orders-table--action-btn');
+                        // Crée le bouton Annuler dans un conteneur span pour imiter le style du bouton "Détails"
+                        const buttonContainer = document.createElement('span');
+                        buttonContainer.classList.add('a-button', 'a-button-base', 'vvp-orders-table--action-btn', 'canceled-button');
+                        buttonContainer.style.marginTop = '5px';
+
+                        const buttonInner = document.createElement('span');
+                        buttonInner.classList.add('a-button-inner');
+
+                        const cancelButton = document.createElement('button');
+                        cancelButton.classList.add('a-button-text');
+                        cancelButton.textContent = 'Annuler';
+                        cancelButton.style.width = '100%';
+                        cancelButton.style.height = '100%';
+                        cancelButton.style.border = 'none';
+                        cancelButton.style.background = 'none';
+                        //buttonInner.style.background = '#28a745';
+                        cancelButton.style.padding = '5px !important';
+                        cancelButton.style.cursor = 'pointer';
+
+                        buttonInner.appendChild(cancelButton);
+                        buttonContainer.appendChild(buttonInner);
+
+                        let formDataCancel = new URLSearchParams({
+                            version: version,
+                            token: API_TOKEN,
+                            asin: asin,
+                        });
+
+                        GM_xmlhttpRequest({
+                            method: "POST",
+                            url: "https://pickme.alwaysdata.net/shyrka/infocancel",
+                            data: formDataCancel.toString(),
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded"
+                            },
+                            onload: function(response) {
+                                if (response.status == 200) {
+                                    if (response.responseText == "true") {
+                                        cancelButton.textContent = 'Intégrer';
+                                        buttonDetails.style.background = '#dc3545';
+                                    } else {
+                                        cancelButton.textContent = 'Annuler';
+                                        buttonDetails.style.background = '#28a745';
+                                    }
+                                }
+                            },
+                            onerror: function(error) {
+                                console.error(error);
+                            }
+                        });
+
+                        cancelButton.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            const isCancelled = cancelButton.textContent.includes('Intégrer');
+                            const newStatus = isCancelled ? 'uncancel' : 'cancel';
+                            GM_xmlhttpRequest({
+                                method: "POST",
+                                url: "https://pickme.alwaysdata.net/shyrka/switchcancel",
+                                data: formDataCancel.toString(),
+                                headers: {
+                                    "Content-Type": "application/x-www-form-urlencoded"
+                                },
+                                onload: function(response) {
+                                    const greenCircle = row.querySelector('span:nth-of-type(1)');
+                                    let greenCount = parseInt(greenCircle.textContent);
+                                    console.log(greenCount);
+                                    if (response.status == 200) {
+                                        if (isCancelled) {
+                                            cancelButton.textContent = 'Annuler';
+                                            buttonDetails.style.background = '#28a745';
+                                            if (ordersInfos && Number.isInteger(greenCount)) {
+                                                greenCircle.textContent = greenCount + 1;
+                                            }
+                                        } else {
+                                            cancelButton.textContent = 'Intégrer';
+                                            buttonDetails.style.background = '#dc3545';
+                                            if (ordersInfos && Number.isInteger(greenCount) && greenCount > 0) {
+                                                greenCircle.textContent = greenCount - 1;
+                                            }
+                                        }
+                                    }
+                                },
+                                onerror: function(error) {
+                                    console.error(error);
+                                }
+                            });
+                        });
+
+                        // Ajoute le bouton Annuler sous le bouton Détails
+                        const actionCol = row.querySelector('.vvp-orders-table--actions-col');
+                        if (actionCol) {
+                            actionCol.appendChild(buttonContainer);
+                        }
+
                         GM_xmlhttpRequest({
                             method: "POST",
                             url: "https://pickme.alwaysdata.net/shyrka/orderlist",
@@ -3969,20 +4066,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                             headers: {
                                 "Content-Type": "application/x-www-form-urlencoded"
                             },
-                            onload: function(response) {
-                                if (response.status == 200) {
-                                    //resolve(response.responseText);
-                                } else {
-                                    //reject(`Error: ${response.status} ${response.statusText}`);
-                                }
-                            },
-                            onerror: function(error) {
-                                console.error(error);
-                                reject(error);
-                            }
                         });
-                    });
+                    }
                 });
+
                 if (ordersInfos) {
                     ordersPostCmd(listASINS);
                 }
@@ -4231,7 +4318,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                             }
                         } else if (response.status == 401) {
                             alert("Clef API invalide ou membre non Premium+");
-                            console.log(response.status, response.responseText);
+                            //console.log(response.status, response.responseText);
                             resolve(response);
                         } else {
                             // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
@@ -4276,7 +4363,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                             }
                         } else if (response.status == 401) {
                             //alert("Token invalide ou membre non Premium+");
-                            console.log(response.status, response.responseText);
+                            //console.log(response.status, response.responseText);
                             resolve(response);
                         } else {
                             // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
@@ -4345,7 +4432,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                             }
                         } else if (response.status == 401) {
                             //alert("Token invalide ou membre non Premium+");
-                            console.log(response.status, response.responseText);
+                            //console.log(response.status, response.responseText);
                             resolve(response);
                         } else {
                             // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
@@ -4404,8 +4491,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             // Ajoute les informations au div
             ordersDiv.innerHTML = `
         <p style="margin:0; font-weight: bold; text-decoration: underline;">Mes commandes</p>
-        <p style="margin:0;">Aujourd'hui : ${displayOrdersTodayWithSuffix}</p>
-        <p style="margin:0; ${statsEnabled ? 'margin-bottom: 1em;' : ''}">Mois en cours : ${ordersData.qty_orders_month}</p>
+        <p style="margin:0;">Aujourd'hui : ${displayOrdersTodayWithSuffix} (${ordersData.sum_price_today} €)</p>
+        <p style="margin:0; ${statsEnabled ? 'margin-bottom: 1em;' : ''}">Mois en cours : ${ordersData.qty_orders_month} (${ordersData.sum_price_month} €)</p>
     `;
         }
 
@@ -4445,11 +4532,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         //Ajout des données reçu par l'API pour synchroniser
         function syncProductsData(productsData) {
             let userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour activer, Annuler pour désactiver.");
-            // Assurez-vous que storedProducts est initialisé, récupérez-le ou initialisez-le comme un objet vide
             let storedProducts = JSON.parse(GM_getValue("storedProducts", "{}"));
-
             productsData.forEach(product => {
-                const asin = product.asin; // L'ASIN est directement disponible depuis le JSON
+                const asin = product.asin;
                 const currentDate = product.date_ajout;
                 if (userHideAll) {
                     const etatFavoriKey = asin + '_favori';
@@ -4462,7 +4547,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 // Mettre à jour ou ajouter le produit dans storedProducts
                 storedProducts[asin] = {
                     added: true, // Marquer le produit comme ajouté
-                    dateAdded: currentDate // Utilisez la date d'ajout fournie par l'API si vous le souhaitez
+                    dateAdded: currentDate // Utilisez la date d'ajout fournie par l'API
                 };
             });
 
