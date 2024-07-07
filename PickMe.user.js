@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.8.4
+// @version      1.8.5
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -1663,8 +1663,17 @@ body {
 			left: 18px;
 		}
 		`;
-            // Ajoutez la balise <style> au <head> de la page
+            //Ajout du style à la page
             document.head.appendChild(style);
+            //Remonter les variantes dans les détails
+            var variationsContainer = document.getElementById('vvp-product-details-modal--variations-container');
+            var descriptionExpander = document.getElementById('vvp-product-description-expander');
+
+            //Vérification que les deux éléments existent
+            if (variationsContainer && descriptionExpander) {
+                //Déplacer variationsContainer avant descriptionExpander
+                descriptionExpander.parentNode.insertBefore(variationsContainer, descriptionExpander);
+            }
         }
 
         //Affichage alternatif
@@ -2461,41 +2470,54 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
         //Affichage de la différence des catégories
         function updateCat(firstLoad = true) {
-            // Fonction pour extraire le nombre d'éléments par catégorie
+            //Fonction pour extraire le nombre d'éléments par catégorie
             const extraireNombres = () => {
                 const categories = document.querySelectorAll('.parent-node');
                 const resultats = {};
                 categories.forEach(cat => {
-                    const nom = cat.querySelector('a').textContent.trim();
-                    const nombre = parseInt(cat.querySelector('span').textContent.trim().replace(/[()]/g, ''), 10);
-                    resultats[nom] = nombre;
+                    const nomElement = cat.querySelector('a');
+                    const nombreElement = cat.querySelector('span');
+                    if (nomElement && nombreElement) {
+                        const nom = nomElement.textContent.trim();
+                        const nombre = parseInt(nombreElement.textContent.trim().replace(/[()]/g, ''), 10);
+                        resultats[nom] = isNaN(nombre) ? 0 : nombre;
+                    }
                 });
                 return resultats;
             };
 
             const extraireNombreTotal = () => {
-                const texteTotal = document.querySelector('#vvp-items-grid-container > p').textContent.trim();
-                const nombreTotal = parseInt(texteTotal.match(/sur (\d+[\s\u00A0\u202F\u2009]*\d*)/)[1].replace(/[\s\u00A0\u202F\u2009]/g, ''), 10);
-                return nombreTotal;
+                const texteTotalElement = document.querySelector('#vvp-items-grid-container > p');
+                if (texteTotalElement) {
+                    const texteTotal = texteTotalElement.textContent.trim();
+                    const match = texteTotal.match(/sur (\d+[\s\u00A0\u202F\u2009]*\d*)/);
+                    if (match) {
+                        const nombreTotal = parseInt(match[1].replace(/[\s\u00A0\u202F\u2009]/g, ''), 10);
+                        return isNaN(nombreTotal) ? 0 : nombreTotal;
+                    }
+                }
+                return 0;
             };
 
-            // Comparer le nombre total actuel avec celui stocké et mettre à jour l'affichage
+            //Comparer le nombre total actuel avec celui stocké et mettre à jour l'affichage
             const comparerEtAfficherTotal = (nouveauTotal) => {
                 const ancienTotal = parseInt(localStorage.getItem('nombreTotalRésultats') || '0', 10);
                 const differenceTotal = nouveauTotal - ancienTotal;
                 if (differenceTotal !== 0 && firstLoad) {
                     const containerTotal = document.querySelector('#vvp-items-grid-container > p');
-                    const spanTotal = document.createElement('span');
-                    spanTotal.textContent = ` (${differenceTotal > 0 ? '+' : ''}${differenceTotal})`;
-                    spanTotal.style.color = differenceTotal > 0 ? 'green' : 'red';
-                    containerTotal.appendChild(spanTotal);
+                    if (containerTotal) {
+                        const spanTotal = document.createElement('span');
+                        spanTotal.textContent = ` (${differenceTotal > 0 ? '+' : ''}${differenceTotal})`;
+                        spanTotal.style.color = differenceTotal > 0 ? 'green' : 'red';
+                        containerTotal.appendChild(spanTotal);
+                    }
                 }
                 if (imgNew && window.location.href.includes("queue=encore")) {
                     localStorage.setItem('nombreTotalRésultats', JSON.stringify(nouveauTotal));
                 }
             }
 
-            // Comparer les nombres actuels avec ceux stockés et mettre à jour l'affichage
+            //Comparer les nombres actuels avec ceux stockés et mettre à jour l'affichage
             const comparerEtAfficher = (nouveauxNombres) => {
                 const anciensNombres = JSON.parse(localStorage.getItem('nombresCatégories') || '{}');
 
@@ -2515,7 +2537,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     }
                 });
 
-                // Mise à jour du stockage local avec les nouveaux nombres si on a vu un nouvel objet uniquement
+                //Mise à jour du stockage local avec les nouveaux nombres si on a vu un nouvel objet uniquement
                 if (imgNew && window.location.href.includes("queue=encore")) {
                     localStorage.setItem('nombresCatégories', JSON.stringify(nouveauxNombres));
                 }
@@ -2954,7 +2976,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('paginationEnabled', 'Affichage des pages en partie haute', 'En plus des pages de navigation en partie basse, ajoute également la navigation des pages en début de liste des produits')}
       ${createCheckbox('hideEnabled', 'Pouvoir cacher des produits et ajouter des favoris', 'Ajoute l\'option qui permet de cacher certains produits de votre choix ainsi que des favoris (le produit devient impossible à cacher et sera toujours mis en tête en liste sur la page), ainsi que les boutons pour tout cacher ou tout afficher en une seule fois')}
       ${createCheckbox('catEnabled', 'Différence de quantité dans les catégories', 'Afficher à côté de chaque catégorie du bandeau à gauche la différence de quantité positive ou négative par rapport à la dernière fois où vous avez vu un nouveau produit. Se réinitialise à chaque fois que vous voyez un nouveau produit ou quand vous appuyez sur le bouton "Reset"')}
-      ${createCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée', 'Dans la fênetre du produit qui s\'affiche quand on clique sur "Voir les détails", remonte dans le titre la valeur fiscale du produit au lieu qu\'elle soit en fin de fenêtre')}
+      ${createCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée et des variantes', 'Dans la fênetre du produit qui s\'affiche quand on clique sur "Voir les détails", remonte dans le titre la valeur fiscale du produit au lieu qu\'elle soit en fin de fenêtre. Remonte également la sélection des variantes')}
       ${createCheckbox('cssEnabled', 'Utiliser l\'affichage réduit', 'Affichage réduit, pour voir plus de produits en même temps, avec également réduction de la taille des catégories. Option utile sur mobile par exemple. Non compatible avec l\'affichage du nom complet des produits et l\'affichage mobile')}
       ${createCheckbox('mobileEnabled', 'Utiliser l\'affichage mobile', 'Optimise l\affichage sur mobile, pour éviter de mettre la "Version PC". Il est conseillé de cacher également l\'entête avec cette option. Non compatible avec l\'affichage du nom complet des produits et l\'affichage réduit')}
       ${createCheckbox('headerEnabled', 'Cacher totalement l\'entête de la page', 'Cache le haut de la page Amazon, celle avec la zone de recherche et les menus')}
@@ -5027,7 +5049,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             const keys = GM_listValues();
             let data = {};
             //On exclu les paramètres propres a un appareil, pour éviter d'avoir l'affichage mobile sur PC par exemple
-            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled'];
+            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'extendedEnabled', 'onMobile', 'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos'];
             keys.forEach(key => {
                 if (!excludedKeys.includes(key)) {
                     data[key] = GM_getValue(key);
