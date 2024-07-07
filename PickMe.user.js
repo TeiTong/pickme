@@ -1666,13 +1666,15 @@ body {
             //Ajout du style à la page
             document.head.appendChild(style);
             //Remonter les variantes dans les détails
-            var variationsContainer = document.getElementById('vvp-product-details-modal--variations-container');
-            var descriptionExpander = document.getElementById('vvp-product-description-expander');
+            if (mobileEnabled) {
+                var variationsContainer = document.getElementById('vvp-product-details-modal--variations-container');
+                var descriptionExpander = document.getElementById('vvp-product-description-expander');
 
-            //Vérification que les deux éléments existent
-            if (variationsContainer && descriptionExpander) {
-                //Déplacer variationsContainer avant descriptionExpander
-                descriptionExpander.parentNode.insertBefore(variationsContainer, descriptionExpander);
+                //Vérification que les deux éléments existent
+                if (variationsContainer && descriptionExpander) {
+                    //Déplacer variationsContainer avant descriptionExpander
+                    descriptionExpander.parentNode.insertBefore(variationsContainer, descriptionExpander);
+                }
             }
         }
 
@@ -2976,7 +2978,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('paginationEnabled', 'Affichage des pages en partie haute', 'En plus des pages de navigation en partie basse, ajoute également la navigation des pages en début de liste des produits')}
       ${createCheckbox('hideEnabled', 'Pouvoir cacher des produits et ajouter des favoris', 'Ajoute l\'option qui permet de cacher certains produits de votre choix ainsi que des favoris (le produit devient impossible à cacher et sera toujours mis en tête en liste sur la page), ainsi que les boutons pour tout cacher ou tout afficher en une seule fois')}
       ${createCheckbox('catEnabled', 'Différence de quantité dans les catégories', 'Afficher à côté de chaque catégorie du bandeau à gauche la différence de quantité positive ou négative par rapport à la dernière fois où vous avez vu un nouveau produit. Se réinitialise à chaque fois que vous voyez un nouveau produit ou quand vous appuyez sur le bouton "Reset"')}
-      ${createCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée et des variantes', 'Dans la fênetre du produit qui s\'affiche quand on clique sur "Voir les détails", remonte dans le titre la valeur fiscale du produit au lieu qu\'elle soit en fin de fenêtre. Remonte également la sélection des variantes')}
+      ${createCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée (et des variantes sur mobile)', 'Dans la fênetre du produit qui s\'affiche quand on clique sur "Voir les détails", remonte dans le titre la valeur fiscale du produit au lieu qu\'elle soit en fin de fenêtre. Remonte également la sélection des variantes avec l\'affichage mobile')}
       ${createCheckbox('cssEnabled', 'Utiliser l\'affichage réduit', 'Affichage réduit, pour voir plus de produits en même temps, avec également réduction de la taille des catégories. Option utile sur mobile par exemple. Non compatible avec l\'affichage du nom complet des produits et l\'affichage mobile')}
       ${createCheckbox('mobileEnabled', 'Utiliser l\'affichage mobile', 'Optimise l\affichage sur mobile, pour éviter de mettre la "Version PC". Il est conseillé de cacher également l\'entête avec cette option. Non compatible avec l\'affichage du nom complet des produits et l\'affichage réduit')}
       ${createCheckbox('headerEnabled', 'Cacher totalement l\'entête de la page', 'Cache le haut de la page Amazon, celle avec la zone de recherche et les menus')}
