@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.8.5
+// @version      1.9
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -92,14 +92,17 @@ NOTES:
     }
 
     function createButton(asin) {
-        var affiliateButton = document.createElement('a');
+        var container = document.createElement('div'); // Créer un conteneur pour le bouton et le texte d'explication
+        container.style.display = 'inline-flex';
+        container.style.alignItems = 'center';
 
+        var affiliateButton = document.createElement('a');
         affiliateButton.className = 'a-button a-button-primary a-button-small';
         affiliateButton.id = 'pickme-button';
         affiliateButton.style.marginTop = '5px'; // Pour ajouter un peu d'espace au-dessus du bouton
         affiliateButton.style.marginBottom = '5px';
         affiliateButton.style.color = 'white'; // Changez la couleur du texte en noir
-        affiliateButton.style.maxWidth = '200px';
+        //affiliateButton.style.maxWidth = '200px';
         affiliateButton.style.height = '29px';
         affiliateButton.style.lineHeight = '29px';
         affiliateButton.style.borderRadius = '20px';
@@ -108,6 +111,7 @@ NOTES:
         affiliateButton.style.backgroundColor = '#CC0033';
         affiliateButton.style.border = '1px solid white';
         affiliateButton.style.display = 'inline-block';
+
         if (isAffiliateTagPresent()) {
             affiliateButton.innerText = 'Lien PickMe actif';
             affiliateButton.style.backgroundColor = 'green'; // Changez la couleur de fond en vert
@@ -115,13 +119,27 @@ NOTES:
             affiliateButton.style.pointerEvents = 'none'; // Empêchez tout événement de clic
             affiliateButton.style.cursor = 'default';
             affiliateButton.style.border = '1px solid black';
+            container.appendChild(affiliateButton); // Ajouter le bouton et le texte d'explication au conteneur
         } else {
             affiliateButton.href = `https://pickme.alwaysdata.net/monsieurconso/index.php?asin=${asin}`;
             affiliateButton.innerText = 'Acheter via PickMe';
             affiliateButton.target = '_blank';
+            var infoText = document.createElement('span'); // Créer l'élément de texte d'explication
+            infoText.innerHTML = '<b>A quoi sert ce bouton ?</b>';
+            infoText.style.marginLeft = '5px';
+            infoText.style.color = '#CC0033';
+            infoText.style.cursor = 'pointer';
+            infoText.style.fontSize = '14px';
+            infoText.onclick = function() {
+                alert("Ce bouton permet de soutenir le discord Amazon Vine FR. Il n'y a strictement aucune conséquence sur votre achat, mise à part d'aider à maintenir les services du discord et de PickMe.\n\nComment faire ?\n\nIl suffit de cliquer sur 'Acheter via PickMe' et dans la nouvelle fenêtre de cliquer sur 'Acheter sur Amazon'. Normalement le bouton sera devenu vert, il suffit alors d'ajouter le produit au panier (uniquement quand le bouton est vert) et c'est tout !\nMerci beaucoup !");
+            };
+            container.appendChild(affiliateButton); // Ajouter le bouton et le texte d'explication au conteneur
+            container.appendChild(infoText);
         }
-        return affiliateButton;
+        affiliateButton.style.fontSize = '14px';
+        return container; // Retourner le conteneur au lieu du bouton seul
     }
+
 
     //Détermine si on ajoute l'onglet Notifications
     var pageProduit = false;
@@ -554,6 +572,91 @@ NOTES:
             }
         });
 
+        function setNote() {
+            // Vérifie si une popup existe déjà et la supprime si c'est le cas
+            const existingPopup = document.getElementById('notePopup');
+            if (existingPopup) {
+                existingPopup.remove();
+            }
+
+            // Crée la fenêtre popup
+            const popup = document.createElement('div');
+            popup.id = "notePopup";
+            popup.style.cssText = `
+        position: fixed;
+        z-index: 10001;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px;
+        background-color: white;
+        border: 1px solid #ccc;
+        box-shadow: 0px 0px 10px #ccc;
+    `;
+            popup.innerHTML = `
+        <h2 id="configPopupHeader" style="cursor: grab;">Bloc-notes<span id="closeNotePopup" style="float: right; cursor: pointer;">✖</span></h2>
+        <textarea id="noteTextArea" style="width: 100%; height: 300px;"></textarea>
+        <div class="button-container final-buttons">
+            <button class="full-width" id="saveNote">Enregistrer</button>
+            <button class="full-width" id="closeNote">Fermer</button>
+        </div>
+    `;
+
+            document.body.appendChild(popup);
+
+            // Ajoute des écouteurs d'événement pour les boutons
+            document.getElementById('saveNote').addEventListener('click', function() {
+                const noteContent = document.getElementById('noteTextArea').value;
+                // Stocker le contenu de la note avec GM_setValue
+                GM_setValue("noteContent", noteContent);
+                popup.remove();
+            });
+
+            document.getElementById('closeNote').addEventListener('click', function() {
+                popup.remove();
+            });
+
+            document.getElementById('closeNotePopup').addEventListener('click', function() {
+                popup.remove();
+            });
+
+            // Charger la note existante si elle est stockée avec GM_getValue
+            const savedNoteContent = GM_getValue("noteContent", "");
+            if (savedNoteContent) {
+                document.getElementById('noteTextArea').value = savedNoteContent;
+            }
+
+            // Ajoute la fonctionnalité de déplacement
+            const header = document.getElementById('configPopupHeader');
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            header.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                header.style.cursor = 'grabbing';
+                offsetX = e.clientX - popup.getBoundingClientRect().left;
+                offsetY = e.clientY - popup.getBoundingClientRect().top;
+                document.addEventListener('mousemove', movePopup);
+                document.addEventListener('mouseup', stopDragging);
+            });
+
+            function movePopup(e) {
+                if (isDragging) {
+                    popup.style.left = `${e.clientX - offsetX}px`;
+                    popup.style.top = `${e.clientY - offsetY}px`;
+                    popup.style.transform = `translate(0, 0)`;
+                }
+            }
+
+            function stopDragging() {
+                isDragging = false;
+                header.style.cursor = 'grab';
+                document.removeEventListener('mousemove', movePopup);
+                document.removeEventListener('mouseup', stopDragging);
+            }
+        }
+
+
         document.addEventListener("DOMContentLoaded", function() {
             if (window.location.hostname !== "pickme.alwaysdata.net") {
                 // Initialisation de l'iframe seulement si on est sur le bon domaine
@@ -608,8 +711,55 @@ NOTES:
                 // Ajouter le lien au nouvel onglet Pickme Web
                 newTab2.appendChild(link2);
 
+                // Créer le nouvel onglet pour Bloc-notes
+                var newTab3 = document.createElement('li');
+                newTab3.className = 'a-tab-heading';
+                newTab3.role = 'presentation';
+
+                // Créer le lien à ajouter dans le nouvel onglet Bloc notes
+                var link3 = document.createElement('a');
+                link3.href = "#"; // Garder un lien neutre
+                link3.role = 'tab';
+                link3.setAttribute('aria-selected', 'false');
+                link3.tabIndex = -1;
+                link3.textContent = 'Bloc-notes';
+                link3.target = '_blank';
+                link3.style.color = '#f8a103';
+                link3.style.backgroundColor = 'transparent';
+                link3.style.border = 'none';
+
+                // Créer l'image à ajouter devant le texte "Bloc-notes"
+                var image = document.createElement('img');
+                image.src = 'https://pickme.alwaysdata.net/img/loupe.png';
+                image.alt = 'Loupe';
+                image.style.cursor = 'pointer';
+                image.style.marginRight = '5px';
+                image.style.width = '15px';
+                image.style.height = '15px';
+
+                // Ajouter l'événement onclick pour appeler la fonction setNote pour le lien
+                link3.onclick = function(event) {
+                    event.preventDefault(); // Empêche le lien de suivre l'URL
+                    setNote();
+                };
+
+                // Ajouter l'événement onclick pour afficher la note stockée lors du clic sur l'image
+                image.onclick = function(event) {
+                    event.preventDefault(); // Empêche toute action par défaut
+                    event.stopPropagation(); // Empêche la propagation du clic au lien
+                    const noteContent = GM_getValue("noteContent", "");
+                    alert(noteContent);
+                };
+
+                // Ajouter l'image et le texte "Bloc-notes" au lien
+                link3.prepend(image);
+
+                // Ajouter le lien dans le nouvel onglet
+                newTab3.appendChild(link3);
+
                 // Ajouter les nouveaux onglets au conteneur des onglets
                 if (tabsContainer) {
+                    tabsContainer.appendChild(newTab3);
                     tabsContainer.appendChild(newTab1);
                     tabsContainer.appendChild(newTab2);
                 }
@@ -1782,7 +1932,7 @@ body {
   height: 600px;
 }
 
-#colorPickerPopup, #keyConfigPopup, #favConfigPopup, #notifConfigPopup {
+#colorPickerPopup, #keyConfigPopup, #favConfigPopup, #notifConfigPopup, #notePopup {
   width: 400px !important;
 }
 
@@ -1796,7 +1946,7 @@ body {
   height: 350px !important;
 }
 
-#favConfigPopup {
+#favConfigPopup, #notePopup {
   width: 400px !important;
   height: 550px !important;
 }*/
@@ -1811,7 +1961,7 @@ body {
 }
 
 @media (max-width: 600px) {
-  #colorPickerPopup, #keyConfigPopup, #favConfigPopup, #notifConfigPopup {
+  #colorPickerPopup, #keyConfigPopup, #favConfigPopup, #notifConfigPopup, #notePopup {
     width: 90%; /* Prendre 90% de la largeur de l'écran */
     margin: 10px auto; /* Ajout d'un peu de marge autour des popups */
   }
@@ -2728,7 +2878,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         const styleMenu = document.createElement('style');
         styleMenu.type = 'text/css';
         styleMenu.innerHTML = `
-#configPopup, #keyConfigPopup, #favConfigPopup, #colorPickerPopup, #notifConfigPopup {
+#configPopup, #keyConfigPopup, #favConfigPopup, #colorPickerPopup, #notifConfigPopup, #notePopup {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -2769,12 +2919,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   text-align: center;
 }
 
-#keyConfigPopup h2, #favConfigPopup h2, #colorPickerPopup h2, #notifConfigPopup h2 {
+#keyConfigPopup h2, #favConfigPopup h2, #colorPickerPopup h2, #notifConfigPopup h2, #notePopup h2 {
   font-size: 1.5em;
   text-align: center;
 }
 
-#configPopup label, #keyConfigPopup label, #favConfigPopup label, #notifConfigPopup label {
+#configPopup label, #keyConfigPopup label, #favConfigPopup label, #notifConfigPopup label, #notePopup label {
   display: flex;
   align-items: center;
 }
@@ -2800,7 +2950,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   flex-basis: 48%; /* Ajusté pour uniformiser l'apparence des boutons et des labels */
 }
 
-#configPopup button, #keyConfigPopup button, #favConfigPopup button, #notifConfigPopup button {
+#configPopup button, #keyConfigPopup button, #favConfigPopup button, #notifConfigPopup button, #notePopup button {
   padding: 5px 10px;
   background-color: #f3f3f3;
   border: 1px solid #ddd;
@@ -2809,7 +2959,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   text-align: center;
 }
 
-#configPopup button:not(.full-width), #keyConfigPopup button:not(.full-width), #favConfigPopup button:not(.full-width), #colorPickerPopup button:not(.full-width), #notifConfigPopup button:not(.full-width) {
+#configPopup button:not(.full-width), #keyConfigPopup button:not(.full-width), #favConfigPopup button:not(.full-width), #colorPickerPopup button:not(.full-width), #notifConfigPopup button:not(.full-width), #notePopup button:not(.full-width) {
   margin-right: 1%;
   margin-left: 1%;
 }
@@ -2834,7 +2984,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 #configPopup label.disabled input[type="checkbox"] {
   cursor: not-allowed;
 }
-#saveConfig, #closeConfig, #saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig {
+#saveConfig, #closeConfig, #saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig, #saveNote, #closeNote {
   padding: 8px 15px !important; /* Plus de padding pour un meilleur visuel */
   margin-top !important: 5px;
   border-radius: 5px !important; /* Bordures légèrement arrondies */
@@ -2845,22 +2995,22 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   transition: background-color 0.3s ease !important; /* Transition pour l'effet au survol */
 }
 
-#saveConfig, #saveKeyConfig, #saveFavConfig, #saveColor, #saveNotifConfig {
+#saveConfig, #saveKeyConfig, #saveFavConfig, #saveColor, #saveNotifConfig, #saveNote {
   background-color: #4CAF50 !important; /* Vert pour le bouton "Enregistrer" */
 }
 
-#closeConfig, #closeKeyConfig, #closeFavConfig, #closeColor, #closeNotifConfig {
+#closeConfig, #closeKeyConfig, #closeFavConfig, #closeColor, #closeNotifConfig, #closeNote {
   background-color: #f44336 !important; /* Rouge pour le bouton "Fermer" */
 }
 
-#saveConfig:hover, #saveKeyConfig:hover, #saveFavConfig:hover, #saveColor:hover, #saveNotifConfig:hover {
+#saveConfig:hover, #saveKeyConfig:hover, #saveFavConfig:hover, #saveColor:hover, #saveNotifConfig:hover, #saveNote:hover {
   background-color: #45a049 !important; /* Assombrit le vert au survol */
 }
 
-#closeConfig:hover, #closeKeyConfig:hover, #closeFavConfig:hover, #closeColor:hover, #closeNotifConfig:hover {
+#closeConfig:hover, #closeKeyConfig:hover, #closeFavConfig:hover, #closeColor:hover, #closeNotifConfig:hover, #closeNote:hover {
   background-color: #e53935 !important; /* Assombrit le rouge au survol */
 }
-#saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig {
+#saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig, #saveNote, #closeNote {
   margin-top: 10px; /* Ajoute un espace de 10px au-dessus du second bouton */
   width: 100%; /* Utilise width: 100% pour assurer que le bouton prend toute la largeur */
 }
@@ -3365,7 +3515,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             const popup = document.createElement('div');
             popup.id = "favConfigPopup";
             popup.style.cssText = `
-        z-index: 10001; /* Assure-toi que ce z-index est suffisamment élevé pour surpasser les autres éléments */
+        z-index: 10001;
         width: 600px;
     `;
             popup.innerHTML = `
