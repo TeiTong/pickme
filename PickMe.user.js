@@ -3470,7 +3470,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         width: 500px;
     `;
             popup.innerHTML = `
-    <h2>Configurer les Notifications<span id="closeNotifPopup" style="float: right; cursor: pointer;">&times;</span></h2>
+    <h2>Configurer les notifications<span id="closeNotifPopup" style="float: right; cursor: pointer;">&times;</span></h2>
     <div class="checkbox-container">
     <u class="full-width">Options :</u><br>
     ${createCheckbox('notifFav', 'Filtrer "Autres articles"', 'Utilise les filtres (soit celui des favoris, soit celui pour exclure) pour ne remonter que les notifications favoris ou sans mots exclus et uniquement si c\'est un produit "Autres articles" (aucun filtre sur "Disponibles pour tous"). La notification apparaitra tout de même dans le centre de notifications. Prend en compte le filtre, même si l\'option des filtres est désactivée')}
