@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.9
+// @version      1.9.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -165,6 +165,7 @@ NOTES:
     //On initialise les variables utiles pour cette partie du script
     let notifEnabled = GM_getValue("notifEnabled", false);
     let onMobile = GM_getValue("onMobile", false);
+    let shortcutNotif = GM_getValue("shortcutNotif", false);
     let callUrl = GM_getValue("callUrl", "");
     var apiKey = GM_getValue("apiToken", false);
     let notifUp = GM_getValue('notifUp', true);
@@ -180,6 +181,7 @@ NOTES:
     let hideEnabled = GM_getValue("hideEnabled", true);
     GM_setValue("notifEnabled", notifEnabled);
     GM_setValue("onMobile", onMobile);
+    GM_setValue("shortcutNotif", shortcutNotif);
     GM_setValue("callUrl", callUrl);
     GM_setValue("notifUp", notifUp);
     GM_setValue("notifRecos", notifRecos);
@@ -572,91 +574,6 @@ NOTES:
             }
         });
 
-        function setNote() {
-            // Vérifie si une popup existe déjà et la supprime si c'est le cas
-            const existingPopup = document.getElementById('notePopup');
-            if (existingPopup) {
-                existingPopup.remove();
-            }
-
-            // Crée la fenêtre popup
-            const popup = document.createElement('div');
-            popup.id = "notePopup";
-            popup.style.cssText = `
-        position: fixed;
-        z-index: 10001;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        padding: 20px;
-        background-color: white;
-        border: 1px solid #ccc;
-        box-shadow: 0px 0px 10px #ccc;
-    `;
-            popup.innerHTML = `
-        <h2 id="configPopupHeader" style="cursor: grab;">Bloc-notes<span id="closeNotePopup" style="float: right; cursor: pointer;">✖</span></h2>
-        <textarea id="noteTextArea" style="width: 100%; height: 300px;"></textarea>
-        <div class="button-container final-buttons">
-            <button class="full-width" id="saveNote">Enregistrer</button>
-            <button class="full-width" id="closeNote">Fermer</button>
-        </div>
-    `;
-
-            document.body.appendChild(popup);
-
-            // Ajoute des écouteurs d'événement pour les boutons
-            document.getElementById('saveNote').addEventListener('click', function() {
-                const noteContent = document.getElementById('noteTextArea').value;
-                // Stocker le contenu de la note avec GM_setValue
-                GM_setValue("noteContent", noteContent);
-                popup.remove();
-            });
-
-            document.getElementById('closeNote').addEventListener('click', function() {
-                popup.remove();
-            });
-
-            document.getElementById('closeNotePopup').addEventListener('click', function() {
-                popup.remove();
-            });
-
-            // Charger la note existante si elle est stockée avec GM_getValue
-            const savedNoteContent = GM_getValue("noteContent", "");
-            if (savedNoteContent) {
-                document.getElementById('noteTextArea').value = savedNoteContent;
-            }
-
-            // Ajoute la fonctionnalité de déplacement
-            const header = document.getElementById('configPopupHeader');
-            let isDragging = false;
-            let offsetX, offsetY;
-
-            header.addEventListener('mousedown', function(e) {
-                isDragging = true;
-                header.style.cursor = 'grabbing';
-                offsetX = e.clientX - popup.getBoundingClientRect().left;
-                offsetY = e.clientY - popup.getBoundingClientRect().top;
-                document.addEventListener('mousemove', movePopup);
-                document.addEventListener('mouseup', stopDragging);
-            });
-
-            function movePopup(e) {
-                if (isDragging) {
-                    popup.style.left = `${e.clientX - offsetX}px`;
-                    popup.style.top = `${e.clientY - offsetY}px`;
-                    popup.style.transform = `translate(0, 0)`;
-                }
-            }
-
-            function stopDragging() {
-                isDragging = false;
-                header.style.cursor = 'grab';
-                document.removeEventListener('mousemove', movePopup);
-                document.removeEventListener('mouseup', stopDragging);
-            }
-        }
-
-
         document.addEventListener("DOMContentLoaded", function() {
             if (window.location.hostname !== "pickme.alwaysdata.net") {
                 // Initialisation de l'iframe seulement si on est sur le bon domaine
@@ -667,7 +584,7 @@ NOTES:
             } else {
                 document.cookie = "pm_apiKey=" + encodeURIComponent(apiKey) + "; path=/; secure";
             }
-            if (!pageProduit && window.location.href.indexOf("vine") !== -1) {
+            if (shortcutNotif && !pageProduit && window.location.href.indexOf("vine") !== -1) {
                 // Sélectionner le conteneur des onglets
                 var tabsContainer = document.querySelector('.a-tabs');
 
@@ -691,81 +608,178 @@ NOTES:
                 // Ajouter le lien au nouvel onglet Notifications
                 newTab1.appendChild(link1);
 
-                // Créer le nouvel onglet pour Pickme Web
-                var newTab2 = document.createElement('li');
-                newTab2.className = 'a-tab-heading';
-                newTab2.role = 'presentation';
-
-                // Créer le lien à ajouter dans le nouvel onglet Pickme Web
-                var link2 = document.createElement('a');
-                link2.href = "https://pickme.alwaysdata.net/search.php?key=" + encodeURIComponent(apiKey);
-                link2.role = 'tab';
-                link2.setAttribute('aria-selected', 'false');
-                link2.tabIndex = -1;
-                link2.textContent = 'PickMe Web';
-                link2.target = '_blank';
-                link2.style.color = '#f8a103';
-                link2.style.backgroundColor = 'transparent';
-                link2.style.border = 'none';
-
-                // Ajouter le lien au nouvel onglet Pickme Web
-                newTab2.appendChild(link2);
-
-                // Créer le nouvel onglet pour Bloc-notes
-                var newTab3 = document.createElement('li');
-                newTab3.className = 'a-tab-heading';
-                newTab3.role = 'presentation';
-
-                // Créer le lien à ajouter dans le nouvel onglet Bloc notes
-                var link3 = document.createElement('a');
-                link3.href = "#"; // Garder un lien neutre
-                link3.role = 'tab';
-                link3.setAttribute('aria-selected', 'false');
-                link3.tabIndex = -1;
-                link3.textContent = 'Bloc-notes';
-                link3.target = '_blank';
-                link3.style.color = '#f8a103';
-                link3.style.backgroundColor = 'transparent';
-                link3.style.border = 'none';
-
-                // Créer l'image à ajouter devant le texte "Bloc-notes"
-                var image = document.createElement('img');
-                image.src = 'https://pickme.alwaysdata.net/img/loupe.png';
-                image.alt = 'Loupe';
-                image.style.cursor = 'pointer';
-                image.style.marginRight = '5px';
-                image.style.width = '15px';
-                image.style.height = '15px';
-
-                // Ajouter l'événement onclick pour appeler la fonction setNote pour le lien
-                link3.onclick = function(event) {
-                    event.preventDefault(); // Empêche le lien de suivre l'URL
-                    setNote();
-                };
-
-                // Ajouter l'événement onclick pour afficher la note stockée lors du clic sur l'image
-                image.onclick = function(event) {
-                    event.preventDefault(); // Empêche toute action par défaut
-                    event.stopPropagation(); // Empêche la propagation du clic au lien
-                    const noteContent = GM_getValue("noteContent", "");
-                    alert(noteContent);
-                };
-
-                // Ajouter l'image et le texte "Bloc-notes" au lien
-                link3.prepend(image);
-
-                // Ajouter le lien dans le nouvel onglet
-                newTab3.appendChild(link3);
-
                 // Ajouter les nouveaux onglets au conteneur des onglets
                 if (tabsContainer) {
-                    tabsContainer.appendChild(newTab3);
                     tabsContainer.appendChild(newTab1);
-                    tabsContainer.appendChild(newTab2);
                 }
             }
         });
     }
+
+    //Popup pour le bloc-notes
+    function setNote() {
+        // Vérifie si une popup existe déjà et la supprime si c'est le cas
+        const existingPopup = document.getElementById('notePopup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
+
+        // Crée la fenêtre popup
+        const popup = document.createElement('div');
+        popup.id = "notePopup";
+        popup.style.cssText = `
+        position: fixed;
+        z-index: 10001;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px;
+        background-color: white;
+        border: 1px solid #ccc;
+        box-shadow: 0px 0px 10px #ccc;
+    `;
+        popup.innerHTML = `
+        <h2 id="configPopupHeader" style="cursor: grab;">Bloc-notes<span id="closeNotePopup" style="float: right; cursor: pointer;">✖</span></h2>
+        <textarea id="noteTextArea" style="width: 100%; height: 300px;"></textarea>
+        <div class="button-container final-buttons">
+            <button class="full-width" id="saveNote">Enregistrer</button>
+            <button class="full-width" id="closeNote">Fermer</button>
+        </div>
+    `;
+
+        document.body.appendChild(popup);
+
+        // Ajoute des écouteurs d'événement pour les boutons
+        document.getElementById('saveNote').addEventListener('click', function() {
+            const noteContent = document.getElementById('noteTextArea').value;
+            // Stocker le contenu de la note avec GM_setValue
+            GM_setValue("noteContent", noteContent);
+            popup.remove();
+        });
+
+        document.getElementById('closeNote').addEventListener('click', function() {
+            popup.remove();
+        });
+
+        document.getElementById('closeNotePopup').addEventListener('click', function() {
+            popup.remove();
+        });
+
+        // Charger la note existante si elle est stockée avec GM_getValue
+        const savedNoteContent = GM_getValue("noteContent", "");
+        if (savedNoteContent) {
+            document.getElementById('noteTextArea').value = savedNoteContent;
+        }
+
+        // Ajoute la fonctionnalité de déplacement
+        const header = document.getElementById('configPopupHeader');
+        let isDragging = false;
+        let offsetX, offsetY;
+
+        header.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            header.style.cursor = 'grabbing';
+            offsetX = e.clientX - popup.getBoundingClientRect().left;
+            offsetY = e.clientY - popup.getBoundingClientRect().top;
+            document.addEventListener('mousemove', movePopup);
+            document.addEventListener('mouseup', stopDragging);
+        });
+
+        function movePopup(e) {
+            if (isDragging) {
+                popup.style.left = `${e.clientX - offsetX}px`;
+                popup.style.top = `${e.clientY - offsetY}px`;
+                popup.style.transform = `translate(0, 0)`;
+            }
+        }
+
+        function stopDragging() {
+            isDragging = false;
+            header.style.cursor = 'grab';
+            document.removeEventListener('mousemove', movePopup);
+            document.removeEventListener('mouseup', stopDragging);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        if (!pageProduit && window.location.href.indexOf("vine") !== -1) {
+            // Sélectionner le conteneur des onglets
+            var tabsContainer = document.querySelector('.a-tabs');
+
+            // Créer le nouvel onglet pour Pickme Web
+            var newTab2 = document.createElement('li');
+            newTab2.className = 'a-tab-heading';
+            newTab2.role = 'presentation';
+
+            // Créer le lien à ajouter dans le nouvel onglet Pickme Web
+            var link2 = document.createElement('a');
+            link2.href = "https://pickme.alwaysdata.net/search.php?key=" + encodeURIComponent(apiKey);
+            link2.role = 'tab';
+            link2.setAttribute('aria-selected', 'false');
+            link2.tabIndex = -1;
+            link2.textContent = 'PickMe Web';
+            link2.target = '_blank';
+            link2.style.color = '#f8a103';
+            link2.style.backgroundColor = 'transparent';
+            link2.style.border = 'none';
+
+            // Ajouter le lien au nouvel onglet Pickme Web
+            newTab2.appendChild(link2);
+
+            // Créer le nouvel onglet pour Bloc-notes
+            var newTab3 = document.createElement('li');
+            newTab3.className = 'a-tab-heading';
+            newTab3.role = 'presentation';
+
+            // Créer le lien à ajouter dans le nouvel onglet Bloc notes
+            var link3 = document.createElement('a');
+            link3.href = "#"; // Garder un lien neutre
+            link3.role = 'tab';
+            link3.setAttribute('aria-selected', 'false');
+            link3.tabIndex = -1;
+            link3.textContent = 'Bloc-notes';
+            link3.target = '_blank';
+            link3.style.color = '#f8a103';
+            link3.style.backgroundColor = 'transparent';
+            link3.style.border = 'none';
+
+            // Créer l'image à ajouter devant le texte "Bloc-notes"
+            var image = document.createElement('img');
+            image.src = 'https://pickme.alwaysdata.net/img/loupe.png';
+            image.alt = 'Loupe';
+            image.style.cursor = 'pointer';
+            image.style.marginRight = '5px';
+            image.style.width = '15px';
+            image.style.height = '15px';
+
+            // Ajouter l'événement onclick pour appeler la fonction setNote pour le lien
+            link3.onclick = function(event) {
+                event.preventDefault(); // Empêche le lien de suivre l'URL
+                setNote();
+            };
+
+            // Ajouter l'événement onclick pour afficher la note stockée lors du clic sur l'image
+            image.onclick = function(event) {
+                event.preventDefault(); // Empêche toute action par défaut
+                event.stopPropagation(); // Empêche la propagation du clic au lien
+                const noteContent = GM_getValue("noteContent", "");
+                alert(noteContent);
+            };
+
+            // Ajouter l'image et le texte "Bloc-notes" au lien
+            link3.prepend(image);
+
+            // Ajouter le lien dans le nouvel onglet
+            newTab3.appendChild(link3);
+
+            // Ajouter les nouveaux onglets au conteneur des onglets
+            if (tabsContainer) {
+                tabsContainer.appendChild(newTab3);
+                //tabsContainer.appendChild(newTab1);
+                tabsContainer.appendChild(newTab2);
+            }
+        }
+    });
 
     //Solution alternative pour le bouton d'achat PickMe, utile pour certains produits uniquement
     const pageTypeHints = ['/dp/', '/gp/product/'];
@@ -3214,6 +3228,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
                     // Utilisation de GM pour set la variable
                     GM_setValue('onMobile', onMobile);
+
+                    // Demander à l'utilisateur s'il est sur mobile ou PC
+                    var shortcutNotif = window.confirm("Souhaitez-vous ajouter un raccourci vers le centre de notifications  ?");
+
+                    // Utilisation de GM pour set la variable
+                    GM_setValue('shortcutNotif', shortcutNotif);
                 }
             });
 
@@ -3460,6 +3480,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
        <option value="notifExcludeHidden" ${filterOption === 'notifExcludeHidden' ? 'selected' : ''}>Tout voir sauf mots exclus</option>
     </select>
     ${createCheckbox('onMobile', 'Version mobile')}
+    ${createCheckbox('shortcutNotif', 'Raccourci vers le centre de notifications')}
     <u class="full-width">Type de notifications :</u><br>
     ${createCheckbox('notifUp', 'Up')}
     ${createCheckbox('notifRecos', 'Recos')}
