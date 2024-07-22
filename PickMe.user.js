@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.9.1
+// @version      1.9.2
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -1321,6 +1321,10 @@ NOTES:
                 return; // Ignore le reste du code si le champ de recherche est en focus
             }
 
+            const existingPopupNote = document.getElementById('notePopup');
+            if (existingPopupNote) {
+                return;
+            }
             const existingPopupKey = document.getElementById('keyConfigPopup');
             if (existingPopupKey) {
                 return;
