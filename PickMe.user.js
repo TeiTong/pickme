@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.9.2
+// @version      1.9.3
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -34,6 +34,9 @@ NOTES:
 
 (function() {
     'use strict';
+
+    //URL Vine
+    const urlPattern = /^https:\/\/www\.amazon\.fr\/vine/;
 
     //Liste des URLs Vine
     const excludedPatterns = [
@@ -160,7 +163,6 @@ NOTES:
             return;
         }
     });
-
     //Notif
     //On initialise les variables utiles pour cette partie du script
     let notifEnabled = GM_getValue("notifEnabled", false);
@@ -701,204 +703,208 @@ NOTES:
         }
     }
 
-    document.addEventListener("DOMContentLoaded", function() {
-        if (!pageProduit && window.location.href.indexOf("vine") !== -1) {
-            // Sélectionner le conteneur des onglets
-            var tabsContainer = document.querySelector('.a-tabs');
+    if (urlPattern.test(window.location.href)) {
+        document.addEventListener("DOMContentLoaded", function() {
+            if (!pageProduit && window.location.href.indexOf("vine") !== -1) {
+                // Sélectionner le conteneur des onglets
+                var tabsContainer = document.querySelector('.a-tabs');
 
-            // Créer le nouvel onglet pour Pickme Web
-            var newTab2 = document.createElement('li');
-            newTab2.className = 'a-tab-heading';
-            newTab2.role = 'presentation';
+                // Créer le nouvel onglet pour Pickme Web
+                var newTab2 = document.createElement('li');
+                newTab2.className = 'a-tab-heading';
+                newTab2.role = 'presentation';
 
-            // Créer le lien à ajouter dans le nouvel onglet Pickme Web
-            var link2 = document.createElement('a');
-            link2.href = "https://pickme.alwaysdata.net/search.php?key=" + encodeURIComponent(apiKey);
-            link2.role = 'tab';
-            link2.setAttribute('aria-selected', 'false');
-            link2.tabIndex = -1;
-            link2.textContent = 'PickMe Web';
-            link2.target = '_blank';
-            link2.style.color = '#f8a103';
-            link2.style.backgroundColor = 'transparent';
-            link2.style.border = 'none';
+                // Créer le lien à ajouter dans le nouvel onglet Pickme Web
+                var link2 = document.createElement('a');
+                link2.href = "https://pickme.alwaysdata.net/search.php?key=" + encodeURIComponent(apiKey);
+                link2.role = 'tab';
+                link2.setAttribute('aria-selected', 'false');
+                link2.tabIndex = -1;
+                link2.textContent = 'PickMe Web';
+                link2.target = '_blank';
+                link2.style.color = '#f8a103';
+                link2.style.backgroundColor = 'transparent';
+                link2.style.border = 'none';
 
-            // Ajouter le lien au nouvel onglet Pickme Web
-            newTab2.appendChild(link2);
+                // Ajouter le lien au nouvel onglet Pickme Web
+                newTab2.appendChild(link2);
 
-            // Créer le nouvel onglet pour Bloc-notes
-            var newTab3 = document.createElement('li');
-            newTab3.className = 'a-tab-heading';
-            newTab3.role = 'presentation';
+                // Créer le nouvel onglet pour Bloc-notes
+                var newTab3 = document.createElement('li');
+                newTab3.className = 'a-tab-heading';
+                newTab3.role = 'presentation';
 
-            // Créer le lien à ajouter dans le nouvel onglet Bloc notes
-            var link3 = document.createElement('a');
-            link3.href = "#"; // Garder un lien neutre
-            link3.role = 'tab';
-            link3.setAttribute('aria-selected', 'false');
-            link3.tabIndex = -1;
-            link3.textContent = 'Bloc-notes';
-            link3.target = '_blank';
-            link3.style.color = '#f8a103';
-            link3.style.backgroundColor = 'transparent';
-            link3.style.border = 'none';
+                // Créer le lien à ajouter dans le nouvel onglet Bloc notes
+                var link3 = document.createElement('a');
+                link3.href = "#"; // Garder un lien neutre
+                link3.role = 'tab';
+                link3.setAttribute('aria-selected', 'false');
+                link3.tabIndex = -1;
+                link3.textContent = 'Bloc-notes';
+                link3.target = '_blank';
+                link3.style.color = '#f8a103';
+                link3.style.backgroundColor = 'transparent';
+                link3.style.border = 'none';
 
-            // Créer l'image à ajouter devant le texte "Bloc-notes"
-            var image = document.createElement('img');
-            image.src = 'https://pickme.alwaysdata.net/img/loupe.png';
-            image.alt = 'Loupe';
-            image.style.cursor = 'pointer';
-            image.style.marginRight = '5px';
-            image.style.width = '15px';
-            image.style.height = '15px';
+                // Créer l'image à ajouter devant le texte "Bloc-notes"
+                var image = document.createElement('img');
+                image.src = 'https://pickme.alwaysdata.net/img/loupe.png';
+                image.alt = 'Loupe';
+                image.style.cursor = 'pointer';
+                image.style.marginRight = '5px';
+                image.style.width = '15px';
+                image.style.height = '15px';
 
-            // Ajouter l'événement onclick pour appeler la fonction setNote pour le lien
-            link3.onclick = function(event) {
-                event.preventDefault(); // Empêche le lien de suivre l'URL
-                setNote();
-            };
+                // Ajouter l'événement onclick pour appeler la fonction setNote pour le lien
+                link3.onclick = function(event) {
+                    event.preventDefault(); // Empêche le lien de suivre l'URL
+                    setNote();
+                };
 
-            // Ajouter l'événement onclick pour afficher la note stockée lors du clic sur l'image
-            image.onclick = function(event) {
-                event.preventDefault(); // Empêche toute action par défaut
-                event.stopPropagation(); // Empêche la propagation du clic au lien
-                const noteContent = GM_getValue("noteContent", "");
-                alert(noteContent);
-            };
+                // Ajouter l'événement onclick pour afficher la note stockée lors du clic sur l'image
+                image.onclick = function(event) {
+                    event.preventDefault(); // Empêche toute action par défaut
+                    event.stopPropagation(); // Empêche la propagation du clic au lien
+                    const noteContent = GM_getValue("noteContent", "");
+                    alert(noteContent);
+                };
 
-            // Ajouter l'image et le texte "Bloc-notes" au lien
-            link3.prepend(image);
+                // Ajouter l'image et le texte "Bloc-notes" au lien
+                link3.prepend(image);
 
-            // Ajouter le lien dans le nouvel onglet
-            newTab3.appendChild(link3);
+                // Ajouter le lien dans le nouvel onglet
+                newTab3.appendChild(link3);
 
-            // Ajouter les nouveaux onglets au conteneur des onglets
-            if (tabsContainer) {
-                tabsContainer.appendChild(newTab3);
-                //tabsContainer.appendChild(newTab1);
-                tabsContainer.appendChild(newTab2);
+                // Ajouter les nouveaux onglets au conteneur des onglets
+                if (tabsContainer) {
+                    tabsContainer.appendChild(newTab3);
+                    //tabsContainer.appendChild(newTab1);
+                    tabsContainer.appendChild(newTab2);
+                }
+            }
+        });
+    }
+
+    if (asinProduct) {
+        //Solution alternative pour le bouton d'achat PickMe, utile pour certains produits uniquement
+        const pageTypeHints = ['/dp/', '/gp/product/'];
+        const reviewPageHints = ['/product-reviews/'];
+        const navElement = '.a-pagination';
+        const idRegex = /\/(dp|gp\/product)\/.{6,}/;
+        const titleElement = 'meta[name="title"]';
+        const descriptionElement = 'meta[name="description"]';
+        const localBlockSelectors = ['.cr-widget-FocalReviews', '#cm_cr-review_list'];
+        const rBlockClass = '.a-section.review';
+        const pRowSelectors = ['.genome-widget-row', '[data-hook="genome-widget"]'];
+        const pLinkClass = '.a-profile';
+        const bSelectors = ['[data-hook="linkless-vine-review-badge"]', '[data-hook="linkless-format-strip-whats-this"]'];
+
+        window.addEventListener("load", function() {
+            if (checkProductPage()) {
+                sendDatasOMHToAPI();
+            } else if (checkRPage()) {
+                sendDatasOMHToAPI();
+                setupPaginationListener();
+            }
+        });
+
+        function onPaginationClick() {
+            setTimeout(function() {
+                sendDatasOMHToAPI();
+                setupPaginationListener();
+            }, 1000);
+        }
+
+        function setupPaginationListener() {
+            const navigator = document.querySelector(navElement);
+            if (navigator) {
+                navigator.removeEventListener('click', onPaginationClick);
+                navigator.addEventListener('click', onPaginationClick);
             }
         }
-    });
 
-    //Solution alternative pour le bouton d'achat PickMe, utile pour certains produits uniquement
-    const pageTypeHints = ['/dp/', '/gp/product/'];
-    const reviewPageHints = ['/product-reviews/'];
-    const navElement = '.a-pagination';
-    const idRegex = /\/(dp|gp\/product)\/.{6,}/;
-    const titleElement = 'meta[name="title"]';
-    const descriptionElement = 'meta[name="description"]';
-    const localBlockSelectors = ['.cr-widget-FocalReviews', '#cm_cr-review_list'];
-    const rBlockClass = '.a-section.review';
-    const pRowSelectors = ['.genome-widget-row', '[data-hook="genome-widget"]'];
-    const pLinkClass = '.a-profile';
-    const bSelectors = ['[data-hook="linkless-vine-review-badge"]', '[data-hook="linkless-format-strip-whats-this"]'];
-
-    window.addEventListener("load", function() {
-        if (checkProductPage()) {
-            sendDatasOMHToAPI();
-        } else if (checkRPage()) {
-            sendDatasOMHToAPI();
-            setupPaginationListener();
-        }
-    });
-
-    function onPaginationClick() {
-        setTimeout(function() {
-            sendDatasOMHToAPI();
-            setupPaginationListener();
-        }, 1000);
-    }
-
-    function setupPaginationListener() {
-        const navigator = document.querySelector(navElement);
-        if (navigator) {
-            navigator.removeEventListener('click', onPaginationClick);
-            navigator.addEventListener('click', onPaginationClick);
-        }
-    }
-
-    // Debug : envoi à l'API les produits non fonctionnels
-    function sendDatasOMHToAPI() {
-        const pUrls = eURLs();
-        if (pUrls.length > 0) {
-            const formData = new URLSearchParams({
-                version: GM_info.script.version,
-                token: apiKey,
-                current: window.location.href,
-                urls: JSON.stringify(pUrls),
-            });
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/omh",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        resolve(response);
-                    },
-                    onerror: function(error) {
-                        reject(error);
-                    }
+        // Debug : envoi à l'API les produits non fonctionnels
+        function sendDatasOMHToAPI() {
+            const pUrls = eURLs();
+            if (pUrls.length > 0) {
+                const formData = new URLSearchParams({
+                    version: GM_info.script.version,
+                    token: apiKey,
+                    current: window.location.href,
+                    urls: JSON.stringify(pUrls),
                 });
-            });
-        }
-    }
-
-    function checkProductPage() {
-        const urlCheck = pageTypeHints.some(hint => window.location.pathname.includes(hint));
-        const idCheck = idRegex.test(window.location.pathname);
-        const hasTitle = document.querySelector(titleElement) !== null;
-        const hasDescription = document.querySelector(descriptionElement) !== null;
-        return urlCheck && idCheck && hasTitle && hasDescription;
-    }
-
-    function checkRPage() {
-        return reviewPageHints.some(hint => window.location.pathname.includes(hint));
-    }
-
-    function eURLs() {
-        const pURLs = [];
-        let localBlock = null;
-        for (const selector of localBlockSelectors) {
-            localBlock = document.querySelector(selector);
-            if (localBlock) break;
+                return new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: "POST",
+                        url: "https://pickme.alwaysdata.net/shyrka/omh",
+                        data: formData.toString(),
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        },
+                        onload: function(response) {
+                            resolve(response);
+                        },
+                        onerror: function(error) {
+                            reject(error);
+                        }
+                    });
+                });
+            }
         }
 
-        if (localBlock) {
-            const reviewBlocks = localBlock.querySelectorAll(rBlockClass);
-            reviewBlocks.forEach(block => {
-                let foreignReview = block.querySelector('.cr-translated-review-content');
-                if (!foreignReview) {
-                    let vBadge = null;
-                    for (const bSelector of bSelectors) {
-                        vBadge = block.querySelector(bSelector);
-                        if (vBadge) break;
-                    }
+        function checkProductPage() {
+            const urlCheck = pageTypeHints.some(hint => window.location.pathname.includes(hint));
+            const idCheck = idRegex.test(window.location.pathname);
+            const hasTitle = document.querySelector(titleElement) !== null;
+            const hasDescription = document.querySelector(descriptionElement) !== null;
+            return urlCheck && idCheck && hasTitle && hasDescription;
+        }
 
-                    if (vBadge) {
-                        let pRow = null;
-                        for (const rowSelector of pRowSelectors) {
-                            pRow = block.querySelector(rowSelector);
-                            if (pRow) break;
+        function checkRPage() {
+            return reviewPageHints.some(hint => window.location.pathname.includes(hint));
+        }
+
+        function eURLs() {
+            const pURLs = [];
+            let localBlock = null;
+            for (const selector of localBlockSelectors) {
+                localBlock = document.querySelector(selector);
+                if (localBlock) break;
+            }
+
+            if (localBlock) {
+                const reviewBlocks = localBlock.querySelectorAll(rBlockClass);
+                reviewBlocks.forEach(block => {
+                    let foreignReview = block.querySelector('.cr-translated-review-content');
+                    if (!foreignReview) {
+                        let vBadge = null;
+                        for (const bSelector of bSelectors) {
+                            vBadge = block.querySelector(bSelector);
+                            if (vBadge) break;
                         }
 
-                        if (pRow) {
-                            const pLink = pRow.querySelector(pLinkClass);
-                            const dateElement = block.querySelector('[data-hook="review-date"]');
-                            const rDate = dateElement ? dateElement.textContent.trim() : "";
+                        if (vBadge) {
+                            let pRow = null;
+                            for (const rowSelector of pRowSelectors) {
+                                pRow = block.querySelector(rowSelector);
+                                if (pRow) break;
+                            }
 
-                            if (pLink.href && pLink.href.length > 0) {
-                                pURLs.push({ url: pLink.href, date: rDate });
+                            if (pRow) {
+                                const pLink = pRow.querySelector(pLinkClass);
+                                const dateElement = block.querySelector('[data-hook="review-date"]');
+                                const rDate = dateElement ? dateElement.textContent.trim() : "";
+
+                                if (pLink.href && pLink.href.length > 0) {
+                                    pURLs.push({ url: pLink.href, date: rDate });
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
+            return pURLs;
         }
-        return pURLs;
     }
     //Solution alternative end
 
@@ -2557,7 +2563,33 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         if (imgNew && callUrlEnabled && apiOk && callUrl && valeurQueue == "potluck") {
             appelURL();
         }
-        if (listElements.length > 0) {
+
+        // Durée maximale de l'ancienneté en millisecondes (ici: 1 jour)
+        const MAX_CACHE_AGE = 24 * 60 * 60 * 1000;
+
+        // Fonction pour vérifier si une page est potentiellement chargée depuis un cache ancien
+        function isPageCachedOld() {
+            // Récupère la date de dernière visite stockée
+            const lastVisit = GM_getValue('lastVisit', null);
+            const now = new Date().getTime();
+
+            if (lastVisit) {
+                const lastVisitDate = new Date(lastVisit);
+                const age = now - lastVisitDate.getTime();
+
+                // Si l'âge est supérieur à MAX_CACHE_AGE, on considère la page comme obsolète
+                if (age > MAX_CACHE_AGE) {
+                    GM_setValue('lastVisit', now);
+                    return true;
+                }
+            }
+
+            // Met à jour la date de dernière visite
+            GM_setValue('lastVisit', now);
+            return false;
+        }
+
+        if (listElements.length > 0 && !isPageCachedOld()) {
             sendDatasToAPI(listElements);
             if (ordersInfos && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
                 ordersPost(listElements);
