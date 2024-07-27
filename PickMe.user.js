@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.9.3
+// @version      1.9.4
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -3172,6 +3172,19 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             popup.id = "configPopup";
             popup.innerHTML = `
     <h2 id="configPopupHeader">Paramètres PickMe v${version}<span id="closePopup" style="float: right; cursor: pointer;">&times;</span></h2>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <p id="links-container" style="text-align: center;">
+            <a href="https://pickme.alwaysdata.net/wiki/doku.php?id=plugins:pickme" target="_blank">
+                <img src="https://pickme.alwaysdata.net/img/wiki.png" alt="Wiki PickMe" style="vertical-align: middle; margin-right: 5px; width: 25px; height: 25px;">
+                Wiki PickMe
+            </a>
+            ${mobileEnabled ? '<br>' : '<span id="separator"> | </span>'}
+            <a href="https://pickme.alwaysdata.net/wiki/doku.php?id=vine:comment_nous_aider_gratuitement" target="_blank">
+                <img src="https://pickme.alwaysdata.net/img/soutiens.png" alt="Soutenir gratuitement" style="vertical-align: middle; margin-right: 5px; width: 25px; height: 25px;">
+                Soutenir gratuitement
+            </a>
+        </p>
+    </div>
     <div class="checkbox-container">
       ${createCheckbox('highlightEnabled', 'Surbrillance des nouveaux produits', 'Permet d\'ajouter un fond de couleur dès qu\'un nouveau produit est trouvé sur la page en cours. La couleur peut se choisir avec le bouton plus bas dans ces options.')}
       ${createCheckbox('firsthlEnabled', 'Mettre les nouveaux produits en début de page', 'Les nouveaux produits seront mis au tout début de la liste des produits sur la page en cours')}
