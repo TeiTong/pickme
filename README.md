@@ -14,6 +14,8 @@ Fonctionnalités :
 - Affichage mobile
 - Etc...
 
+Wiki : https://pickme.alwaysdata.net/wiki/doku.php?id=plugins:pickme
+
 Autre plugin pour la gestion des avis : [ReviewRemember](https://github.com/TeiTong/reviewremember)
 
 Attention, le plugin ne fonctionne pas sans une clef API qu'il faut obtenir via le [discord](https://discord.gg/amazonvinefr)
