@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.9.4
+// @version      1.10
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -143,11 +143,10 @@ NOTES:
         return container; // Retourner le conteneur au lieu du bouton seul
     }
 
-
     //Détermine si on ajoute l'onglet Notifications
     var pageProduit = false;
     var asinProduct = getASINfromURL(window.location.href);
-    document.addEventListener('DOMContentLoaded', function() {
+    function asinReady() {
         if (asinProduct) {
             pageProduit = true;
             addButton(asinProduct);
@@ -162,7 +161,18 @@ NOTES:
             observer.observe(document.body, { childList: true, subtree: true });
             return;
         }
-    });
+    }
+
+    //Fix iPhone
+    if (document.readyState !== 'loading') {
+        asinReady();
+    }
+    else {
+        document.addEventListener('DOMContentLoaded', function () {
+            asinReady();
+        });
+    }
+
     //Notif
     //On initialise les variables utiles pour cette partie du script
     let notifEnabled = GM_getValue("notifEnabled", false);
@@ -444,7 +454,7 @@ NOTES:
         }
     }
 
-    // Fonction pour demander la permission et afficher la notification
+    //Fonction pour demander la permission et afficher la notification
     function requestNotification(title, text, icon, queue = null, page = null) {
         if (!("Notification" in window)) {
             console.log("Ce navigateur ne supporte pas les notifications de bureau.");
@@ -497,7 +507,7 @@ NOTES:
         }
     }
 
-    // Fonction pour afficher la notification sur PC
+    //Fonction pour afficher la notification sur PC
     function showNotification(title, text, icon, queue = null, page = null) {
         var notification = new Notification(title, {
             body: text || "",
@@ -526,11 +536,21 @@ NOTES:
     }
 
     //Affichage de l'onglet "Favoris"
-    document.addEventListener("DOMContentLoaded", function() {
+    function addFavTab() {
         if (window.location.href.startsWith('https://www.amazon.fr/vine/vine-items')) {
             mesFavoris();
         }
-    });
+    }
+
+    //Fix iPhone
+    if (document.readyState !== 'loading') {
+        addFavTab();
+    }
+    else {
+        document.addEventListener('DOMContentLoaded', function () {
+            addFavTab()
+        });
+    }
 
     //Ecoute des messages entrants
     if (notifEnabled && apiKey) {
@@ -576,7 +596,7 @@ NOTES:
             }
         });
 
-        document.addEventListener("DOMContentLoaded", function() {
+        function addNotifTab() {
             if (window.location.hostname !== "pickme.alwaysdata.net") {
                 // Initialisation de l'iframe seulement si on est sur le bon domaine
                 var iframe = document.createElement('iframe');
@@ -613,6 +633,33 @@ NOTES:
                 // Ajouter les nouveaux onglets au conteneur des onglets
                 if (tabsContainer) {
                     tabsContainer.appendChild(newTab1);
+                }
+            }
+        }
+
+        //Fix iPhone
+        if (document.readyState !== 'loading') {
+            addNotifTab();
+        }
+        else {
+            document.addEventListener('DOMContentLoaded', function () {
+                addNotifTab()
+            });
+        }
+    }
+
+    //Gestion des favoris sur PickMe Web
+    if (window.location.hostname == "pickme.alwaysdata.net") {
+        document.addEventListener('click', function(event) {
+            //Vérifier si l'élément cliqué a la classe 'favori-icon'
+            if (event.target.classList.contains('favori-icon')) {
+                //let dataId = event.target.getAttribute('data-id');
+                let dataFavori = event.target.getAttribute('data-favori');
+                let dataAsin = event.target.getAttribute('data-asin');
+                if (dataFavori == 1) {
+                    GM_setValue(dataAsin +'_favori', { estFavori: true });
+                } else if (dataFavori == 0) {
+                    GM_deleteValue(dataAsin + '_favori');
                 }
             }
         });
@@ -703,66 +750,66 @@ NOTES:
         }
     }
 
-    if (urlPattern.test(window.location.href)) {
-        document.addEventListener("DOMContentLoaded", function() {
-            if (!pageProduit && window.location.href.indexOf("vine") !== -1) {
-                // Sélectionner le conteneur des onglets
-                var tabsContainer = document.querySelector('.a-tabs');
 
-                // Créer le nouvel onglet pour Pickme Web
-                var newTab2 = document.createElement('li');
-                newTab2.className = 'a-tab-heading';
-                newTab2.role = 'presentation';
+    function addTab() {
+        if (!pageProduit && window.location.href.indexOf("vine") !== -1 && apiKey) {
+            // Sélectionner le conteneur des onglets
+            var tabsContainer = document.querySelector('.a-tabs');
 
-                // Créer le lien à ajouter dans le nouvel onglet Pickme Web
-                var link2 = document.createElement('a');
-                link2.href = "https://pickme.alwaysdata.net/search.php?key=" + encodeURIComponent(apiKey);
-                link2.role = 'tab';
-                link2.setAttribute('aria-selected', 'false');
-                link2.tabIndex = -1;
-                link2.textContent = 'PickMe Web';
-                link2.target = '_blank';
-                link2.style.color = '#f8a103';
-                link2.style.backgroundColor = 'transparent';
-                link2.style.border = 'none';
+            // Créer le nouvel onglet pour Pickme Web
+            var newTab2 = document.createElement('li');
+            newTab2.className = 'a-tab-heading';
+            newTab2.role = 'presentation';
 
-                // Ajouter le lien au nouvel onglet Pickme Web
-                newTab2.appendChild(link2);
+            // Créer le lien à ajouter dans le nouvel onglet Pickme Web
+            var link2 = document.createElement('a');
+            link2.href = "https://pickme.alwaysdata.net/search.php?key=" + encodeURIComponent(apiKey);
+            link2.role = 'tab';
+            link2.setAttribute('aria-selected', 'false');
+            link2.tabIndex = -1;
+            link2.textContent = 'PickMe Web';
+            link2.target = '_blank';
+            link2.style.color = '#f8a103';
+            link2.style.backgroundColor = 'transparent';
+            link2.style.border = 'none';
 
-                // Créer le nouvel onglet pour Bloc-notes
-                var newTab3 = document.createElement('li');
-                newTab3.className = 'a-tab-heading';
-                newTab3.role = 'presentation';
+            // Ajouter le lien au nouvel onglet Pickme Web
+            newTab2.appendChild(link2);
 
-                // Créer le lien à ajouter dans le nouvel onglet Bloc notes
-                var link3 = document.createElement('a');
-                link3.href = "#"; // Garder un lien neutre
-                link3.role = 'tab';
-                link3.setAttribute('aria-selected', 'false');
-                link3.tabIndex = -1;
-                link3.textContent = 'Bloc-notes';
-                link3.target = '_blank';
-                link3.style.color = '#f8a103';
-                link3.style.backgroundColor = 'transparent';
-                link3.style.border = 'none';
+            // Créer le nouvel onglet pour Bloc-notes
+            var newTab3 = document.createElement('li');
+            newTab3.className = 'a-tab-heading';
+            newTab3.role = 'presentation';
 
-                // Créer l'image à ajouter devant le texte "Bloc-notes"
-                var image = document.createElement('img');
+            // Créer le lien à ajouter dans le nouvel onglet Bloc notes
+            var link3 = document.createElement('a');
+            link3.href = "#"; // Garder un lien neutre
+            link3.role = 'tab';
+            link3.setAttribute('aria-selected', 'false');
+            link3.tabIndex = -1;
+            link3.textContent = 'Bloc-notes';
+            link3.target = '_blank';
+            link3.style.color = '#f8a103';
+            link3.style.backgroundColor = 'transparent';
+            link3.style.border = 'none';
+
+            // Créer l'image à ajouter devant le texte "Bloc-notes"
+            /*var image = document.createElement('img');
                 image.src = 'https://pickme.alwaysdata.net/img/loupe.png';
                 image.alt = 'Loupe';
                 image.style.cursor = 'pointer';
                 image.style.marginRight = '5px';
-                image.style.width = '15px';
-                image.style.height = '15px';
+                image.style.width = '14px';
+                image.style.height = '14px';*/
 
-                // Ajouter l'événement onclick pour appeler la fonction setNote pour le lien
-                link3.onclick = function(event) {
-                    event.preventDefault(); // Empêche le lien de suivre l'URL
-                    setNote();
-                };
+            // Ajouter l'événement onclick pour appeler la fonction setNote pour le lien
+            link3.onclick = function(event) {
+                event.preventDefault(); // Empêche le lien de suivre l'URL
+                setNote();
+            };
 
-                // Ajouter l'événement onclick pour afficher la note stockée lors du clic sur l'image
-                image.onclick = function(event) {
+            // Ajouter l'événement onclick pour afficher la note stockée lors du clic sur l'image
+            /*image.onclick = function(event) {
                     event.preventDefault(); // Empêche toute action par défaut
                     event.stopPropagation(); // Empêche la propagation du clic au lien
                     const noteContent = GM_getValue("noteContent", "");
@@ -770,19 +817,30 @@ NOTES:
                 };
 
                 // Ajouter l'image et le texte "Bloc-notes" au lien
-                link3.prepend(image);
+                link3.prepend(image);*/
 
-                // Ajouter le lien dans le nouvel onglet
-                newTab3.appendChild(link3);
+            // Ajouter le lien dans le nouvel onglet
+            newTab3.appendChild(link3);
 
-                // Ajouter les nouveaux onglets au conteneur des onglets
-                if (tabsContainer) {
-                    tabsContainer.appendChild(newTab3);
-                    //tabsContainer.appendChild(newTab1);
-                    tabsContainer.appendChild(newTab2);
-                }
+            // Ajouter les nouveaux onglets au conteneur des onglets
+            if (tabsContainer) {
+                tabsContainer.appendChild(newTab3);
+                //tabsContainer.appendChild(newTab1);
+                tabsContainer.appendChild(newTab2);
             }
-        });
+        }
+    }
+
+    if (urlPattern.test(window.location.href)) {
+        //Fix iPhone
+        if (document.readyState !== 'loading') {
+            addTab();
+        }
+        else {
+            document.addEventListener('DOMContentLoaded', function () {
+                addTab()
+            });
+        }
     }
 
     if (asinProduct) {
@@ -908,6 +966,75 @@ NOTES:
     }
     //Solution alternative end
 
+    //Code pour PickMe Web
+    function favPickmeWeb() {
+        if (window.location.href === 'https://pickme.alwaysdata.net/search.php') {
+            // Rechercher le tableau avec l'ID "resultsTable"
+            let table = document.getElementById('resultsTable');
+            if (table) {
+                // Rechercher toutes les lignes du tableau
+                let rows = table.querySelectorAll('tr[id^="ligne_"]');
+                rows.forEach(row => {
+                    // Extraire l'ASIN de l'ID de la ligne
+                    let asin = row.id.split('_')[1];
+
+                    // Vérifier si l'ASIN est déjà favori
+                    let isFavori = GM_getValue(asin + '_favori', null);
+
+                    // Trouver la cellule de page
+                    let pageCell = row.querySelector('td[id^="page_"]');
+
+                    if (pageCell) {
+                        // Créer l'image de favori
+                        let link = document.createElement('a');
+                        link.href = '#';
+
+                        let img = document.createElement('img');
+                        img.src = isFavori ? 'https://pickme.alwaysdata.net/img/coeurrouge2.png' : 'https://pickme.alwaysdata.net/img/coeurgris2.png';
+                        img.alt = isFavori ? 'Favori' : 'Ajouter aux favoris';
+                        img.style.width = '30px';
+                        img.style.cursor = 'pointer';
+
+                        link.appendChild(img);
+
+                        link.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            if (isFavori) {
+                                // Supprimer le favori
+                                GM_deleteValue(asin + '_favori');
+                                img.src = 'https://pickme.alwaysdata.net/img/coeurgris2.png';
+                                img.alt = 'Ajouter aux favoris';
+                                isFavori = null;
+                            } else {
+                                // Ajouter aux favoris
+                                GM_setValue(asin +'_favori', { estFavori: true });
+                                img.src = 'https://pickme.alwaysdata.net/img/coeurrouge2.png';
+                                img.alt = 'Favori';
+                                isFavori = true;
+                            }
+                        });
+
+                        // Ajouter le lien à la cellule avec un retour à la ligne
+                        pageCell.appendChild(document.createElement('br'));
+                        pageCell.appendChild(document.createElement('br'));
+                        pageCell.appendChild(link);
+                    }
+                });
+            }
+        }
+    }
+
+    //Fix iPhone
+    if (document.readyState !== 'loading') {
+        favPickmeWeb();
+    }
+    else {
+        document.addEventListener('DOMContentLoaded', function () {
+            favPickmeWeb()
+        });
+    }
+    //End PickMe Web
+
     // Convertir les motifs en une expression régulière
     const regex = new RegExp(excludedPatterns.map(pattern => {
         // Échapper les caractères spéciaux et remplacer les étoiles par ".*" pour une correspondance générique
@@ -935,7 +1062,7 @@ NOTES:
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    function runPickMe() {
 
         var version = GM_info.script.version;
 
@@ -1118,6 +1245,9 @@ NOTES:
                 callUrl = userInput;
                 console.log("URL enregistrée avec succès :", userInput);
             } else {
+                GM_setValue("callUrl", "");
+                callUrl = "";
+                document.getElementById('callUrlEnabled').checked = false;
                 alert("URL invalide. Veuillez entrer une URL valide.");
                 console.error("URL invalide fournie. Veuillez entrer une URL valide.");
             }
@@ -1293,7 +1423,8 @@ NOTES:
             up: 'z',
             down: 's',
             hide: 'h',
-            show: 'j'
+            show: 'j',
+            sync: ''
         };
 
         // Fonction pour récupérer la configuration des touches
@@ -1304,7 +1435,8 @@ NOTES:
                 up: GM_getValue('keyUp', defaultKeys.up),
                 down: GM_getValue('keyDown', defaultKeys.down),
                 hide: GM_getValue('keyHide', defaultKeys.hide),
-                show: GM_getValue('keyShow', defaultKeys.show)
+                show: GM_getValue('keyShow', defaultKeys.show),
+                sync: GM_getValue('keySync', defaultKeys.sync)
             };
         }
 
@@ -1363,6 +1495,9 @@ NOTES:
                 if (boutonProduits && boutonProduits.textContent === "Produits cachés") {
                     simulerClicSurBouton('boutonToutAfficher');
                 }
+            }
+            else if (e.key === keys.sync) {
+                syncProducts(false);
             }
         });
 
@@ -1514,7 +1649,28 @@ NOTES:
             setTimeout(tryAutoHide, 600);
         }
 
+
+        //Fonction pour parcourir et convertir les favoris de PickMe Web en localstorage
+        function convertGMFav() {
+            //Récupérer toutes les clés stockées avec GM_setValue
+            let keys = GM_listValues();
+
+            keys.forEach(key => {
+                //Vérifier si la clé se termine par "_favori"
+                if (key.endsWith('_favori')) {
+                    //Récupérer la valeur correspondante
+                    let value = GM_getValue(key);
+
+                    //Stocker la valeur dans le localStorage
+                    localStorage.setItem(key, JSON.stringify(value));
+                    //Supprimer la valeur de GM
+                    GM_deleteValue(key);
+                }
+            });
+        }
+
         function ajouterIconeEtFonctionCacher() {
+            convertGMFav();
             const produits = document.querySelectorAll('.vvp-item-tile');
             const resultats = document.querySelector('#vvp-items-grid-container > p'); // Modifiez ce sélecteur si nécessaire
 
@@ -2765,6 +2921,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             boutonReset.textContent = 'Reset';
             boutonReset.classList.add('bouton-reset');
             boutonReset.addEventListener('click', resetEtMiseAJour);
+            //boutonReset.addEventListener('click', () => syncProducts(false));
 
             // Sélection du conteneur où insérer le bouton "Reset"
             const conteneur = document.querySelector('#vvp-browse-nodes-container > p');
@@ -3270,6 +3427,15 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
             });
 
+            document.getElementById('callUrlEnabled').addEventListener('change', function() {
+                if (this.checked) {
+                    if (!isValidUrl(callUrl)) {
+                        alert("Merci de saisir une URL valide avant d'activer l'option");
+                        document.getElementById('callUrlEnabled').checked = false;
+                    }
+                }
+            });
+
             document.getElementById('notifEnabled').addEventListener('change', function() {
                 if (this.checked) {
                     // Demander à l'utilisateur s'il est sur mobile ou PC
@@ -3321,7 +3487,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
             // Ajoute des écouteurs pour les nouveaux boutons
             document.getElementById('configurerNotif').addEventListener('click', configurerNotif);
-            document.getElementById('configurerTouches').addEventListener('click', configurerTouches);
+            document.getElementById('configurerTouches').addEventListener('click', function() {
+                configurerTouches(isPremium);
+            });
             document.getElementById('configurerFiltres').addEventListener('click', configurerFiltres);
             document.getElementById('setHighlightColor').addEventListener('click', setHighlightColor);
             document.getElementById('setHighlightColorFav').addEventListener('click', setHighlightColorFav);
@@ -3443,7 +3611,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
 
         // Fonction pour créer la fenêtre popup de configuration des touches
-        function createKeyConfigPopup() {
+        function createKeyConfigPopup(isPremium) {
             // Vérifie si une popup existe déjà et la supprime si c'est le cas
             const existingPopup = document.getElementById('keyConfigPopup');
             if (existingPopup) {
@@ -3465,6 +3633,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         ${createKeyInput('keyDown', 'Onglet précédent (flêche : ArrowDown)')}
         ${createKeyInput('keyHide', 'Tout cacher')}
         ${createKeyInput('keyShow', 'Tout montrer')}
+        ${createKeyInput('keySync', '(Premium) Synchroniser les produits avec le serveur et tout cacher', !isPremium)}
 <div class="button-container final-buttons">
   <button class="full-width" id="saveKeyConfig">Enregistrer</button>
   <button class="full-width" id="closeKeyConfig">Fermer</button>
@@ -3483,19 +3652,20 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         // Crée les champs de saisie pour les touches
-        function createKeyInput(id, label) {
+        function createKeyInput(id, label, disabled = false) {
             const value = GM_getValue(id, ''); // Récupère la valeur actuelle ou une chaîne vide par défaut
+            const disabledAttribute = disabled ? 'disabled' : ''; // Détermine si l'attribut disabled doit être ajouté
             return `
         <div style="margin-top: 10px;">
             <label for="${id}" style="display: block;">${label}</label>
-            <input type="text" id="${id}" name="${id}" value="${value}" style="width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px;">
+            <input type="text" id="${id}" name="${id}" value="${value}" style="width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px;" ${disabledAttribute}>
         </div>
     `;
         }
 
         // Fonction pour enregistrer la configuration des touches
         function saveKeyConfig() {
-            const keys = ['keyLeft', 'keyRight', 'keyUp', 'keyDown', 'keyHide', 'keyShow'];
+            const keys = ['keyLeft', 'keyRight', 'keyUp', 'keyDown', 'keyHide', 'keyShow', 'keySync'];
             keys.forEach(key => {
                 const inputValue = document.getElementById(key).value;
                 GM_setValue(key, inputValue);
@@ -3626,8 +3796,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         // Modification de la fonction configurerTouches pour ouvrir la popup
-        function configurerTouches() {
-            createKeyConfigPopup();
+        function configurerTouches(isPremium) {
+            createKeyConfigPopup(isPremium);
         }
         function configurerFiltres() {
             createFavConfigPopup();
@@ -4534,7 +4704,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         //Appel API pour synchroniser
-        function syncProducts() {
+        function syncProducts(askHide = true) {
             const formData = new URLSearchParams({
                 version: version,
                 token: API_TOKEN,
@@ -4553,7 +4723,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                             try {
                                 // Tente de parser le texte de réponse en JSON
                                 const productsData = JSON.parse(response.responseText);
-                                syncProductsData(productsData);
+                                syncProductsData(productsData, askHide);
                                 //console.log(jsonResponse); // Affiche la réponse parsée dans la console
                                 resolve(productsData);
                             } catch (error) {
@@ -4774,8 +4944,13 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         //Ajout des données reçu par l'API pour synchroniser
-        function syncProductsData(productsData) {
-            let userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour activer, Annuler pour désactiver.");
+        function syncProductsData(productsData, askHide = true) {
+            let userHideAll;
+            if (askHide) {
+                userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour activer, Annuler pour désactiver.");
+            } else {
+                userHideAll = true;
+            }
             let storedProducts = JSON.parse(GM_getValue("storedProducts", "{}"));
             productsData.forEach(product => {
                 const asin = product.asin;
@@ -4797,7 +4972,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
             // Sauvegarder les changements dans storedProducts
             GM_setValue("storedProducts", JSON.stringify(storedProducts));
-            alert("Les produits ont été synchronisés.");
+            if (askHide) {
+                alert("Les produits ont été synchronisés.");
+            }
             window.location.reload();
         }
         //End
@@ -5381,5 +5558,15 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         } else {
             displayContent();
         }
-    });
+    }
+
+    //Fix iPhone
+    if (document.readyState !== 'loading') {
+        runPickMe();
+    }
+    else {
+        document.addEventListener('DOMContentLoaded', function () {
+            runPickMe();
+        });
+    }
 })();
