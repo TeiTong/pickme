@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.10
+// @version      1.10.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -266,194 +266,6 @@ NOTES:
         });
     }
 
-    //Afficher l'onglet "Favoris"
-    function mesFavoris() {
-        const MAX_FAVORIS = 200; // Limite des favoris affichés
-
-        if (apiKey && hideEnabled) {
-            // Ajouter un nouvel onglet dans le menu
-            const menu = document.querySelector('.a-tabs');
-            const newTab = document.createElement('li');
-            newTab.className = 'a-tab-heading';
-            newTab.innerHTML = '<a href="javascript:void(0);" id="favorisTab" role="tab" aria-selected="false" tabindex="-1" style="color: #f8a103;">Favoris</a>';
-            menu.appendChild(newTab);
-
-            // Ajouter le conteneur pour afficher les favoris
-            const container = document.createElement('div');
-            container.id = 'favorisContainer';
-            container.style.display = 'none';
-            container.className = 'a-container vvp-body';
-            container.innerHTML = `
-            <div class="a-box a-tab-content" role="tabpanel" tabindex="0">
-                <div class="a-box-inner">
-                    <div class="a-section vvp-tab-content">
-                        <div class="vvp-orders-table--heading-top" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 id="favorisCount">Favoris (0)</h3>
-                            <span class="a-button a-button-primary vvp-orders-table--action-btn">
-                                <span class="a-button-inner">
-                                    <button id="supprimerTousFavoris" class="a-button-input" aria-labelledby="supprimer-tous"></button>
-                                    <span class="a-button-text" aria-hidden="true" id="supprimer-tous">Tout supprimer</span>
-                                </span>
-                            </span>
-                        </div>
-                        <table class="a-normal vvp-orders-table">
-                            <thead>
-                                <tr class="vvp-orders-table--heading-row">
-                                    <th id="vvp-orders-table--image-col-heading"></th>
-                                    <th id="vvp-orders-table--product-title-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 15px;">Produit</th>
-                                    <th id="vvp-orders-table--order-date-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 10px;">Vu pour la dernière fois</th>
-                                    <th id="vvp-orders-table--actions-col-heading"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="favorisList"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
-            document.querySelector('#a-page > div.a-container.vvp-body > div.a-tab-container.vvp-tab-set-container').appendChild(container);
-
-            // Ajouter du style pour l'espace au-dessus de la première ligne de produit
-            const style = document.createElement('style');
-            style.textContent = `
-            tr:first-child td, tr:first-child th {
-                padding-top: 15px;
-            }
-        `;
-            document.head.appendChild(style);
-
-            // Fonction pour afficher les favoris
-            async function afficherFavoris() {
-                const favorisList = document.getElementById('favorisList');
-                favorisList.innerHTML = ''; // Réinitialiser la liste des favoris
-
-                const favoris = [];
-                const promises = Object.keys(localStorage).map(async (key) => {
-                    if (key.endsWith('_favori')) {
-                        const favori = JSON.parse(localStorage.getItem(key));
-                        if (favori.estFavori === true) {
-                            const asin = key.split('_favori')[0]; // Extraire l'ASIN de la clé
-                            try {
-                                const productInfo = await infoProduct(asin); // Appel à la fonction infoProduct avec l'ASIN
-                                const lastSeenDate = productInfo.date_last_eu ? parseEuropeanDate(productInfo.date_last_eu) : null;
-                                const timeDiff = lastSeenDate ? new Date() - lastSeenDate : 0;
-                                favoris.push({ asin, key, productInfo, timeDiff });
-                            } catch (error) {
-                                console.error("Erreur lors de la récupération des informations du produit:", error);
-                            }
-                        }
-                    }
-                });
-
-                await Promise.all(promises);
-
-                // Trier les favoris : ceux avec timeDiff = 0 en premier, puis par timeDiff croissant
-                favoris.sort((a, b) => {
-                    if (a.timeDiff === 0) return -1;
-                    if (b.timeDiff === 0) return 1;
-                    return a.timeDiff - b.timeDiff;
-                });
-
-                // Limiter les favoris à MAX_FAVORIS
-                const favorisAffiches = favoris.slice(0, MAX_FAVORIS);
-
-                // Mettre à jour le titre avec le nombre de favoris affichés
-                document.querySelector('#favorisCount').textContent = `Favoris (${favorisAffiches.length})`;
-
-                // Fonction pour convertir une date européenne en format de date interprétable
-                function parseEuropeanDate(dateStr) {
-                    const [day, month, year, hours, minutes, seconds] = dateStr.split(/[/ :]/);
-                    return new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}`);
-                }
-
-                // Afficher les favoris triés
-                favorisAffiches.forEach(({ asin, key, productInfo, timeDiff }) => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'vvp-orders-table--row';
-                    const urlProduct = "https://www.amazon.fr/dp/" + asin;
-                    if (productInfo == "ASIN absent") {
-                        tr.innerHTML = `
-                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png"></td>
-                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Recommandation ou produit inconnu : ${asin}</a></td>
-                        <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
-                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
-                    `;
-                    } else if (!productInfo.main_image && productInfo.title) {
-                        tr.innerHTML = `
-                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png"></td>
-                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Produit indisponible : ${productInfo.title}</a></td>
-                        <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
-                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
-                    `;
-                    } else if (productInfo.title) {
-                        // Vérifier la date et appliquer la couleur appropriée
-                        let dateColor = '';
-
-                        const hoursDiff = timeDiff / (1000 * 60 * 60);
-                        const minutesDiff = timeDiff / (1000 * 60);
-
-                        if (hoursDiff > 12) {
-                            dateColor = 'color: #FF0000;';
-                        } else if (minutesDiff < 1) {
-                            dateColor = 'color: #007FFF;';
-                        }
-                        tr.innerHTML = `
-                        <td class="vvp-orders-table--image-col"><img alt="${productInfo.title}" src="${productInfo.main_image}"></td>
-                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">${productInfo.title}</a></td>
-                        <td class="vvp-orders-table--text-col" style="${dateColor}"><strong>${productInfo.date_last_eu}</strong><br><a class="a-link-normal" target="_blank" rel="noopener" href="${productInfo.linkUrl}">${productInfo.linkText}</a></td>
-                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
-                    `;
-                    }
-                    favorisList.appendChild(tr);
-                });
-
-                // Ajouter des écouteurs d'événement pour les boutons de suppression
-                document.querySelectorAll('.supprimerFavori').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const key = this.getAttribute('data-key');
-                        localStorage.removeItem(key);
-                        const listItem = this.closest('tr');
-                        if (listItem) {
-                            listItem.remove(); // Supprimer la ligne correspondante
-                        }
-                        // Mettre à jour le titre avec le nombre de favoris affichés
-                        const nbFavorisRestants = document.querySelectorAll('#favorisList .vvp-orders-table--row').length;
-                        document.querySelector('#favorisCount').textContent = `Favoris (${nbFavorisRestants})`;
-                    });
-                });
-            }
-
-            // Fonction pour supprimer tous les favoris
-            function supprimerTousLesFavoris() {
-                if (confirm('Êtes-vous sûr de vouloir supprimer tous les favoris ?')) {
-                    Object.keys(localStorage).forEach(key => {
-                        if (key.endsWith('_favori')) {
-                            localStorage.removeItem(key);
-                        }
-                    });
-                    afficherFavoris(); // Rafraîchir la liste des favoris
-                }
-            }
-
-            // Ajouter le gestionnaire d'événement pour le bouton "Supprimer tous les favoris"
-            document.getElementById('supprimerTousFavoris').addEventListener('click', supprimerTousLesFavoris);
-
-            // Afficher le conteneur des favoris lors du clic sur le nouvel onglet
-            document.getElementById('favorisTab').addEventListener('click', function() {
-                document.querySelectorAll('.a-tab-heading').forEach(tab => {
-                    tab.classList.remove('a-active');
-                });
-                this.parentElement.classList.add('a-tab-heading', 'a-active');
-                this.setAttribute('aria-selected', 'true');
-                document.querySelectorAll('.a-box-tab').forEach(box => {
-                    box.style.display = 'none';
-                });
-                container.style.display = 'block';
-                afficherFavoris();
-            });
-        }
-    }
-
     //Fonction pour demander la permission et afficher la notification
     function requestNotification(title, text, icon, queue = null, page = null) {
         if (!("Notification" in window)) {
@@ -533,23 +345,6 @@ NOTES:
             // Ouvrir l'URL dans un nouvel onglet
             window.open(url, '_blank');
         };
-    }
-
-    //Affichage de l'onglet "Favoris"
-    function addFavTab() {
-        if (window.location.href.startsWith('https://www.amazon.fr/vine/vine-items')) {
-            mesFavoris();
-        }
-    }
-
-    //Fix iPhone
-    if (document.readyState !== 'loading') {
-        addFavTab();
-    }
-    else {
-        document.addEventListener('DOMContentLoaded', function () {
-            addFavTab()
-        });
     }
 
     //Ecoute des messages entrants
@@ -828,18 +623,6 @@ NOTES:
                 //tabsContainer.appendChild(newTab1);
                 tabsContainer.appendChild(newTab2);
             }
-        }
-    }
-
-    if (urlPattern.test(window.location.href)) {
-        //Fix iPhone
-        if (document.readyState !== 'loading') {
-            addTab();
-        }
-        else {
-            document.addEventListener('DOMContentLoaded', function () {
-                addTab()
-            });
         }
     }
 
@@ -3502,9 +3285,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
             });
             document.getElementById('restoreData').addEventListener('click', () => {
-                if (confirm("Êtes-vous sûr de vouloir restaurer la sauvegarde ?")) {
-                    restoreData();
-                }
+                //if (confirm("Êtes-vous sûr de vouloir restaurer la sauvegarde ?")) {
+                restoreData();
+                //}
             });
             document.getElementById('purgeStoredProducts').addEventListener('click', () => {
                 if (confirm("Êtes-vous sûr de vouloir supprimer les produits enregistrés pour la surbrillance ?")) {
@@ -4256,6 +4039,217 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         //PickMe add
+        //Affichage de l'onglet "Favoris"
+        function addFavTab() {
+            if (window.location.href.startsWith('https://www.amazon.fr/vine/vine-items')) {
+                mesFavoris();
+            }
+        }
+
+        if (urlPattern.test(window.location.href)) {
+            //Fix iPhone
+            if (document.readyState !== 'loading') {
+                addFavTab();
+                addTab();
+            }
+            else {
+                document.addEventListener('DOMContentLoaded', function () {
+                    addFavTab();
+                    addTab();
+                });
+            }
+        }
+
+        //Afficher l'onglet "Favoris"
+        function mesFavoris() {
+            const MAX_FAVORIS = 200; // Limite des favoris affichés
+
+            if (apiKey && hideEnabled) {
+                // Ajouter un nouvel onglet dans le menu
+                const menu = document.querySelector('.a-tabs');
+                const newTab = document.createElement('li');
+                newTab.className = 'a-tab-heading';
+                newTab.innerHTML = '<a href="javascript:void(0);" id="favorisTab" role="tab" aria-selected="false" tabindex="-1" style="color: #f8a103;">Favoris</a>';
+                menu.appendChild(newTab);
+
+                // Ajouter le conteneur pour afficher les favoris
+                const container = document.createElement('div');
+                container.id = 'favorisContainer';
+                container.style.display = 'none';
+                container.className = 'a-container vvp-body';
+                container.innerHTML = `
+            <div class="a-box a-tab-content" role="tabpanel" tabindex="0">
+                <div class="a-box-inner">
+                    <div class="a-section vvp-tab-content">
+                        <div class="vvp-orders-table--heading-top" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 id="favorisCount">Favoris (0)</h3>
+                            <span class="a-button a-button-primary vvp-orders-table--action-btn">
+                                <span class="a-button-inner">
+                                    <button id="supprimerTousFavoris" class="a-button-input" aria-labelledby="supprimer-tous"></button>
+                                    <span class="a-button-text" aria-hidden="true" id="supprimer-tous">Tout supprimer</span>
+                                </span>
+                            </span>
+                        </div>
+                        <table class="a-normal vvp-orders-table">
+                            <thead>
+                                <tr class="vvp-orders-table--heading-row">
+                                    <th id="vvp-orders-table--image-col-heading"></th>
+                                    <th id="vvp-orders-table--product-title-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 15px;">Produit</th>
+                                    <th id="vvp-orders-table--order-date-heading" class="vvp-orders-table--text-col aok-nowrap" style="padding-bottom: 10px;">Vu pour la dernière fois</th>
+                                    <th id="vvp-orders-table--actions-col-heading"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="favorisList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+                document.querySelector('#a-page > div.a-container.vvp-body > div.a-tab-container.vvp-tab-set-container').appendChild(container);
+
+                // Ajouter du style pour l'espace au-dessus de la première ligne de produit
+                const style = document.createElement('style');
+                style.textContent = `
+            tr:first-child td, tr:first-child th {
+                padding-top: 15px;
+            }
+        `;
+                document.head.appendChild(style);
+
+                // Fonction pour afficher les favoris
+                async function afficherFavoris() {
+                    const favorisList = document.getElementById('favorisList');
+                    favorisList.innerHTML = ''; // Réinitialiser la liste des favoris
+
+                    const favoris = [];
+                    const listASINS = [];
+                    const promises = Object.keys(localStorage).map(async (key) => {
+                        if (key.endsWith('_favori')) {
+                            const favori = JSON.parse(localStorage.getItem(key));
+                            if (favori.estFavori === true) {
+                                const asin = key.split('_favori')[0]; // Extraire l'ASIN de la clé
+                                listASINS.push("https://www.amazon.fr/dp/" + asin);
+                                try {
+                                    const productInfo = await infoProduct(asin); // Appel à la fonction infoProduct avec l'ASIN
+                                    const lastSeenDate = productInfo.date_last_eu ? parseEuropeanDate(productInfo.date_last_eu) : null;
+                                    const timeDiff = lastSeenDate ? new Date() - lastSeenDate : 0;
+                                    favoris.push({ asin, key, productInfo, timeDiff });
+                                } catch (error) {
+                                    console.error("Erreur lors de la récupération des informations du produit:", error);
+                                }
+                            }
+                        }
+                    });
+
+                    await Promise.all(promises);
+
+                    // Trier les favoris : ceux avec timeDiff = 0 en premier, puis par timeDiff croissant
+                    favoris.sort((a, b) => {
+                        if (a.timeDiff === 0) return -1;
+                        if (b.timeDiff === 0) return 1;
+                        return a.timeDiff - b.timeDiff;
+                    });
+
+                    // Limiter les favoris à MAX_FAVORIS
+                    const favorisAffiches = favoris.slice(0, MAX_FAVORIS);
+
+                    // Mettre à jour le titre avec le nombre de favoris affichés
+                    document.querySelector('#favorisCount').textContent = `Favoris (${favorisAffiches.length})`;
+
+                    // Fonction pour convertir une date européenne en format de date interprétable
+                    function parseEuropeanDate(dateStr) {
+                        const [day, month, year, hours, minutes, seconds] = dateStr.split(/[/ :]/);
+                        return new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}`);
+                    }
+
+                    // Afficher les favoris triés
+                    favorisAffiches.forEach(({ asin, key, productInfo, timeDiff }) => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'vvp-orders-table--row';
+                        const urlProduct = "https://www.amazon.fr/dp/" + asin;
+                        if (productInfo == "ASIN absent") {
+                            tr.innerHTML = `
+                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png"></td>
+                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Recommandation ou produit inconnu : ${asin}</a></td>
+                        <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
+                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
+                    `;
+                        } else if (!productInfo.main_image && productInfo.title) {
+                            tr.innerHTML = `
+                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png"></td>
+                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Produit indisponible : ${productInfo.title}</a></td>
+                        <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
+                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
+                    `;
+                        } else if (productInfo.title) {
+                            // Vérifier la date et appliquer la couleur appropriée
+                            let dateColor = '';
+
+                            const hoursDiff = timeDiff / (1000 * 60 * 60);
+                            const minutesDiff = timeDiff / (1000 * 60);
+
+                            if (hoursDiff > 12) {
+                                dateColor = 'color: #FF0000;';
+                            } else if (minutesDiff < 1) {
+                                dateColor = 'color: #007FFF;';
+                            }
+                            tr.innerHTML = `
+                        <td class="vvp-orders-table--image-col"><img alt="${productInfo.title}" src="${productInfo.main_image}"></td>
+                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">${productInfo.title}</a></td>
+                        <td class="vvp-orders-table--text-col" style="${dateColor}"><strong>${productInfo.date_last_eu}</strong><br><a class="a-link-normal" target="_blank" rel="noopener" href="${productInfo.linkUrl}">${productInfo.linkText}</a></td>
+                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
+                    `;
+                        }
+                        favorisList.appendChild(tr);
+                    });
+                    ordersPostCmd(listASINS);
+                    // Ajouter des écouteurs d'événement pour les boutons de suppression
+                    document.querySelectorAll('.supprimerFavori').forEach(button => {
+                        button.addEventListener('click', function() {
+                            const key = this.getAttribute('data-key');
+                            localStorage.removeItem(key);
+                            const listItem = this.closest('tr');
+                            if (listItem) {
+                                listItem.remove(); // Supprimer la ligne correspondante
+                            }
+                            // Mettre à jour le titre avec le nombre de favoris affichés
+                            const nbFavorisRestants = document.querySelectorAll('#favorisList .vvp-orders-table--row').length;
+                            document.querySelector('#favorisCount').textContent = `Favoris (${nbFavorisRestants})`;
+                        });
+                    });
+                }
+
+                // Fonction pour supprimer tous les favoris
+                function supprimerTousLesFavoris() {
+                    if (confirm('Êtes-vous sûr de vouloir supprimer tous les favoris ?')) {
+                        Object.keys(localStorage).forEach(key => {
+                            if (key.endsWith('_favori')) {
+                                localStorage.removeItem(key);
+                            }
+                        });
+                        afficherFavoris(); // Rafraîchir la liste des favoris
+                    }
+                }
+
+                // Ajouter le gestionnaire d'événement pour le bouton "Supprimer tous les favoris"
+                document.getElementById('supprimerTousFavoris').addEventListener('click', supprimerTousLesFavoris);
+
+                // Afficher le conteneur des favoris lors du clic sur le nouvel onglet
+                document.getElementById('favorisTab').addEventListener('click', function() {
+                    document.querySelectorAll('.a-tab-heading').forEach(tab => {
+                        tab.classList.remove('a-active');
+                    });
+                    this.parentElement.classList.add('a-tab-heading', 'a-active');
+                    this.setAttribute('aria-selected', 'true');
+                    document.querySelectorAll('.a-box-tab').forEach(box => {
+                        box.style.display = 'none';
+                    });
+                    container.style.display = 'block';
+                    afficherFavoris();
+                });
+            }
+        }
+
         if (apiOk && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
             // Appeler la fonction pour afficher les commandes
             if (ordersStatsEnabled || statsEnabled) {
@@ -4657,7 +4651,6 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 });
             }
         }
-
 
         //Utilise les infos de RR pour avoir le nombre de commandes du jour
         function countOrdersToday() {
@@ -5503,16 +5496,28 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 },
                 onload: function(response) {
                     let data = JSON.parse(response.responseText);
+                    let restoreSettings = confirm("Souhaitez-vous restaurer les paramètres ? (certains paramètres incompatibles entre eux ne sont pas pris en charge par cette fonction)");
+                    let restoreProducts = confirm("Souhaitez-vous restaurer les produits (surbrillance + visibilité cachée/visible) ?");
+
                     for (let key in data) {
                         if (key.endsWith('_cache') || key.endsWith('_favori')) {
-                            localStorage.setItem(key, data[key]);
+                            if (restoreProducts) {
+                                localStorage.setItem(key, data[key]);
+                            }
                         } else {
-                            GM_setValue(key, data[key]);
+                            if (restoreSettings) {
+                                GM_setValue(key, data[key]);
+                            }
                         }
                     }
-                    console.log("Restauration réussie");
-                    alert("Restauration réussie");
-                    window.location.reload();
+                    if (restoreSettings || restoreProducts) {
+                        console.log("Restauration réussie");
+                        alert("Restauration réussie");
+                        window.location.reload();
+                    } else {
+                        console.log("Restauration annulée");
+                        alert("Restauration annulée");
+                    }
                 },
                 onerror: function(error) {
                     console.error("Erreur lors de la restauration :", error);
