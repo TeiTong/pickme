@@ -99,6 +99,7 @@ NOTES:
 	    var form = document.createElement('form');
 	    form.method = 'POST';
 	    form.action = 'https://pickme.alwaysdata.net/monsieurconso/top.php';
+	    form.target = '_blank';
 	
 	    // Créer un champ caché pour l'ASIN
 	    var asinField = document.createElement('input');
