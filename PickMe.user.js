@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.10.2
+// @version      1.10.3
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -93,27 +93,27 @@ NOTES:
             }
         }
     }
-	
-	function submitPost(asin) {
-	    // Créer un formulaire
-	    var form = document.createElement('form');
-	    form.method = 'POST';
-	    form.action = 'https://pickme.alwaysdata.net/monsieurconso/top.php';
-	    form.target = '_blank';
-	
-	    // Créer un champ caché pour l'ASIN
-	    var asinField = document.createElement('input');
-	    asinField.type = 'hidden';
-	    asinField.name = 'asin';
-	    asinField.value = asin;
-	
-	    // Ajouter le champ au formulaire
-	    form.appendChild(asinField);
-	
-	    // Ajouter le formulaire à la page et le soumettre
-	    document.body.appendChild(form);
-	    form.submit();
-	}
+
+    function submitPost(asin) {
+        // Créer un formulaire
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'https://pickme.alwaysdata.net/monsieurconso/top.php';
+        form.target = '_blank';
+
+        // Créer un champ caché pour l'ASIN
+        var asinField = document.createElement('input');
+        asinField.type = 'hidden';
+        asinField.name = 'asin';
+        asinField.value = asin;
+
+        // Ajouter le champ au formulaire
+        form.appendChild(asinField);
+
+        // Ajouter le formulaire à la page et le soumettre
+        document.body.appendChild(form);
+        form.submit();
+    }
 
     function createButton(asin) {
         var container = document.createElement('div'); // Créer un conteneur pour le bouton et le texte d'explication
@@ -145,9 +145,10 @@ NOTES:
             affiliateButton.style.border = '1px solid black';
             container.appendChild(affiliateButton); // Ajouter le bouton et le texte d'explication au conteneur
         } else {
-            affiliateButton.onclick = function() {
+            /*affiliateButton.onclick = function() {
                 submitPost(asin);
-            };
+            };*/
+            affiliateButton.href = `https://pickme.alwaysdata.net/monsieurconso/product.php?asin=${asin}`;
             affiliateButton.innerText = 'Acheter via PickMe';
             affiliateButton.target = '_blank';
             var infoText = document.createElement('span'); // Créer l'élément de texte d'explication
