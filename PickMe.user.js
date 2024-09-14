@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.10.3
+// @version      1.11
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -29,7 +29,7 @@
 
 /*
 NOTES:
-* Votre clef API est lié à votre compte Discord
+* Votre clé API est lié à votre compte Discord
 */
 
 (function() {
@@ -95,22 +95,18 @@ NOTES:
     }
 
     function submitPost(asin) {
-        // Créer un formulaire
         var form = document.createElement('form');
         form.method = 'POST';
         form.action = 'https://pickme.alwaysdata.net/monsieurconso/top.php';
         form.target = '_blank';
 
-        // Créer un champ caché pour l'ASIN
         var asinField = document.createElement('input');
         asinField.type = 'hidden';
         asinField.name = 'asin';
         asinField.value = asin;
 
-        // Ajouter le champ au formulaire
         form.appendChild(asinField);
 
-        // Ajouter le formulaire à la page et le soumettre
         document.body.appendChild(form);
         form.submit();
     }
@@ -889,9 +885,11 @@ NOTES:
         let mobileEnabled = GM_getValue("mobileEnabled", false);
         let headerEnabled = GM_getValue("headerEnabled", false);
         let callUrlEnabled = GM_getValue("callUrlEnabled", false);
+        let recoHReload = GM_getValue("recoHReload", false);
 
         let statsEnabled = GM_getValue("statsEnabled", false);
         let extendedEnabled = GM_getValue("extendedEnabled", false);
+        let isParentEnabled = GM_getValue("isParentEnabled", true);
         let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
         let autohideEnabled = GM_getValue("autohideEnabled", false);
         let savedTheme = GM_getValue('selectedTheme', 'default');
@@ -900,6 +898,8 @@ NOTES:
         let ordersEnabled = GM_getValue('ordersEnabled', true);
         let ordersStatsEnabled = GM_getValue('ordersStatsEnabled', false);
         let ordersInfos = GM_getValue('ordersInfos', false);
+        let ordersPercent = GM_getValue('ordersPercent', false);
+        let fastCmd = GM_getValue('fastCmd', false);
 
         // Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
@@ -914,9 +914,11 @@ NOTES:
         GM_setValue("mobileEnabled", mobileEnabled);
         GM_setValue("headerEnabled", headerEnabled);
         GM_setValue("callUrlEnabled", callUrlEnabled);
+        GM_setValue("recoHReload", recoHReload);
 
         GM_setValue("statsEnabled", statsEnabled);
         GM_setValue("extendedEnabled", extendedEnabled);
+        GM_setValue("isParentEnabled", isParentEnabled);
         GM_setValue("wheelfixEnabled", wheelfixEnabled);
         GM_setValue("autohideEnabled", autohideEnabled);
         GM_setValue("selectedTheme", savedTheme);
@@ -925,6 +927,8 @@ NOTES:
         GM_setValue("ordersEnabled", ordersEnabled);
         GM_setValue("ordersStatsEnabled", ordersStatsEnabled);
         GM_setValue("ordersInfos", ordersInfos);
+        GM_setValue("ordersPercent", ordersPercent);
+        GM_setValue("fastCmd", fastCmd);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -2460,7 +2464,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
         //PickMe add
         const urlParams = new URLSearchParams(window.location.search);
-        const productsCont = document.querySelectorAll('.vvp-item-product-title-container > a.a-link-normal');
+
         let valeurQueue = urlParams.get('queue');
         const valeurPn = parseInt(urlParams.get('pn'), 10) || 0; // Utilisez 0 comme valeur par défaut si pn n'est pas défini
         const valeurCn = parseInt(urlParams.get('cn'), 10) || 0; // Utilisez 0 comme valeur par défaut si cn n'est pas défini
@@ -2475,17 +2479,35 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         if (valeurCn > 0) {
             valeurPage = valeurCn.toString();
         }
+
+        const items = document.querySelectorAll('.vvp-item-tile');
         const listElements = [];
+        const listElementsOrder = [];
 
         //Variable pour savoir s'il y a eu un nouvel objet
         let imgNew = false;
         let elementsToPrepend = [];
-        productsCont.forEach(element => {
-            const urlComp = element.href;
-            listElements.push(urlComp);
+        items.forEach(element => {
+            //Récupérer le texte à partir du lien dans .vvp-item-product-title-container
+            const linkElement = element.querySelector('.vvp-item-product-title-container > a.a-link-normal');
+            const title = linkElement ? linkElement.innerText.trim() : null;
+
+            //Récupérer l'URL de l'image
+            const imgElement = element.querySelector('img');
+            const imgUrl = imgElement ? imgElement.src : null;
+
+            //Récupérer l'URL du produit
+            const productUrl = linkElement ? linkElement.href : null;
+
+            // Ajouter les données récupérées dans le tableau
+            listElements.push({
+                title: title,
+                imgUrl: imgUrl,
+                productUrl: productUrl
+            });
+            listElementsOrder.push(productUrl);
             if ((firsthlEnabled || highlightEnabled) && apiOk) {
-                const asin = element.href.split('/dp/')[1].split('/')[0]; // Extrait l'ASIN du produit
-                const parentDiv = element.closest('.vvp-item-tile'); // Trouver le div parent à mettre en surbrillance
+                const asin = linkElement.href.split('/dp/')[1].split('/')[0]; // Extrait l'ASIN du produit
                 //const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
                 // Vérifier si le produit existe déjà dans les données locales
                 if (!storedProducts.hasOwnProperty(asin)) {
@@ -2499,18 +2521,20 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     GM_setValue("storedProducts", JSON.stringify(storedProducts)); // Sauvegarder les changements
 
                     // Appliquer la mise en surbrillance au div parent
-                    if (parentDiv && highlightEnabled) {
-                        parentDiv.style.backgroundColor = highlightColor;
+                    if (highlightEnabled) {
+                        element.style.backgroundColor = highlightColor;
                         imgNew = true;
                     }
                     // On stocke les produits qu'on va devoir remonter
-                    if (parentDiv && firsthlEnabled) {
-                        //containerDiv.prepend(parentDiv);
-                        elementsToPrepend.push(parentDiv);
+                    if (firsthlEnabled) {
+                        //containerDiv.prepend(element);
+                        elementsToPrepend.push(element);
                         imgNew = true;
                     }
                 }
             }
+            //Modifier le texte du bouton détails
+            changeButtonProduct(element);
         });
 
         //On remonte les produits dans leur ordre initial
@@ -2521,6 +2545,11 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     containerDiv.prepend(element);
                 });
             }
+        }
+
+        //Bouton de commandes rapides
+        if (fastCmd && apiOk) {
+            addFastCmd();
         }
 
         if (imgNew && callUrlEnabled && apiOk && callUrl && valeurQueue == "potluck") {
@@ -2554,8 +2583,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
         if (listElements.length > 0 && !isPageCachedOld()) {
             sendDatasToAPI(listElements);
-            if (ordersInfos && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
-                ordersPost(listElements);
+            if (ordersInfos && ordersEnabled && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
+                ordersPost(listElementsOrder);
             }
         }
 
@@ -3106,15 +3135,18 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
             let isPremiumPlus = false;
             let isPremium = false;
+            let isPlus = false;
             let dateLastSave = false;
             const responsePremiumPlus = await verifyTokenPremiumPlus(API_TOKEN);
             const responsePremium = await verifyTokenPremium(API_TOKEN);
+            const responsePlus = await verifyTokenPlus(API_TOKEN);
             let apiToken = "";
             if (API_TOKEN == undefined) {
                 apiToken = "";
             } else {
                 isPremiumPlus = responsePremiumPlus && responsePremiumPlus.status === 200;
                 isPremium = responsePremium && responsePremium.status === 200;
+                isPlus = responsePlus && responsePlus.status === 200;
                 apiToken = API_TOKEN;
                 if (isPremium) {
                     dateLastSave = await lastSave();
@@ -3130,8 +3162,17 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   .flex-item-theme {
     flex: 1;
   }
+  .button-container.action-buttons button[disabled] {
+    cursor: not-allowed !important;  /* Curseur spécifique pour indiquer que le bouton est désactivé */
+  }
+
+  .button-container.action-buttons button[disabled]:hover {
+    cursor: not-allowed !important;  /* Le curseur reste le même */
+  }
 `;
             document.head.appendChild(style);
+
+
             const popup = document.createElement('div');
             popup.id = "configPopup";
             popup.innerHTML = `
@@ -3160,19 +3201,23 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('mobileEnabled', 'Utiliser l\'affichage mobile', 'Optimise l\affichage sur mobile, pour éviter de mettre la "Version PC". Il est conseillé de cacher également l\'entête avec cette option. Non compatible avec l\'affichage du nom complet des produits et l\'affichage réduit')}
       ${createCheckbox('headerEnabled', 'Cacher totalement l\'entête de la page', 'Cache le haut de la page Amazon, celle avec la zone de recherche et les menus')}
       ${createCheckbox('extendedEnabled', 'Afficher le nom complet des produits', 'Affiche 4 lignes, si elles existent, au nom des produits au lieu de 2 en temps normal. Non compatible avec l\'affichage alternatif')}
+      ${createCheckbox('isParentEnabled', 'Distinguer les produits ayant des variantes', 'Ajoute l\'icone 🛍️ dans le texte du bouton des détails si le produit possède des variantes (couleurs, conditionnements, tailles, etc...). Attention, parfois il n\'y aura qu\'une variante, mais le menu déroulant sera probablement présent')}
       ${createCheckbox('wheelfixEnabled', 'Corriger le chargement infini des produits', 'Corrige le bug quand un produit ne charge pas (la petite roue qui tourne sans fin). Attention, même si le risque est très faible, on modifie une information transmise à Amazon, ce qui n\'est pas avec un risque de 0%')}
       ${createCheckbox('fullloadEnabled', 'N\'afficher la page qu\'après son chargement complet', 'Attend le chargement complet des modifications de PickMe avant d\'afficher la page. Cela peut donner la sensation d\'un chargement plus lent de la page mais évite de voir les produits cachés de façon succincte ou le logo Amazon par exemple')}
-      ${createCheckbox('autohideEnabled', 'Cacher/Mettre en avant selon le nom du produit', 'Permet de cacher automatiquement des produits selon des mots clés, ou au contraire d\'en mettre en avant. Peut ajouter de la latence au chargement de la page, surtout si l\'option "N\'afficher la page qu\'après son chargement complet" est activée')}
+      ${createCheckbox('autohideEnabled', 'Utiliser le filtre par mots-clés', 'Permet de cacher automatiquement des produits selon des mots clés, ou au contraire d\'en mettre en avant. La configuration se fait via le bouton "Configurer les mots-clés pour le filtre". Peut ajouter de la latence au chargement de la page, surtout si l\'option "N\'afficher la page qu\'après son chargement complet" est activée')}
       ${createCheckbox('ordersEnabled', 'Afficher code erreur/Envoyer mes commandes', 'Afficher un code erreur quand une commande ne passe pas. Attention, cela envoi également vos commandes sur le serveur pour le besoin de certaines fonctions (comme pouvoir voir le prix par mois/année de vos commandes sur le discord)')}
-      ${createCheckbox('fastCmdEnabled', '(PC) Accélérer le processus de commandes', 'Met le focus sur le bouton pour commander (il suffira donc de faire "Entrée" pour valider) et agrandir la fenêtre contenant les adresses, ce qui alignera les boutons de validation des deux fenêtres si vous souhaitez cliquer')}
       ${createCheckbox('callUrlEnabled', '(Webhook) Appeler une URL lors de la découverte d\'un nouveau produit en recommandation', 'Appelle l\'URL choisie (bouton plus bas) lors de la découverte d\'un nouveau produit en reco. Cela peut être une API ou un MP3 (le fichier doit être donné sous la forme d\'un lien internet). Si c\'est un MP3, il sera également utilisé pour le son des notifications')}
+      ${isPlus ? createCheckbox('fastCmd', '(Admin) Ajouter un bouton de "Commande rapide"', 'Ajoute un bouton sur tous les produits pour commander en un clic. Si le produit à des variantes, la première variante sera choisi. L\'adresse de livraison sera celle du menu déroulant plus bas. \n\nLégende :\n\n- 🚀 : pas de variante\n- 🛍️ : avec variantes') : ''}
+      ${isPlus ? createCheckbox('ordersPercent', '(Admin) Afficher le % de commandes', '') : ''}
+      ${createCheckbox('fastCmdEnabled', '(PC) Accélérer le processus de commandes', 'Met le focus sur le bouton pour commander (il suffira donc de faire "Entrée" pour valider) et agrandir la fenêtre contenant les adresses, ce qui alignera les boutons de validation des deux fenêtres si vous souhaitez cliquer')}
+      ${createCheckbox('recoHReload', '(PC) Recharger la page reco à heure fixe', 'Recharge la page (uniquement celle des recos, celle-ci doit être ouverte pour que ça fonctionne) quand on est une heure fixe (00 minutes, auquel on prend 5 secondes en plus par sécurité) pour vérifier la reco horaire. Il est conseillé de coupler avec le webhook pour être prévenu. Incompatible sur mobile')}
       ${createCheckbox('notifEnabled', '(Premium) Activer les notifications', 'Affiche une notification lors du signalement d\'un nouvel objet "Disponible pour tous", un up ou autre selon la configuration. Ne fonctionne que si une page Amazon était active dans les dernières secondes ou si le centre de notifications est ouvert en Auto-refresh de moins de 30 secondes',!isPremium)}
       ${createCheckbox('ordersInfos', '(Premium) Afficher l\'ETV et les informations de la communauté sur les commandes','Affiche l\'ETV du produit (si disponible) ainsi que le nombre de personnes ayant pu commander ou non le produit (rond vert : commande réussie, rond rouge : commande en erreur)', !isPremium)}
       ${createCheckbox('statsEnabled', '(Premium+) Afficher les statistiques produits','Affiche la quantité de produits ajoutés ce jour et dans le mois à côté des catégories', !isPremiumPlus)}
       ${createCheckbox('ordersStatsEnabled', '(Premium+) Afficher le nombre de commandes du jour/mois','Affiche le nombre de commandes passées sur la journée et le mois en cours', !isPremiumPlus)}
     </div>
      <div class="api-token-container">
-      <label for="apiTokenInput">Clef API :</label>
+      <label for="apiTokenInput">Clé API :</label>
       <input type="text" id="apiTokenInput" value="${apiToken}" style="width: 100%; max-width: 480px; margin-bottom: 10px;" />
       <div class="flex-container-theme">
     <div class="theme-container flex-item-theme">
@@ -3196,9 +3241,32 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       </select>
     </div>
     </div>
+${isPlus ? `
+  <div class="address-selector-container flex-item-theme" style="width: 100%;">
+    <label for="address-selector">Adresse pour la commande rapide :</label>
+    <select id="address-selector" style="width: 100%; margin-bottom: 10px; height: 31px;">
+    </select>
+  </div>
+` : ''}
     ${addActionButtons(!isPremium, !isPremiumPlus, dateLastSave)}
   `;
             document.body.appendChild(popup);
+
+            //Créer la liste déroulante des adresses
+            if (isPlus) {
+                createAddress();
+                document.getElementById('fastCmd').addEventListener('change', function() {
+                    if (this.checked) {
+                        varFastCmd();
+                    } else {
+                        GM_deleteValue('fastCmdVar');
+                    }
+                });
+            } else {
+                GM_setValue('fastCmd', false);
+                GM_setValue('ordersPercent', false);
+                GM_deleteValue('fastCmdVar');
+            }
 
             //Initialiser le thème et choisir celui qui est actif dans la liste
             document.getElementById('themeSelect').value = savedTheme;
@@ -3213,11 +3281,16 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
             });
 
+            if (document.getElementById('extendedEnabled').checked || document.getElementById('cssEnabled').checked || document.getElementById('fastCmdEnabled').checked || document.getElementById('recoHReload').checked) {
+                document.getElementById('mobileEnabled').checked = false;
+            }
+
             document.getElementById('mobileEnabled').addEventListener('change', function() {
                 if (this.checked) {
                     document.getElementById('extendedEnabled').checked = false;
                     document.getElementById('cssEnabled').checked = false;
                     document.getElementById('fastCmdEnabled').checked = false;
+                    document.getElementById('recoHReload').checked = false;
                 }
             });
 
@@ -3234,6 +3307,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
             });
 
+            document.getElementById('recoHReload').addEventListener('change', function() {
+                if (this.checked) {
+                    document.getElementById('mobileEnabled').checked = false;
+                }
+            });
+
             document.getElementById('callUrlEnabled').addEventListener('change', function() {
                 if (this.checked) {
                     if (!isValidUrl(callUrl)) {
@@ -3245,6 +3324,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
             document.getElementById('notifEnabled').addEventListener('change', function() {
                 if (this.checked) {
+                    document.getElementById('configurerNotif').disabled = false;
                     // Demander à l'utilisateur s'il est sur mobile ou PC
                     var onMobile = window.confirm("Êtes-vous sur un appareil mobile ?");
 
@@ -3256,6 +3336,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
                     // Utilisation de GM pour set la variable
                     GM_setValue('shortcutNotif', shortcutNotif);
+                } else {
+                    document.getElementById('configurerNotif').disabled = true;
                 }
             });
 
@@ -3266,6 +3348,14 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     ordersEnabledCheckbox.disabled = true;
                 } else {
                     ordersEnabledCheckbox.disabled = false;
+                }
+            });
+
+            document.getElementById('autohideEnabled').addEventListener('change', function() {
+                if (this.checked) {
+                    document.getElementById('configurerFiltres').disabled = false;
+                } else {
+                    document.getElementById('configurerFiltres').disabled = true;
                 }
             });
 
@@ -3360,6 +3450,71 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return checkboxHtml;
         }
 
+        //Création de la liste des adresses
+        function createAddress() {
+            // Sélectionnez tous les éléments contenant les adresses
+            const addressOptions = document.querySelectorAll('.vvp-address-option');
+
+            // Sélectionnez la liste déroulante dans laquelle vous voulez insérer les adresses
+            const addressSelector = document.getElementById('address-selector');
+
+            // Récupérer l'adresse sauvegardée dans GM
+            const savedAddress = GM_getValue('savedAddress', null);
+
+            // Vérifiez que l'élément addressSelector existe
+            if (addressSelector) {
+                // Pour chaque option d'adresse trouvée
+                addressOptions.forEach(option => {
+                    // Récupérez l'adresse
+                    const addressLabel = option.querySelector('.a-label').innerText.trim();
+                    const addressValue = option.querySelector('input[type="radio"]').value;
+                    const addressId = option.getAttribute('data-address-id');
+                    const legacyAddressId = option.getAttribute('data-legacy-address-id');
+
+                    // Créez une nouvelle option pour la liste déroulante
+                    const newOption = document.createElement('option');
+                    newOption.value = addressValue;
+                    newOption.textContent = addressLabel;
+
+                    // Ajoutez les data-attributes pour pouvoir les récupérer plus tard
+                    newOption.setAttribute('data-address-id', addressId);
+                    newOption.setAttribute('data-legacy-address-id', legacyAddressId);
+
+                    // Si l'adresse actuelle est celle qui est sauvegardée, la sélectionner
+                    if (savedAddress && addressId === savedAddress.addressId) {
+                        newOption.selected = true;
+                    }
+
+                    // Ajoutez la nouvelle option à la liste déroulante
+                    addressSelector.appendChild(newOption);
+                });
+
+                // Ajout d'un événement pour sauvegarder l'adresse sélectionnée a chaque changement au lieu du bouton sauvegarder
+                //addressSelector.addEventListener('change', saveAddress);
+
+            } else {
+                console.error('L\'élément address-selector est introuvable.');
+            }
+        }
+
+        // Fonction pour sauvegarder l'adresse
+        function saveAddress() {
+            const addressSelector = document.getElementById('address-selector');
+            if (addressSelector) {
+                const selectedOption = addressSelector.options[addressSelector.selectedIndex];
+
+                const selectedAddress = {
+                    label: selectedOption.textContent,
+                    value: selectedOption.value,
+                    addressId: selectedOption.getAttribute('data-address-id'),
+                    legacyAddressId: selectedOption.getAttribute('data-legacy-address-id')
+                };
+
+                // Sauvegarde de l'adresse sélectionnée dans GM
+                GM_setValue('savedAddress', selectedAddress);
+            }
+        }
+
         // Sauvegarde la configuration
         async function saveConfig() {
             document.querySelectorAll('#configPopup input[type="checkbox"]').forEach(input => {
@@ -3372,7 +3527,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 GM_setValue('apiToken', newApiToken);
             } else if (response && response.status === 404) {
                 GM_deleteValue("apiToken");
-                alert("Clef API invalide !");
+                alert("Clé API invalide !");
                 return
             }
             // Enregistrer le thème sélectionné
@@ -3382,6 +3537,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             // Enregistrer la couleur des boutons sélectionnée
             const selectedButtonColor = document.getElementById('buttonColorSelect').value;
             GM_setValue('selectedButtonColor', selectedButtonColor);
+
+            //Sauvegarde de l'adresse
+            saveAddress();
+
             //On recharge la page et on ferme le menu
             window.location.reload();
             document.getElementById('configPopup').remove();
@@ -3392,17 +3551,16 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return `
 <div class="button-container action-buttons">
 
-  <button id="configurerFiltres">Configurer les mots pour le filtre</button>
-
-  <button id="configurerTouches">Configurer les touches</button>
   <button id="setHighlightColor">Couleur de surbrillance des nouveaux produits</button>
   <button id="setHighlightColorFav">Couleur de surbrillance des produits filtrés</button>
+  <button id="configurerFiltres" ${autohideEnabled ? '' : 'disabled'}>Configurer les mots-clés pour le filtre</button>
+  <button id="configurerTouches">(PC) Configurer les raccourcis clavier</button>
   <button id="setUrl">(Webhook) Choisir l'URL</button>
   <button id="testUrl">(Webhook) Tester l'URL</button>
-  <button id="configurerNotif" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Configurer les notifications</button>
-  <button id="syncProducts" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Synchroniser les produits avec le serveur</button>
-  <button id="saveData" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Sauvegarder les paramètres/produits</button>
-  <button id="restoreData" ${isPremium ? 'disabled style="background-color: #ccc; cursor: not-allowed;"' : ''}>(Premium) Restaurer les paramètres/produits${dateLastSave ? ' (' + dateLastSave + ')' : ''}</button>
+  <button id="configurerNotif" ${isPremium || !notifEnabled ? 'disabled' : ''}>(Premium) Configurer les notifications</button>
+  <button id="syncProducts" ${isPremium ? 'disabled' : ''}>(Premium) Synchroniser les produits avec le serveur</button>
+  <button id="saveData" ${isPremium ? 'disabled' : ''}>(Premium) Sauvegarder les paramètres/produits</button>
+  <button id="restoreData" ${isPremium ? 'disabled' : ''}>(Premium) Restaurer les paramètres/produits${dateLastSave ? ' (' + dateLastSave + ')' : ''}</button>
   <button id="purgeStoredProducts">Supprimer les produits enregistrés pour la surbrillance</button>
   <button id="purgeHiddenObjects">Supprimer les produits cachés et/ou les favoris</button>
 </div>
@@ -3415,7 +3573,6 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
         // Ajouter la commande de menu "Paramètres"
         GM_registerMenuCommand("Paramètres", createConfigPopup, "p");
-
 
         // Fonction pour créer la fenêtre popup de configuration des touches
         function createKeyConfigPopup(isPremium) {
@@ -3566,7 +3723,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         width: 600px;
     `;
             popup.innerHTML = `
-        <h2 id="configPopupHeader">Configuration des filtres<span id="closeFavPopup" style="float: right; cursor: pointer;">&times;</span></h2>
+        <h2 id="configPopupHeader">Configuration des mots-clés<span id="closeFavPopup" style="float: right; cursor: pointer;">&times;</span></h2>
         <div>
             <label for="favWords">Produits favoris :</label>
             <textarea id="favWords" name="favWords" style="width: 100%; height: 70px;">${GM_getValue('favWords', '')}</textarea>
@@ -3683,6 +3840,165 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return truncatedString.trim();
         }
 
+        //Fast command
+        function addFastCmd() {
+            const savedAddress = GM_getValue('savedAddress', null);
+            const dataFastCmd = GM_getValue('fastCmdVar', null);
+            let addressId = null;
+            let legacyAddressId = null;
+            // Vérifier si un objet a été récupéré
+            if (savedAddress && dataFastCmd) {
+                // Stocker les valeurs de addressId et legacyAddressId dans les variables
+                addressId = savedAddress.addressId;
+                legacyAddressId = savedAddress.legacyAddressId;
+            } else {
+                return;
+            }
+
+            const csrfToken = document.querySelector("input[name='csrf-token']").value;
+
+            function createCartPurchaseButton(item) {
+                const isParent = item.querySelector('input').getAttribute('data-is-parent-asin') === 'true'
+
+                const asin = item.querySelector('.vvp-details-btn .a-button-input').dataset.asin
+                const recommendationId = item.getAttribute('data-recommendation-id')
+
+                const cartButton = document.createElement('button')
+                cartButton.type = 'button'
+                cartButton.className = 'a-button a-button-primary'
+                cartButton.style.marginTop = '-10px'
+                //cartButton.style.height = '30px'
+                if (mobileEnabled || cssEnabled) {
+                    cartButton.style.display = 'block'
+                    cartButton.style.marginLeft = '8px';
+                }
+                //Bouton pour produit unique ou avec variantes
+                const buttonText = (mobileEnabled || cssEnabled)
+                ? (isParent ? '🚀' : '🚀')
+                : (isParent ? '🚀 Commande rapide' : '🚀 Commande rapide');
+
+                const paddingStyle = (mobileEnabled || cssEnabled) ? 'padding: 4px 8px;' : '';
+
+                cartButton.innerHTML = `<span class="a-button-inner"><span class="a-button-text emoji" style="${paddingStyle}">${buttonText}</span></span>`;
+                cartButton.onclick = () => cartPurchase(recommendationId, asin, isParent)
+                item.querySelector('.vvp-item-tile-content').appendChild(cartButton)
+            }
+
+            function showOrderResult(result, error) {
+                if (result != null) {
+                    console.log(result);
+                    let orderId = result.orderId;
+                    let targetDiv = document.getElementById("vvp-scheduled-delivery-required-msg");
+                    let newDiv = document.createElement("div");
+
+                    newDiv.id = "vvp-generic-order-success-msg";
+                    newDiv.className = "a-box a-alert a-alert-success";
+                    newDiv.setAttribute("aria-live", "polite");
+                    newDiv.setAttribute("aria-atomic", "true");
+
+                    newDiv.innerHTML = '<div class="a-box-inner a-alert-container">' +
+                        '<h4 class="a-alert-heading">Réussite&nbsp;!</h4>' +
+                        '<i class="a-icon a-icon-alert"></i>' +
+                        '<div class="a-alert-content">Votre demande de produit a été soumise.</div><strong>(Commande rapide PickMe) Numéro de commande : ' + orderId +
+                        '</strong></div>';
+
+                    targetDiv.insertAdjacentElement('afterend', newDiv);
+                } else {
+                    let targetDiv = document.getElementById("vvp-scheduled-delivery-required-msg");
+                    let newDiv = document.createElement("div");
+
+                    newDiv.id = "vvp-generic-request-error-msg";
+                    newDiv.className = "a-box a-alert a-alert-error";
+                    newDiv.setAttribute("role", "alert");
+
+                    newDiv.innerHTML = '<div class="a-box-inner a-alert-container">' +
+                        '<h4 class="a-alert-heading">Erreur</h4>' +
+                        '<i class="a-icon a-icon-alert"></i>' +
+                        '<div class="a-alert-content">' +
+                        'Un problème est survenu lors de la création de votre demande. Demandez un autre article.<br><strong>(Commande rapide PickMe) Code erreur : ' + error +
+                        '</strong> (<a href="https://pickme.alwaysdata.net/wiki/doku.php?id=plugins:pickme:codes_erreur" target="_blank">wiki des codes d\'erreurs</a>)</div>' +
+                        '</div>';
+
+                    targetDiv.insertAdjacentElement('afterend', newDiv);
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            async function cartPurchase(recommendationId, asin, isParent) {
+                //Prendre la première variation d'un produit
+                if (isParent) {
+                    const encodedId = encodeURIComponent(recommendationId)
+                    const url = `https://www.amazon.fr/vine/api/recommendations/${encodedId}`
+
+                    try {
+                        const response = await fetch(url)
+                        const data = await response.json()
+                        asin = data.result?.variations?.[0]?.asin
+                    } catch (error) {
+                        console.log('PickMe FastCmd error fetching variation ASIN', error)
+                        return
+                    }
+                }
+
+                //On check que tout a une valeur
+                if (!recommendationId || !asin || !addressId || !legacyAddressId || !csrfToken || !dataFastCmd) {
+                    console.log('PickMe FastCmd : Impossible, données manquantes')
+                    return
+                }
+
+                const payload = JSON.stringify({
+                    recommendationId: recommendationId,
+                    recommendationType: "SEARCH",
+                    itemAsin: asin,
+                    addressId: addressId,
+                    legacyAddressId: legacyAddressId
+                })
+
+                try {
+                    const req = await fetch(dataFastCmd, {
+                        method: 'POST',
+                        body: payload,
+                        headers: {
+                            'anti-csrftoken-a2z': csrfToken,
+                            'content-type': 'application/json'
+                        }
+                    })
+
+                    const response = await req.json()
+
+                    //Lignes de tests
+                    //var response = '{"result":null,"error":"ITEM_NOT_IN_ENROLLMENT"}';
+                    //var response = '{"result":{"orderId":"404-12345-6789","legacyOrderId":null,"recommendationType":null,"recommendationId":null,"itemAsin":null,"customerId":null,"addressId":null,"legacyAddressId":null,"slateToken":null},"error":null}'
+                    //var responseObject = JSON.parse(response);
+                    //console.log(responseObject);
+
+                    var responseObject = JSON.parse(JSON.stringify(response));
+                    var result = responseObject.result;
+                    var error = responseObject.error;
+                    showOrderResult(result, error);
+                } catch (error) {
+                    console.log('PickMe FastCmd failed : ', error)
+                }
+            }
+
+            document.body.querySelectorAll('.vvp-item-tile').forEach(createCartPurchaseButton)
+        }
+
+        function changeButtonProduct(item) {
+            const isParent = item.querySelector('input').getAttribute('data-is-parent-asin') === 'true'
+            var button = item.querySelector('.a-button-text');
+            var newText = "";
+            if (isParent && isParentEnabled) {
+                newText = "🛍️ ";
+            }
+            if (mobileEnabled || cssEnabled) {
+                newText = newText + "Détails";
+            } else {
+                newText = newText + "Voir les détails";
+            }
+            button.textContent = newText;
+        }
+
         function verifyToken(token) {
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
@@ -3743,9 +4059,61 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             });
         }
 
+        function verifyTokenPlus(token) {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "GET",
+                    url: `https://pickme.alwaysdata.net/shyrka/userplus/${token}`,
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    onload: function(response) {
+                        //console.log(response.status, response.responseText);
+                        resolve(response);
+                    },
+                    onerror: function(error) {
+                        console.error(error);
+                        reject(error);
+                    },
+                });
+            });
+        }
+
+        //Info serveur pour les commandes rapides
+        function varFastCmd() {
+            const formData = new URLSearchParams({
+                version: version,
+                token: API_TOKEN,
+            });
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: "https://pickme.alwaysdata.net/shyrka/fastcmd",
+                    data: formData.toString(),
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    onload: function(response) {
+                        if (response.status == 200) {
+                            const varData = JSON.parse(response.responseText);
+                            const data = varData.data;
+                            GM_setValue("fastCmdVar", data);
+                            resolve(response);
+                        } else {
+                            reject(`Error: ${response.status} ${response.statusText}`);
+                        }
+                    },
+                    onerror: function(error) {
+                        reject(error);
+                    }
+                });
+            });
+        }
+
         async function askForToken(reason) {
             return new Promise(async (resolve, reject) => {
-                var userInput = prompt(`Votre clef API est ${reason}. Merci d'entrer une clef API valide:`);
+                var userInput = prompt(`Votre clé API est ${reason}. Merci d'entrer une clé API valide:`);
 
                 if (userInput !== null) {
                     try {
@@ -3756,11 +4124,11 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                             resolve(userInput);
                         } else if (response && response.status === 404) {
                             GM_deleteValue("apiToken");
-                            alert("Clef API invalide !");
+                            alert("Clé API invalide !");
                             reject("Invalid API token");
                         } else {
                             GM_deleteValue("apiToken");
-                            alert("Vérification de la clef échoué. Merci d'essayer plus tard.");
+                            alert("Vérification de la clé échoué. Merci d'essayer plus tard.");
                             reject("Authorization failed");
                         }
                     } catch (error) {
@@ -3861,7 +4229,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return comment;
         }
 
-        // Triggers when the Discord button is clicked
+        //Quand on clic sur le bouton discord
         async function buttonHandler() {
 
             //Données pour transmissions
@@ -4007,7 +4375,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 discordBtn.classList.add('a-button-disabled');
                 discordBtn.style.cursor = 'no-drop';
             } else if (type == 5) { // API: invalid token
-                discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Clef API invalide</span>`;
+                discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Clé API invalide</span>`;
                 discordBtn.disabled = true;
                 discordBtn.classList.add('a-button-disabled');
                 discordBtn.style.cursor = 'no-drop';
@@ -4043,7 +4411,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "PUT",
-                    url: "https://pickme.alwaysdata.net/shyrka/product",
+                    url: "https://pickme.alwaysdata.net/shyrka/newproduct",
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
@@ -4317,7 +4685,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             const formData = new URLSearchParams({
                 version: version,
                 token: API_TOKEN,
-                urls: JSON.stringify(data),
+                products: JSON.stringify(data),
                 queue: valeurQueue,
                 page: valeurPage,
             });
@@ -4325,7 +4693,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/products",
+                    url: "https://pickme.alwaysdata.net/shyrka/newproducts",
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
@@ -4502,8 +4870,11 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     }
                 });
 
-                if (ordersInfos) {
+                if (ordersInfos && ordersEnabled) {
                     ordersPostCmd(listASINS);
+                    if (ordersPercent) {
+                        ordersPostPercent(listASINS);
+                    }
                 }
             }
         }
@@ -4577,12 +4948,46 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             });
         }
 
+        function ordersPostPercent(data) {
+            const formData = new URLSearchParams({
+                version: version,
+                token: API_TOKEN,
+                urls: JSON.stringify(data),
+            });
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: "https://pickme.alwaysdata.net/shyrka/asinsinfocmdpercent",
+                    data: formData.toString(),
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    onload: function(response) {
+                        if (response.status == 200) {
+                            const productsData = JSON.parse(response.responseText);
+                            //console.log(productsData);
+                            showOrdersPercent(productsData);
+                            resolve(productsData);
+                        } else {
+                            reject(`Error: ${response.status} ${response.statusText}`);
+                        }
+                    },
+                    onerror: function(error) {
+                        //console.error(error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+
         //Pour afficher les commandes et l'etv
         function showOrders(data) {
             const items = document.querySelectorAll('.vvp-item-tile');
             if (items.length === 0) return;
 
             items.forEach(item => {
+                //const imageElement = item.querySelector('img');
                 const asin = item.getAttribute('data-asin') || item.querySelector('.vvp-details-btn input').getAttribute('data-asin');
                 const url = "https://www.amazon.fr/dp/" + asin;
                 const orderData = data.find(d => d.url === url);
@@ -4595,7 +5000,14 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     error: "https://pickme.alwaysdata.net/img/ordererror.png"
                 };
 
-                const positions = mobileEnabled ? 'bottom: 50%;' : (cssEnabled ? 'bottom: 40%;' : 'bottom: 46%;');
+                const positions = fastCmd && cssEnabled && !mobileEnabled
+                ? 'bottom: 46%;'
+                : (fastCmd && !cssEnabled && !mobileEnabled)
+                ? 'bottom: 51%;'
+                : (mobileEnabled
+                   ? (fastCmd ? 'bottom: 58%;' : 'bottom: 50%;')
+                   : (cssEnabled ? (fastCmd ? 'bottom: 45%;' : 'bottom: 38%;') : 'bottom: 46%;'));
+
                 const iconSize = mobileEnabled || cssEnabled ? '21px' : '28px';
                 const fontSize = mobileEnabled || cssEnabled ? '12px' : '14px';
                 const sidePadding = mobileEnabled || cssEnabled ? '3px' : '8px';
@@ -4676,6 +5088,60 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
         }
 
+        //Pour afficher les commandes réussies ou non dans la liste des commandes
+        async function showOrdersPercent(data) {
+            const items = document.querySelectorAll('.vvp-orders-table--row');
+            if (items.length === 0) return;
+
+            for (const item of items) {
+                const imageElement = item.querySelector('.vvp-orders-table--image-col img');
+                let productLink = item.querySelector('.vvp-orders-table--text-col a');
+                let url;
+
+                if (!productLink) {
+                    const asinElement = item.querySelector('.vvp-orders-table--text-col');
+                    let asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
+                    url = "https://www.amazon.fr/dp/" + asin;
+                } else {
+                    url = productLink.href;
+                }
+
+                if (!imageElement || !url) continue;
+
+                const orderData = data.find(d => d.url === url);
+                if (!orderData) continue;
+
+                const positions = mobileEnabled ? 'bottom: 10%;' : 'bottom: 10%;';
+                const iconSize = mobileEnabled ? '28px' : '28px';
+                const fontSize = mobileEnabled ? '14px' : '14px';
+                const sidePadding = mobileEnabled ? '30%' : '8px';
+
+                if (orderData.percentage !== null) {
+                    const percent = document.createElement('span');
+                    percent.textContent = orderData.percentage;
+                    percent.style.cssText = `
+        position: absolute;
+        top: 5px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 2px 8px; /* Ajoute du padding pour le fond */
+        background-color: rgba(255, 255, 255, 0.7); /* Fond transparent blanc */
+        color: black;
+        width: auto; /* La largeur s'adapte au contenu */
+        height: auto; /* La hauteur s'adapte au contenu */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: ${fontSize};
+        z-index: 20;
+        border-radius: 4px; /* Arrondir légèrement les coins du fond */
+    `;
+                    imageElement.parentElement.style.position = 'relative';
+                    imageElement.parentElement.appendChild(percent);
+                }
+            }
+        }
+
         //Utilise les infos de RR pour avoir le nombre de commandes du jour
         function countOrdersToday() {
             const today = new Date().toLocaleDateString("fr-FR");
@@ -4748,7 +5214,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                                 reject(error);
                             }
                         } else if (response.status == 401) {
-                            alert("Clef API invalide ou membre non Premium+");
+                            alert("Clé API invalide ou membre non Premium+");
                             //console.log(response.status, response.responseText);
                             resolve(response);
                         } else {
@@ -5231,7 +5697,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                                 var alertContents = document.querySelectorAll('.a-alert-content');
 
                                 // Texte à ajouter en gras avec un retour à la ligne avant
-                                var texteAAjouter = "<br><strong> (PickMe) Code erreur  : " + responseData.error + "</strong>";
+                                var texteAAjouter = "<br><strong> (PickMe) Code erreur  : " + responseData.error +
+                                    '</strong> (<a href="https://pickme.alwaysdata.net/wiki/doku.php?id=plugins:pickme:codes_erreur" target="_blank">wiki des codes d\'erreurs</a>)';
+
 
                                 // Parcourir tous les éléments sélectionnés
                                 alertContents.forEach(function(alertContent) {
@@ -5465,7 +5933,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             const keys = GM_listValues();
             let data = {};
             //On exclu les paramètres propres a un appareil, pour éviter d'avoir l'affichage mobile sur PC par exemple
-            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'extendedEnabled', 'onMobile', 'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos'];
+            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'extendedEnabled', 'onMobile', 'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos', 'lastVisit'];
             keys.forEach(key => {
                 if (!excludedKeys.includes(key)) {
                     data[key] = GM_getValue(key);
@@ -5581,6 +6049,67 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             });
         }
         //End sauvegarde
+
+        //Reload pour reco horaire
+        function reloadAtNextFullHour() {
+            const now = new Date();
+
+            // Calculer combien de temps il reste jusqu'à la prochaine heure ronde
+            const nextHour = new Date();
+            nextHour.setHours(now.getHours() + 1);
+            nextHour.setMinutes(0);
+            nextHour.setSeconds(5);
+            nextHour.setMilliseconds(0);
+
+            const timeUntilNextHour = nextHour - now;
+
+            // Créer l'élément pour afficher le décompte
+            const countdownDiv = document.createElement('div');
+            countdownDiv.style.position = 'fixed';
+            if (headerEnabled) {
+                countdownDiv.style.top = '10px';
+            } else {
+                countdownDiv.style.top = '140px';
+            }
+            countdownDiv.style.left = '50%';
+            countdownDiv.style.transform = 'translateX(-50%)';
+            countdownDiv.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+            countdownDiv.style.color = 'white';
+            countdownDiv.style.padding = '10px';
+            countdownDiv.style.borderRadius = '5px';
+            countdownDiv.style.zIndex = '9999'; // S'assurer qu'il est au-dessus
+            document.body.appendChild(countdownDiv);
+
+            // Fonction pour mettre à jour le décompte
+            function updateCountdown() {
+                const now = new Date();
+                const timeLeft = nextHour - now;
+                if (timeLeft <= 0) {
+                    countdownDiv.textContent = 'Actualisation...';
+                    clearInterval(countdownInterval);
+                } else {
+                    const minutes = Math.floor((timeLeft / 1000 / 60) % 60);
+                    const seconds = Math.floor((timeLeft / 1000) % 60);
+                    countdownDiv.textContent = `Prochaine actualisation : ${minutes} min. ${seconds} sec.`;
+                }
+            }
+
+            // Mettre à jour le décompte toutes les secondes
+            const countdownInterval = setInterval(updateCountdown, 1000);
+
+            // Mise à jour initiale
+            updateCountdown();
+
+            // Définir un timeout pour recharger la page à l'heure pleine
+            setTimeout(function() {
+                location.reload(); // recharge la page
+            }, timeUntilNextHour);
+        }
+
+        // Appeler la fonction immédiatement au chargement de la page
+        if (recoHReload && valeurQueue == "potluck" && apiOk) {
+            reloadAtNextFullHour();
+        }
 
         if (autohideEnabled) {
             setTimeout(displayContent, 600);
