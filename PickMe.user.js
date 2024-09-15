@@ -3866,11 +3866,13 @@ ${isPlus ? `
                 const cartButton = document.createElement('button')
                 cartButton.type = 'button'
                 cartButton.className = 'a-button a-button-primary'
-                cartButton.style.marginTop = '-10px'
                 //cartButton.style.height = '30px'
                 if (mobileEnabled || cssEnabled) {
                     cartButton.style.display = 'block'
                     cartButton.style.marginLeft = '8px';
+                    cartButton.style.setProperty('margin-top', '3px', 'important');
+                } else {
+                    cartButton.style.setProperty('margin-top', '-10px', 'important');
                 }
                 //Bouton pour produit unique ou avec variantes
                 const buttonText = (mobileEnabled || cssEnabled)
@@ -5001,11 +5003,11 @@ ${isPlus ? `
                 };
 
                 const positions = fastCmd && cssEnabled && !mobileEnabled
-                ? 'bottom: 46%;'
+                ? 'bottom: 47%;'
                 : (fastCmd && !cssEnabled && !mobileEnabled)
                 ? 'bottom: 51%;'
                 : (mobileEnabled
-                   ? (fastCmd ? 'bottom: 58%;' : 'bottom: 50%;')
+                   ? (fastCmd ? 'bottom: 54%;' : 'bottom: 50%;')
                    : (cssEnabled ? (fastCmd ? 'bottom: 45%;' : 'bottom: 38%;') : 'bottom: 46%;'));
 
                 const iconSize = mobileEnabled || cssEnabled ? '21px' : '28px';
