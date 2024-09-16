@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.11
+// @version      1.11.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -4596,7 +4596,7 @@ ${isPlus ? `
                         }
                         favorisList.appendChild(tr);
                     });
-                    ordersPostCmd(listASINS);
+                    ordersPostCmd(listASINS, "fav");
                     // Ajouter des écouteurs d'événement pour les boutons de suppression
                     document.querySelectorAll('.supprimerFavori').forEach(button => {
                         button.addEventListener('click', function() {
@@ -4873,7 +4873,7 @@ ${isPlus ? `
                 });
 
                 if (ordersInfos && ordersEnabled) {
-                    ordersPostCmd(listASINS);
+                    ordersPostCmd(listASINS, "cmd");
                     if (ordersPercent) {
                         ordersPostPercent(listASINS);
                     }
@@ -4918,7 +4918,11 @@ ${isPlus ? `
             });
         }
 
-        function ordersPostCmd(data) {
+        function ordersPostCmd(data, tab = "cmd") {
+            var apiURL = "https://pickme.alwaysdata.net/shyrka/asinsinfocmd";
+            if (tab == "fav") {
+                apiURL = "https://pickme.alwaysdata.net/shyrka/asinsinfofav";
+            }
             const formData = new URLSearchParams({
                 version: version,
                 token: API_TOKEN,
@@ -4928,7 +4932,7 @@ ${isPlus ? `
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/asinsinfocmd",
+                    url: apiURL,
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
@@ -5005,14 +5009,14 @@ ${isPlus ? `
                 const positions = fastCmd && cssEnabled && !mobileEnabled
                 ? 'bottom: 47%;'
                 : (fastCmd && !cssEnabled && !mobileEnabled)
-                ? 'bottom: 50%;'
+                ? 'bottom: 50.2%;'
                 : (mobileEnabled
-                   ? (fastCmd ? 'bottom: 54%;' : 'bottom: 44%;')
-                   : (cssEnabled ? (fastCmd ? 'bottom: 45%;' : 'bottom: 38%;') : 'bottom: 46%;'));
+                   ? (fastCmd ? 'bottom: 54%;' : 'bottom: 43.5%;')
+                   : (cssEnabled ? (fastCmd ? 'bottom: 45%;' : 'bottom: 37.5%;') : 'bottom: 45.4%;'));
 
                 const iconSize = mobileEnabled || cssEnabled ? '21px' : '28px';
                 const fontSize = mobileEnabled || cssEnabled ? '12px' : '14px';
-                const sidePadding = mobileEnabled || cssEnabled ? '3px' : '8px';
+                const sidePadding = mobileEnabled || cssEnabled ? '3px' : '9px';
 
                 ['success', 'error'].forEach(type => {
                     const icon = document.createElement('img');
