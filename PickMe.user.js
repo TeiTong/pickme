@@ -5005,9 +5005,9 @@ ${isPlus ? `
                 const positions = fastCmd && cssEnabled && !mobileEnabled
                 ? 'bottom: 47%;'
                 : (fastCmd && !cssEnabled && !mobileEnabled)
-                ? 'bottom: 51%;'
+                ? 'bottom: 50%;'
                 : (mobileEnabled
-                   ? (fastCmd ? 'bottom: 54%;' : 'bottom: 50%;')
+                   ? (fastCmd ? 'bottom: 54%;' : 'bottom: 44%;')
                    : (cssEnabled ? (fastCmd ? 'bottom: 45%;' : 'bottom: 38%;') : 'bottom: 46%;'));
 
                 const iconSize = mobileEnabled || cssEnabled ? '21px' : '28px';
