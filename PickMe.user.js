@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.11.1
+// @version      1.11.2
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -3210,7 +3210,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${isPlus ? createCheckbox('fastCmd', '(Admin) Ajouter un bouton de "Commande rapide"', 'Ajoute un bouton sur tous les produits pour commander en un clic. Si le produit à des variantes, la première variante sera choisi. L\'adresse de livraison sera celle du menu déroulant plus bas. \n\nLégende :\n\n- 🚀 : pas de variante\n- 🛍️ : avec variantes') : ''}
       ${isPlus ? createCheckbox('ordersPercent', '(Admin) Afficher le % de commandes', '') : ''}
       ${createCheckbox('fastCmdEnabled', '(PC) Accélérer le processus de commandes', 'Met le focus sur le bouton pour commander (il suffira donc de faire "Entrée" pour valider) et agrandir la fenêtre contenant les adresses, ce qui alignera les boutons de validation des deux fenêtres si vous souhaitez cliquer')}
-      ${createCheckbox('recoHReload', '(PC) Recharger la page reco à heure fixe', 'Recharge la page (uniquement celle des recos, celle-ci doit être ouverte pour que ça fonctionne) quand on est une heure fixe (00 minutes, auquel on prend 5 secondes en plus par sécurité) pour vérifier la reco horaire. Il est conseillé de coupler avec le webhook pour être prévenu. Incompatible sur mobile')}
+      ${createCheckbox('recoHReload', '(PC) Recharger la page reco à heure fixe', 'Recharge la page (uniquement celle des recos, celle-ci doit être ouverte pour que ça fonctionne) quand on est une heure fixe (00 minutes, auquel on prend 3 à 8 secondes en plus par sécurité) pour vérifier la reco horaire. Il est conseillé de coupler avec le webhook pour être prévenu. Incompatible sur mobile')}
       ${createCheckbox('notifEnabled', '(Premium) Activer les notifications', 'Affiche une notification lors du signalement d\'un nouvel objet "Disponible pour tous", un up ou autre selon la configuration. Ne fonctionne que si une page Amazon était active dans les dernières secondes ou si le centre de notifications est ouvert en Auto-refresh de moins de 30 secondes',!isPremium)}
       ${createCheckbox('ordersInfos', '(Premium) Afficher l\'ETV et les informations de la communauté sur les commandes','Affiche l\'ETV du produit (si disponible) ainsi que le nombre de personnes ayant pu commander ou non le produit (rond vert : commande réussie, rond rouge : commande en erreur)', !isPremium)}
       ${createCheckbox('statsEnabled', '(Premium+) Afficher les statistiques produits','Affiche la quantité de produits ajoutés ce jour et dans le mois à côté des catégories', !isPremiumPlus)}
@@ -4506,6 +4506,12 @@ ${isPlus ? `
                 style.textContent = `
             tr:first-child td, tr:first-child th {
                 padding-top: 15px;
+            }
+            #favorisContainer {
+                padding: 0;
+            }
+            .a-tab-content {
+                border-radius: 0 0 8px 8px;
             }
         `;
                 document.head.appendChild(style);
@@ -6058,13 +6064,22 @@ ${isPlus ? `
 
         //Reload pour reco horaire
         function reloadAtNextFullHour() {
+
+            const getRandomInteger = (min, max) => {
+                min = Math.ceil(min)
+                max = Math.floor(max)
+
+                return Math.floor(Math.random() * (max - min)) + min
+            }
+
             const now = new Date();
 
             // Calculer combien de temps il reste jusqu'à la prochaine heure ronde
             const nextHour = new Date();
             nextHour.setHours(now.getHours() + 1);
             nextHour.setMinutes(0);
-            nextHour.setSeconds(5);
+            var randomSec = getRandomInteger(3,8);
+            nextHour.setSeconds(randomSec);
             nextHour.setMilliseconds(0);
 
             const timeUntilNextHour = nextHour - now;
