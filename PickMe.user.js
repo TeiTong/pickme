@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.11.2
+// @version      1.11.3
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -211,6 +211,7 @@ NOTES:
     let hideWords = GM_getValue('hideWords', '');
     let filterOption = GM_getValue('filterOption', 'notifFavOnly');
     let hideEnabled = GM_getValue("hideEnabled", true);
+    let savedTheme = GM_getValue('selectedTheme', 'default');
     GM_setValue("notifEnabled", notifEnabled);
     GM_setValue("onMobile", onMobile);
     GM_setValue("shortcutNotif", shortcutNotif);
@@ -226,6 +227,7 @@ NOTES:
     GM_setValue("hideWords", hideWords);
     GM_setValue("filterOption", filterOption);
     GM_setValue("hideEnabled", hideEnabled);
+    GM_setValue("selectedTheme", savedTheme);
 
     //Convertir la date SQL en date lisible européenne
     function convertToEuropeanDate(mysqlDate) {
@@ -463,8 +465,23 @@ NOTES:
         }
     }
 
+    // Fonction pour charger le fichier CSS
+    function loadCSS(url) {
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = url;
+        document.getElementsByTagName('head')[0].appendChild(link);
+    }
+
+    //URL des CSS
+    var baseURLCSS = 'https://pickme.alwaysdata.net/';
+
     //Gestion des favoris sur PickMe Web
     if (window.location.hostname == "pickme.alwaysdata.net") {
+        if (savedTheme == "dark") {
+            loadCSS(baseURLCSS + "style-dark.css");
+        }
         document.addEventListener('click', function(event) {
             //Vérifier si l'élément cliqué a la classe 'favori-icon'
             if (event.target.classList.contains('favori-icon')) {
@@ -892,7 +909,7 @@ NOTES:
         let isParentEnabled = GM_getValue("isParentEnabled", true);
         let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
         let autohideEnabled = GM_getValue("autohideEnabled", false);
-        let savedTheme = GM_getValue('selectedTheme', 'default');
+        
         let savedButtonColor = GM_getValue('selectedButtonColor', 'default');
         let fastCmdEnabled = GM_getValue('fastCmdEnabled', false);
         let ordersEnabled = GM_getValue('ordersEnabled', true);
@@ -2417,17 +2434,6 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         //Gestion des thèmes couleurs
-        // Fonction pour charger le fichier CSS
-        function loadCSS(url) {
-            var link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.type = 'text/css';
-            link.href = url;
-            document.getElementsByTagName('head')[0].appendChild(link);
-        }
-
-        //URL des CSS
-        var baseURLCSS = 'https://pickme.alwaysdata.net/';
         //Thème
         if (savedTheme != "default") {
             if (mobileEnabled) {
@@ -3888,7 +3894,6 @@ ${isPlus ? `
 
             function showOrderResult(result, error) {
                 if (result != null) {
-                    console.log(result);
                     let orderId = result.orderId;
                     let targetDiv = document.getElementById("vvp-scheduled-delivery-required-msg");
                     let newDiv = document.createElement("div");
@@ -4838,7 +4843,7 @@ ${isPlus ? `
                                 onload: function(response) {
                                     const greenCircle = row.querySelector('span:nth-of-type(1)');
                                     let greenCount = parseInt(greenCircle.textContent);
-                                    console.log(greenCount);
+                                    //console.log(greenCount);
                                     if (response.status == 200) {
                                         if (isCancelled) {
                                             cancelButton.textContent = 'Annuler';
@@ -5304,7 +5309,7 @@ ${isPlus ? `
 
             // Ajoute les informations au div
             productsDiv.innerHTML = `
-        <p style="margin:0; font-weight: bold; text-decoration: underline;">Nouveaux produits :</p>
+        <p style="margin:0; font-weight: bold; text-decoration: underline;">Nouveaux produits</p>
         <p style="margin:0;">Autres articles : ${productsData[0].ai}${productsData[0].ai_recent !== '0' ? `<span style="color: green;"> (+${productsData[0].ai_recent})</span>` : ''}</p>
         <p style="margin:0;">Disponible pour tous : ${productsData[0].afa}${productsData[0].afa_recent !== '0' ? `<span style="color: green;"> (+${productsData[0].afa_recent})</span>` : ''}</p>
         <p style="margin:0;">Total jour : ${productsData[0].total}</p>
