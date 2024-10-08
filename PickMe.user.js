@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.11.3
+// @version      1.11.4
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -24,7 +24,7 @@
 // @grant        GM_listValues
 // @grant        unsafeWindow
 // @run-at       document-start
-// @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
+// @require      https://code.jquery.com/jquery-3.7.1.min.js
 // ==/UserScript==
 
 /*
@@ -478,7 +478,7 @@ NOTES:
     var baseURLCSS = 'https://pickme.alwaysdata.net/';
 
     //Gestion des favoris sur PickMe Web
-    if (window.location.hostname == "pickme.alwaysdata.net") {
+    if (window.location.hostname === "pickme.alwaysdata.net" && /^\/[^\/]+\.php$/.test(window.location.pathname)) {
         if (savedTheme == "dark") {
             loadCSS(baseURLCSS + "style-dark.css");
         }
@@ -909,7 +909,7 @@ NOTES:
         let isParentEnabled = GM_getValue("isParentEnabled", true);
         let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
         let autohideEnabled = GM_getValue("autohideEnabled", false);
-        
+
         let savedButtonColor = GM_getValue('selectedButtonColor', 'default');
         let fastCmdEnabled = GM_getValue('fastCmdEnabled', false);
         let ordersEnabled = GM_getValue('ordersEnabled', true);
@@ -5787,6 +5787,140 @@ ${isPlus ? `
                         }
                         if (wheelfixEnabled) {
                             let fixed = 0;
+                            //Fix automatique du fix qu'on peut faire à la main
+                            /*let timeoutId = setTimeout(function() {
+                                var spinner = document.querySelector('.a-spinner.a-spinner-medium');
+                                if (spinner) {
+                                    let parent = spinner.parentNode;
+                                    spinner.remove();
+
+                                    var modalWrapper = document.getElementById('vvp-product-details-modal--spinner');
+
+                                    var container = document.createElement('div');
+                                    container.style.textAlign = 'center';
+                                    modalWrapper.appendChild(container);
+
+                                    // Créer le texte du titre
+                                    var title = document.createElement('p');
+                                    title.textContent = 'PickMe Fix';
+                                    title.style.fontSize = '24px';
+                                    title.style.fontWeight = 'bold';
+                                    title.style.marginBottom = '10px';
+                                    title.style.textAlign = 'center';
+                                    title.style.fontFamily = 'Arial, sans-serif';
+                                    container.appendChild(title);
+
+                                    // Créer le texte explicatif sous le titre
+                                    var explanationText = document.createElement('p');
+                                    explanationText.textContent = "Pour corriger ce produit, il faut choisir la variation souhaitée et cliquer sur le bouton 'Corriger ce produit'. Il suffit ensuite d'ouvrir à nouveau les détails du produit pour le commander.";
+                                    explanationText.style.fontSize = '14px';
+                                    explanationText.style.marginBottom = '20px';
+                                    explanationText.style.textAlign = 'center';
+                                    explanationText.style.lineHeight = '1.5';
+                                    container.appendChild(explanationText);
+
+                                    // Créer la liste déroulante
+                                    var select = document.createElement('select');
+                                    select.style.marginBottom = '15px';
+                                    container.appendChild(select);
+
+                                    // Parcourir les variations pour les ajouter à la liste
+                                    result.variations.forEach(function(variation) {
+                                        var option = document.createElement('option');
+                                        option.value = variation.asin;
+                                        option.textContent = Object.values(variation.dimensions).join(', ');
+                                        select.appendChild(option);
+                                    });
+
+                                    // Créer le bouton sous la liste
+                                    var buttonWrapper = document.createElement('span');
+                                    buttonWrapper.className = "a-declarative";
+                                    buttonWrapper.setAttribute("data-action", "vvp-hide-modal");
+                                    buttonWrapper.setAttribute("data-csa-c-type", "widget");
+                                    buttonWrapper.setAttribute("data-csa-c-func-deps", "aui-da-vvp-hide-modal");
+                                    buttonWrapper.setAttribute("data-vvp-hide-modal", "{}");
+
+                                    var button = document.createElement('span');
+                                    button.className = "a-button a-button-primary";
+
+                                    var buttonInner = document.createElement('span');
+                                    buttonInner.className = "a-button-inner";
+
+                                    var buttonInput = document.createElement('input');
+                                    buttonInput.className = "a-button-input";
+                                    buttonInput.type = "submit";
+                                    buttonInput.setAttribute("aria-labelledby", "vvp-product-details-modal--back-btn-announce");
+
+                                    var buttonText = document.createElement('span');
+                                    buttonText.className = "a-button-text";
+                                    buttonText.id = "vvp-product-details-modal--back-btn-announce";
+                                    buttonText.textContent = "Corriger ce produit";
+
+                                    // Assembler le bouton
+                                    buttonInner.appendChild(buttonInput);
+                                    buttonInner.appendChild(buttonText);
+                                    button.appendChild(buttonInner);
+                                    buttonWrapper.appendChild(button);
+
+                                    // Ajouter un retour à la ligne pour le bouton
+                                    var br = document.createElement('br');
+                                    container.appendChild(br);
+
+                                    container.appendChild(buttonWrapper);
+
+                                    // Sélectionner les boutons
+                                    const backButton = document.querySelector('#vvp-product-details-modal--back-btn');
+                                    const closeButton = document.querySelector('button.a-button-close');
+
+                                    // Fonction qui supprime le contenu de modalWrapper
+                                    function clearModalContent() {
+                                        // Supprimer tout ce qu'on a ajouté comme texte ou menu déroulant
+                                        while (modalWrapper.firstChild) {
+                                            modalWrapper.removeChild(modalWrapper.firstChild);
+                                        }
+
+                                        // Supprimer les écouteurs pour éviter que cela ne se refasse
+                                        backButton.removeEventListener('click', clearModalContent);
+                                        closeButton.removeEventListener('click', clearModalContent);
+                                        parent.appendChild(spinner);
+                                        console.log(timeoutId);
+                                        // Annuler le timer en cours
+                                        clearTimeout(timeoutId);
+                                    }
+
+                                    // Ajouter un écouteur d'événement sur les deux boutons
+                                    backButton.addEventListener('click', clearModalContent);
+                                    closeButton.addEventListener('click', clearModalContent);
+
+                                    // Ajouter l'événement de clic au bouton
+                                    buttonInput.addEventListener('click', function() {
+                                        showMagicStars();
+                                        var recommendationId = result.recommendationId;
+                                        var selectedAsin = select.value;
+                                        var recommendationInputs = document.querySelectorAll('input[data-recommendation-id]');
+                                        recommendationInputs.forEach(function(input) {
+                                            if (input.getAttribute('data-recommendation-id') === recommendationId) {
+                                                input.setAttribute('data-asin', selectedAsin);
+                                                input.setAttribute('data-is-parent-asin', 'false');
+                                                input.setAttribute('data-recommendation-id', recommendationId);
+                                            }
+                                        });
+
+                                        // Supprimer tout ce qu'on a ajouté comme texte ou menu déroulant
+                                        while (modalWrapper.firstChild) {
+                                            modalWrapper.removeChild(modalWrapper.firstChild);
+                                        }
+
+                                        // Simuler le clic sur le bouton "Retour" pour fermer le modal
+                                        var returnButton = document.querySelector('[data-action="vvp-hide-modal"]');
+                                        if (returnButton) {
+                                            returnButton.click();
+                                        }
+                                        parent.appendChild(spinner);
+                                    });
+                                }
+                            }, 3000); // 3000 millisecondes = 3 secondes*/
+
                             result.variations = result.variations?.map((variation) => {
                                 if (Object.keys(variation.dimensions || {}).length === 0) {
                                     variation.dimensions = {
@@ -5797,17 +5931,24 @@ ${isPlus ? `
                                 }
 
                                 for (const key in variation.dimensions) {
-                                    // Échapper les caractères spéciaux
+                                    // Sauvegarder la valeur d'origine
+                                    let originalValue = variation.dimensions[key]; //
+
+                                    //Échapper les caractères spéciaux
                                     variation.dimensions[key] = variation.dimensions[key]
                                         .replace(/&/g, "&amp;")
                                         .replace(/</g, "&lt;")
                                         .replace(/>/g, "&gt;")
                                         .replace(/"/g, "&quot;")
-                                        .replace(/'/g, "&#039;");
+                                        .replace(/'/g, "&#039;")
+                                        .replace(/°/g, "&#176;");
 
-                                    // Ajout de VH{fixed} si le dernier caractère n'est pas alphanumérique
-                                    if (!variation.dimensions[key].match(/[a-z0-9]$/i)) {
-                                        //variation.dimensions[key] = variation.dimensions[key] + ` VH${fixed}`;
+                                    //Si la valeur a changé, on incrémente fixed
+                                    if (originalValue !== variation.dimensions[key]) {
+                                        fixed++;
+                                    }
+
+                                    if (!variation.dimensions[key].match(/[a-zà-ÿ0-9]$/i)) {
                                         variation.dimensions[key] = variation.dimensions[key];
                                         fixed++;
                                     }
