@@ -912,14 +912,19 @@ NOTES:
 
                 if (key.endsWith('_favori')) {
                     const data = JSON.parse(value);
-                    const estFavori = data.estFavori;
-                    newKey = key.replace('_favori', '_f');
-                    newValue = estFavori ? '1' : '0';
+                    if (data) {
+                        const estFavori = data.estFavori;
+                        newKey = key.replace('_favori', '_f');
+                        newValue = estFavori ? '1' : '0';
+                    }
+
                 } else if (key.endsWith('_cache')) {
                     const data = JSON.parse(value);
-                    const estCache = data.estCache;
-                    newKey = key.replace('_cache', '_c');
-                    newValue = estCache ? '0' : '1';
+                    if (data) {
+                        const estCache = data.estCache;
+                        newKey = key.replace('_cache', '_c');
+                        newValue = estCache ? '0' : '1';
+                    }
                 }
 
                 //Enregistre la nouvelle clé et valeur
