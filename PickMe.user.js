@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.11.4
+// @version      1.12
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -489,9 +489,9 @@ NOTES:
                 let dataFavori = event.target.getAttribute('data-favori');
                 let dataAsin = event.target.getAttribute('data-asin');
                 if (dataFavori == 1) {
-                    GM_setValue(dataAsin +'_favori', { estFavori: true });
+                    GM_setValue(dataAsin +'_f', '1');
                 } else if (dataFavori == 0) {
-                    GM_deleteValue(dataAsin + '_favori');
+                    GM_deleteValue(dataAsin + '_f');
                 }
             }
         });
@@ -799,7 +799,7 @@ NOTES:
                     let asin = row.id.split('_')[1];
 
                     // Vérifier si l'ASIN est déjà favori
-                    let isFavori = GM_getValue(asin + '_favori', null);
+                    let isFavori = GM_getValue(asin + '_f', null);
 
                     // Trouver la cellule de page
                     let pageCell = row.querySelector('td[id^="page_"]');
@@ -821,13 +821,13 @@ NOTES:
                             e.preventDefault();
                             if (isFavori) {
                                 // Supprimer le favori
-                                GM_deleteValue(asin + '_favori');
+                                GM_deleteValue(asin + '_f');
                                 img.src = 'https://pickme.alwaysdata.net/img/coeurgris2.png';
                                 img.alt = 'Ajouter aux favoris';
                                 isFavori = null;
                             } else {
                                 // Ajouter aux favoris
-                                GM_setValue(asin +'_favori', { estFavori: true });
+                                GM_setValue(asin +'_f', '1');
                                 img.src = 'https://pickme.alwaysdata.net/img/coeurrouge2.png';
                                 img.alt = 'Favori';
                                 isFavori = true;
@@ -884,6 +884,52 @@ NOTES:
 
     function runPickMe() {
 
+        //Debug, générer des données
+        /*const nombreEntrees = 100000; // Nombre d'entrées à générer
+
+        for (let i = 0; i < nombreEntrees; i++) {
+            const key = `${i}_c`; // Générer une clé unique se terminant par _c
+            localStorage.setItem(key, '0'); // Définir la valeur à '0'
+        }*/
+
+        //Convertir le stockage des cachés et favoris suite à la 1.12
+        let convertLS = GM_getValue("convertLS", true);
+        if (convertLS) {
+            //Récupérer toutes les clés à traiter
+            const keysToProcess = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.endsWith('_favori') || key.endsWith('_cache')) {
+                    keysToProcess.push(key);
+                }
+            }
+
+            //Traiter chaque clé
+            keysToProcess.forEach((key) => {
+                const value = localStorage.getItem(key);
+                let newKey;
+                let newValue;
+
+                if (key.endsWith('_favori')) {
+                    const data = JSON.parse(value);
+                    const estFavori = data.estFavori;
+                    newKey = key.replace('_favori', '_f');
+                    newValue = estFavori ? '1' : '0';
+                } else if (key.endsWith('_cache')) {
+                    const data = JSON.parse(value);
+                    const estCache = data.estCache;
+                    newKey = key.replace('_cache', '_c');
+                    newValue = estCache ? '0' : '1';
+                }
+
+                //Enregistre la nouvelle clé et valeur
+                localStorage.setItem(newKey, newValue);
+                //Supprime l'ancienne clé
+                localStorage.removeItem(key);
+            });
+            GM_setValue("convertLS", false);
+        }
+
         var version = GM_info.script.version;
 
         (GM_getValue("config")) ? GM_getValue("config") : GM_setValue("config", {});
@@ -917,6 +963,7 @@ NOTES:
         let ordersInfos = GM_getValue('ordersInfos', false);
         let ordersPercent = GM_getValue('ordersPercent', false);
         let fastCmd = GM_getValue('fastCmd', false);
+        let hideBas = GM_getValue('hideBas', true);
 
         // Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
@@ -946,6 +993,7 @@ NOTES:
         GM_setValue("ordersInfos", ordersInfos);
         GM_setValue("ordersPercent", ordersPercent);
         GM_setValue("fastCmd", fastCmd);
+        GM_setValue("hideBas", hideBas);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -1046,7 +1094,7 @@ NOTES:
 
                 // Redirige vers la nouvelle URL
                 window.location.href = newUrl;
-            } else {
+            } else if (userInput != null) {
                 alert("Veuillez saisir un numéro de page valide.");
             }
         }
@@ -1325,7 +1373,7 @@ NOTES:
                 }
             }
             else if (e.key === keys.sync) {
-                syncProducts(false);
+                syncProducts(false, true, true);
             }
         });
 
@@ -1461,8 +1509,8 @@ NOTES:
                             // Effectue la vérification seulement si hideArray n'est pas vide
                             else if (hideArray.length > 0 && hideArray.some(mot => textContentLower.includes(mot))) {
                                 const asin = parentDiv.getAttribute('data-asin') || parentDiv.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                                const etatCacheKey = asin + '_cache';
-                                localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: false }));
+                                const etatCacheKey = asin + '_c';
+                                localStorage.setItem(etatCacheKey, '1');
                                 parentDiv.style.display = 'none';
                             }
                         }
@@ -1484,13 +1532,12 @@ NOTES:
             let keys = GM_listValues();
 
             keys.forEach(key => {
-                //Vérifier si la clé se termine par "_favori"
-                if (key.endsWith('_favori')) {
+                //Vérifier si la clé se termine par "_f"
+                if (key.endsWith('_f')) {
                     //Récupérer la valeur correspondante
                     let value = GM_getValue(key);
-
                     //Stocker la valeur dans le localStorage
-                    localStorage.setItem(key, JSON.stringify(value));
+                    localStorage.setItem(key, value);
                     //Supprimer la valeur de GM
                     GM_deleteValue(key);
                 }
@@ -1500,7 +1547,8 @@ NOTES:
         function ajouterIconeEtFonctionCacher() {
             convertGMFav();
             const produits = document.querySelectorAll('.vvp-item-tile');
-            const resultats = document.querySelector('#vvp-items-grid-container > p'); // Modifiez ce sélecteur si nécessaire
+            const resultats = document.querySelector('#vvp-items-grid-container > p');
+            const vineGrid = document.querySelector('#vvp-items-grid');
 
             // Ajout du style pour les boutons
             const style = document.createElement('style');
@@ -1565,95 +1613,191 @@ NOTES:
             const urlIcone = 'https://pickme.alwaysdata.net/img/314858-hidden-eye-icon.png';
             const urlIconeOeil = 'https://pickme.alwaysdata.net/img/314859-eye-icon.png';
             // Création des boutons avec le nouveau style
-            const boutonVisibles = document.createElement('button');
-            boutonVisibles.textContent = produitsVisibles;
-            boutonVisibles.classList.add('bouton-filtre', 'active'); // Ajout des classes pour le style
+            function creerBoutons() {
+                const boutonVisibles = document.createElement('button');
+                boutonVisibles.textContent = produitsVisibles;
+                boutonVisibles.classList.add('bouton-filtre', 'active');
 
-            const boutonCaches = document.createElement('button');
-            boutonCaches.textContent = produitsCaches;
-            boutonCaches.classList.add('bouton-filtre'); // Ajout des classes pour le style
+                const boutonCaches = document.createElement('button');
+                boutonCaches.textContent = produitsCaches;
+                boutonCaches.classList.add('bouton-filtre');
 
-            // Ajout des boutons pour cacher tout et tout afficher
-            const boutonCacherTout = document.createElement('button');
-            boutonCacherTout.textContent = toutCacher;
-            boutonCacherTout.classList.add('bouton-action');
-            boutonCacherTout.id = 'boutonCacherTout';
+                const boutonCacherTout = document.createElement('button');
+                boutonCacherTout.textContent = toutCacher;
+                boutonCacherTout.classList.add('bouton-action');
+                boutonCacherTout.id = 'boutonCacherTout';
 
-            const boutonToutAfficher = document.createElement('button');
-            boutonToutAfficher.textContent = toutAfficher;
-            boutonToutAfficher.classList.add('bouton-action');
-            boutonToutAfficher.id = 'boutonToutAfficher';
+                const boutonToutAfficher = document.createElement('button');
+                boutonToutAfficher.textContent = toutAfficher;
+                boutonToutAfficher.classList.add('bouton-action');
+                boutonToutAfficher.id = 'boutonToutAfficher';
 
-            const divBoutons = document.createElement('div');
-            divBoutons.style.marginTop = '5px'; // Réduit l'espace au-dessus des boutons
-            divBoutons.style.marginBottom = '15px'; // Augmente l'espace en dessous des boutons
-            divBoutons.appendChild(boutonVisibles);
-            divBoutons.appendChild(boutonCaches);
-            divBoutons.appendChild(boutonCacherTout);
-            divBoutons.appendChild(boutonToutAfficher);
-
-            // Insertion des boutons après les résultats
-            if (resultats) {
-                resultats.after(divBoutons);
+                return { boutonVisibles, boutonCaches, boutonCacherTout, boutonToutAfficher };
             }
 
-            boutonVisibles.addEventListener('click', () => afficherProduits(true));
-            boutonCaches.addEventListener('click', () => afficherProduits(false));
+            //Fonction pour synchroniser les boutons haut et bas
+            function synchroniserBoutons(boutonsHaut, boutonsBas, hideBas) {
+                // Synchronisation du bouton "Produits visibles"
+                boutonsHaut.boutonVisibles.addEventListener('click', () => {
+                    afficherProduits(true);
+                    boutonsHaut.boutonVisibles.classList.add('active');
+                    boutonsHaut.boutonCaches.classList.remove('active');
+
+                    if (hideBas) {
+                        boutonsBas.boutonVisibles.classList.add('active');
+                        boutonsBas.boutonCaches.classList.remove('active');
+                    }
+                });
+
+                if (hideBas) {
+                    boutonsBas.boutonVisibles.addEventListener('click', () => {
+                        afficherProduits(true);
+                        boutonsHaut.boutonVisibles.classList.add('active');
+                        boutonsHaut.boutonCaches.classList.remove('active');
+                    });
+                }
+
+                // Synchronisation du bouton "Produits cachés"
+                boutonsHaut.boutonCaches.addEventListener('click', () => {
+                    afficherProduits(false);
+                    boutonsHaut.boutonVisibles.classList.remove('active');
+                    boutonsHaut.boutonCaches.classList.add('active');
+
+                    if (hideBas) {
+                        boutonsBas.boutonVisibles.classList.remove('active');
+                        boutonsBas.boutonCaches.classList.add('active');
+                    }
+                });
+
+                if (hideBas) {
+                    boutonsBas.boutonCaches.addEventListener('click', () => {
+                        afficherProduits(false);
+                        boutonsHaut.boutonVisibles.classList.remove('active');
+                        boutonsHaut.boutonCaches.classList.add('active');
+                    });
+                }
+
+                // Synchronisation des boutons "Tout cacher" et "Tout afficher"
+                boutonsHaut.boutonCacherTout.addEventListener('click', () => {
+                    toggleTousLesProduits(true);
+                    boutonsHaut.boutonCacherTout.style.display = '';
+                    boutonsHaut.boutonToutAfficher.style.display = 'none';
+
+                    if (hideBas) {
+                        boutonsBas.boutonCacherTout.style.display = '';
+                        boutonsBas.boutonToutAfficher.style.display = 'none';
+                    }
+                });
+
+                if (hideBas) {
+                    boutonsBas.boutonCacherTout.addEventListener('click', () => {
+                        toggleTousLesProduits(true);
+                        boutonsHaut.boutonCacherTout.style.display = '';
+                        boutonsHaut.boutonToutAfficher.style.display = 'none';
+                    });
+                }
+
+                boutonsHaut.boutonToutAfficher.addEventListener('click', () => {
+                    toggleTousLesProduits(false);
+                    boutonsHaut.boutonCacherTout.style.display = 'none';
+                    boutonsHaut.boutonToutAfficher.style.display = '';
+
+                    if (hideBas) {
+                        boutonsBas.boutonCacherTout.style.display = 'none';
+                        boutonsBas.boutonToutAfficher.style.display = '';
+                    }
+                });
+
+                if (hideBas) {
+                    boutonsBas.boutonToutAfficher.addEventListener('click', () => {
+                        toggleTousLesProduits(false);
+                        boutonsHaut.boutonCacherTout.style.display = 'none';
+                        boutonsHaut.boutonToutAfficher.style.display = '';
+                    });
+                }
+            }
+
+            // Création et insertion des boutons en haut et en bas
+            const boutonsHaut = creerBoutons();
+            const divBoutonsHaut = document.createElement('div');
+            divBoutonsHaut.style.marginTop = '5px'; // Réduit l'espace au-dessus des boutons
+            divBoutonsHaut.style.marginBottom = '15px'; // Augmente l'espace en dessous des boutons
+            divBoutonsHaut.appendChild(boutonsHaut.boutonVisibles);
+            divBoutonsHaut.appendChild(boutonsHaut.boutonCaches);
+            divBoutonsHaut.appendChild(boutonsHaut.boutonCacherTout);
+            divBoutonsHaut.appendChild(boutonsHaut.boutonToutAfficher);
+
+            if (resultats) {
+                resultats.after(divBoutonsHaut);
+            }
+
+            const boutonsBas = creerBoutons();
+            const divBoutonsBas = document.createElement('div');
+            divBoutonsBas.style.marginTop = '5px'; // Réduit l'espace au-dessus des boutons
+            divBoutonsBas.style.marginBottom = '15px'; // Augmente l'espace en dessous des boutons
+            divBoutonsBas.appendChild(boutonsBas.boutonVisibles);
+            divBoutonsBas.appendChild(boutonsBas.boutonCaches);
+            divBoutonsBas.appendChild(boutonsBas.boutonCacherTout);
+            divBoutonsBas.appendChild(boutonsBas.boutonToutAfficher);
+
+            if (vineGrid && hideBas) {
+                vineGrid.after(divBoutonsBas);
+            }
+
+            // Synchronisation des boutons haut et bas
+            synchroniserBoutons(boutonsHaut, boutonsBas, hideBas);
 
             // Fonction pour cacher ou afficher tous les produits
             function toggleTousLesProduits(cacher) {
                 produits.forEach(produit => {
                     const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                    const etatCacheKey = asin + '_cache';
-                    const etatFavoriKey = asin + '_favori';
+                    const etatCacheKey = asin + '_c';
+                    const etatFavoriKey = asin + '_f';
 
                     // Vérifie si le produit est en favori avant de changer son état de caché
-                    const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
-                    if (!etatFavori.estFavori) { // Ne modifie l'état de caché que si le produit n'est pas en favori
-                        localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: cacher }));
+                    const etatFavori = localStorage.getItem(etatFavoriKey) || '0';
+                    if (etatFavori == '0') { // Ne modifie l'état de caché que si le produit n'est pas en favori
+                        localStorage.setItem(etatCacheKey, cacher ? '1' : '0');
 
                         // Sélection de l'icône d'œil dans le produit actuel et mise à jour si l'état de caché change
                         const iconeOeil = produit.querySelector('img[src="' + urlIcone + '"], img[src="' + urlIconeOeil + '"]');
                         if (iconeOeil) {
-                            iconeOeil.setAttribute('src', cacher ? urlIcone : urlIconeOeil);
+                            iconeOeil.setAttribute('src', cacher ? urlIconeOeil : urlIcone);
                         }
                     }
                 });
 
                 // Force la mise à jour de l'affichage selon le nouveau statut de visibilité
-                afficherProduits(!cacher);
+                afficherProduits(cacher);
             }
-            // Gestion des clics sur les boutons Cacher tout et Tout afficher
-            boutonCacherTout.addEventListener('click', () => toggleTousLesProduits(false));
-            boutonToutAfficher.addEventListener('click', () => toggleTousLesProduits(true));
 
             // Affiche les produits en fonction du filtre : visible ou caché
             function afficherProduits(afficherVisibles) {
                 const produitsFavoris = [];
                 produits.forEach(produit => {
                     const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                    const etatCacheKey = asin + '_cache';
-                    const etatFavoriKey = asin + '_favori';
+                    const etatCacheKey = asin + '_c';
+                    const etatFavoriKey = asin + '_f';
 
                     // Initialisation des états si non définis
-                    let etatCache = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: true };
-                    let etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
+                    let etatCache = localStorage.getItem(etatCacheKey) || '0';
+                    let etatFavori = localStorage.getItem(etatFavoriKey) || '0';
 
                     // Enregistre les valeurs par défaut si nécessaire
                     if (localStorage.getItem(etatCacheKey) === null) {
-                        localStorage.setItem(etatCacheKey, JSON.stringify(etatCache));
+                        localStorage.setItem(etatCacheKey, etatCache);
                     }
                     if (localStorage.getItem(etatFavoriKey) === null) {
-                        localStorage.setItem(etatFavoriKey, JSON.stringify(etatFavori));
+                        localStorage.setItem(etatFavoriKey, etatFavori);
                     }
                     //On test s'il est favori et si on peut le cacher ou non
-                    if (etatFavori.estFavori) {
+                    if (etatFavori == '1') {
                         // Les produits favoris sont toujours affichés dans l'onglet "Produits visibles"
                         // et cachés dans l'onglet "Produits cachés"
                         produit.style.display = afficherVisibles ? '' : 'none';
                         produitsFavoris.push(produit);
                     } else {
-                        if ((etatCache.estCache && afficherVisibles) || (!etatCache.estCache && !afficherVisibles)) {
+                        if ((etatCache == '0' && afficherVisibles) || (etatCache == '1' && !afficherVisibles)) {
                             produit.style.display = '';
                         } else {
                             produit.style.display = 'none';
@@ -1666,21 +1810,25 @@ NOTES:
                         containerDiv.prepend(element);
                     });
                 }
-                boutonVisibles.classList.toggle('active', afficherVisibles); // Active ou désactive le bouton des produits visibles
-                boutonCaches.classList.toggle('active', !afficherVisibles); // Active ou désactive le bouton des produits cachés
+                boutonsHaut.boutonVisibles.classList.toggle('active', afficherVisibles); // Active ou désactive le bouton des produits visibles
+                boutonsBas.boutonVisibles.classList.toggle('active', afficherVisibles);
+                boutonsHaut.boutonCaches.classList.toggle('active', !afficherVisibles); // Active ou désactive le bouton des produits cachés
+                boutonsBas.boutonCaches.classList.toggle('active', !afficherVisibles);
                 // Gestion de l'affichage des boutons "Cacher tout" et "Tout afficher"
-                boutonCacherTout.style.display = afficherVisibles ? '' : 'none';
-                boutonToutAfficher.style.display = !afficherVisibles ? '' : 'none';
+                boutonsHaut.boutonCacherTout.style.display = afficherVisibles ? '' : 'none';
+                boutonsBas.boutonCacherTout.style.display = afficherVisibles ? '' : 'none';
+                boutonsHaut.boutonToutAfficher.style.display = !afficherVisibles ? '' : 'none';
+                boutonsBas.boutonToutAfficher.style.display = !afficherVisibles ? '' : 'none';
             }
 
             produits.forEach(produit => {
                 const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                const etatCacheKey = asin + '_cache';
-                const etatFavoriKey = asin + '_favori';
+                const etatCacheKey = asin + '_c';
+                const etatFavoriKey = asin + '_f';
                 const iconeOeil = document.createElement('img');
 
-                const etatCache = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: true };
-                iconeOeil.setAttribute('src', etatCache.estCache ? urlIcone : urlIconeOeil);
+                const etatCache = localStorage.getItem(etatCacheKey) || '0';
+                iconeOeil.setAttribute('src', etatCache === '1' ? urlIconeOeil : urlIcone);
                 if (cssEnabled || mobileEnabled) {
                     iconeOeil.style.cssText = 'position: absolute; top: 0px; right: 1px; cursor: pointer; width: 35px; height: 35px; z-index: 10;';
                 } else {
@@ -1688,36 +1836,36 @@ NOTES:
                 }
 
                 iconeOeil.addEventListener('click', () => {
-                    const etatFavoriKey = asin + '_favori';
-                    const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
+                    const etatFavoriKey = asin + '_f';
+                    const etatFavori = localStorage.getItem(etatFavoriKey) || '0';
 
                     // Vérifie si le produit n'est pas marqué comme favori avant de changer son état de caché
-                    if (!etatFavori.estFavori) {
-                        const etatCacheActuel = JSON.parse(localStorage.getItem(etatCacheKey)) || { estCache: false };
-                        etatCacheActuel.estCache = !etatCacheActuel.estCache;
-                        localStorage.setItem(etatCacheKey, JSON.stringify(etatCacheActuel));
+                    if (etatFavori === '0') {
+                        const etatCacheActuel = localStorage.getItem(etatCacheKey);
+                        const nouvelEtatCache = etatCacheActuel === '1' ? '0' : '1';
+                        localStorage.setItem(etatCacheKey, nouvelEtatCache);
 
                         // Met à jour l'icône basée sur le nouvel état après le clic
-                        iconeOeil.setAttribute('src', etatCacheActuel.estCache ? urlIcone : urlIconeOeil);
+                        iconeOeil.setAttribute('src', etatCacheActuel === '1' ? urlIcone : urlIconeOeil);
                     }
 
                     // Force la mise à jour de l'affichage selon l'état actuel des filtres
-                    afficherProduits(!boutonCaches.classList.contains('active'));
+                    afficherProduits(!boutonsHaut.boutonCaches.classList.contains('active'));
                 });
 
                 const urlIconeFavoriGris = 'https://pickme.alwaysdata.net/img/coeurgris2.png';
                 const urlIconeFavoriRouge = 'https://pickme.alwaysdata.net/img/coeurrouge2.png';
                 const iconeFavori = document.createElement('img');
 
-                const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey));
-                iconeFavori.setAttribute('src', etatFavori && etatFavori.estFavori ? urlIconeFavoriRouge : urlIconeFavoriGris);
+                const etatFavori = localStorage.getItem(etatFavoriKey);
+                iconeFavori.setAttribute('src', (etatFavori && etatFavori == '1') ? urlIconeFavoriRouge : urlIconeFavoriGris);
                 //On test si on utilise le css alternatif pour bouger l'emplacement du coeur, sinon il est superposé au temps du produit
                 if (cssEnabled || mobileEnabled) {
                     //On test si le produit est nouveau
                     if (!storedProducts.hasOwnProperty(asin) || !highlightEnabled) {
                         iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 4px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
                     } else {
-                        iconeFavori.style.cssText = 'position: absolute; top: 30px; left: 4px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
+                        iconeFavori.style.cssText = 'position: absolute; top: 25px; left: 4px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
                     }
                 } else {
                     iconeFavori.style.cssText = 'position: absolute; top: 8px; left: 8px; cursor: pointer; width: 23px; height: 23px; z-index: 10;';
@@ -1725,14 +1873,14 @@ NOTES:
 
                 // Gestion du clic sur l'icône de favori
                 iconeFavori.addEventListener('click', () => {
-                    const etatFavoriActuel = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
-                    etatFavoriActuel.estFavori = !etatFavoriActuel.estFavori;
-                    localStorage.setItem(etatFavoriKey, JSON.stringify(etatFavoriActuel));
-                    iconeFavori.setAttribute('src', etatFavoriActuel.estFavori ? urlIconeFavoriRouge : urlIconeFavoriGris);
+                    var etatFavoriActuel = localStorage.getItem(etatFavoriKey) || '0';
+                    etatFavoriActuel = etatFavoriActuel === '1' ? '0' : '1';
+                    localStorage.setItem(etatFavoriKey, etatFavoriActuel);
+                    iconeFavori.setAttribute('src', etatFavoriActuel === '1' ? urlIconeFavoriRouge : urlIconeFavoriGris);
 
-                    if (etatFavoriActuel.estFavori) {
+                    if (etatFavoriActuel === '1') {
                         // Si le produit est marqué comme favori, s'assurer qu'il est marqué comme non caché
-                        localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: true }));
+                        localStorage.setItem(etatCacheKey, '0');
                         produit.style.display = ''; // Assure que le produit est visible
                         // Mettre à jour l'icône de l'œil pour refléter que le produit n'est plus caché
                         const iconeOeil = produit.querySelector('img[src="' + urlIcone + '"], img[src="' + urlIconeOeil + '"]');
@@ -1741,7 +1889,7 @@ NOTES:
                         }
                     }
 
-                    afficherProduits(!boutonCaches.classList.contains('active'));
+                    afficherProduits(!boutonsHaut.boutonCaches.classList.contains('active'));
                 });
 
                 produit.style.position = 'relative';
@@ -2563,7 +2711,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         // Durée maximale de l'ancienneté en millisecondes (ici: 1 jour)
-        const MAX_CACHE_AGE = 24 * 60 * 60 * 1000;
+        const MAX_c_AGE = 24 * 60 * 60 * 1000;
 
         // Fonction pour vérifier si une page est potentiellement chargée depuis un cache ancien
         function isPageCachedOld() {
@@ -2575,8 +2723,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 const lastVisitDate = new Date(lastVisit);
                 const age = now - lastVisitDate.getTime();
 
-                // Si l'âge est supérieur à MAX_CACHE_AGE, on considère la page comme obsolète
-                if (age > MAX_CACHE_AGE) {
+                // Si l'âge est supérieur à MAX_c_AGE, on considère la page comme obsolète
+                if (age > MAX_c_AGE) {
                     GM_setValue('lastVisit', now);
                     return true;
                 }
@@ -2816,8 +2964,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             // Parcourir les clés (ASIN) dans storedProducts
             for (const asin in storedProducts) {
                 if (storedProducts.hasOwnProperty(asin)) { // Vérification pour éviter les propriétés héritées
-                    const cacheKey = asin + '_cache';
-                    const favoriKey = asin + '_favori';
+                    const cacheKey = asin + '_c';
+                    const favoriKey = asin + '_f';
                     if (purgeAll) {
                         // Purger le produit sans vérifier la date
                         delete storedProducts[asin];
@@ -2849,8 +2997,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
             for (let i = localStorage.length - 1; i >= 0; i--) {
                 const key = localStorage.key(i);
-                const isCacheKey = key.includes('_cache');
-                const isFavoriKey = key.includes('_favori');
+                const isCacheKey = key.includes('_c');
+                const isFavoriKey = key.includes('_f');
                 if (isCacheKey || isFavoriKey) {
                     if (isCacheKey && purgeHidden) {
                         localStorage.removeItem(key);
@@ -2859,6 +3007,69 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     }
                 }
             }
+            const button = document.getElementById('purgeAllItems');
+            button.innerHTML = `Purger la mémoire ${afficherMemoireLocalStorage()}`;
+        }
+
+        function purgeAllItems() {
+            const userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour oui, Annuler pour non.");
+            const button = document.getElementById('purgeAllItems');
+
+            // Étape 1 : Mise à jour initiale du bouton
+            button.innerHTML = `En cours (0%)`;
+
+            // Étape 2 : Purger les favoris et les caches
+            setTimeout(() => {
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const key = localStorage.key(i);
+                    const isCacheKey = key.includes('_c') || key.includes('_cache');
+                    const isFavoriKey = key.includes('_f') || key.includes('_favori');
+
+                    if (isCacheKey || isFavoriKey) {
+                        // Si c'est une clé favori (_f), vérifier la valeur
+                        if (isFavoriKey && localStorage.getItem(key) === '1') {
+                            continue; // Ne pas supprimer si la valeur vaut '1'
+                        }
+
+                        localStorage.removeItem(key);
+                    }
+                }
+                button.innerHTML = `En cours (33%)`;
+
+                // Étape 3 : Purger la surbrillance
+                setTimeout(() => {
+                    // Charger les produits stockés ou initialiser comme un objet vide si aucun produit n'est trouvé
+                    var storedProducts = JSON.parse(GM_getValue("storedProducts", '{}'));
+
+                    // Parcourir les clés (ASIN) dans storedProducts
+                    for (const asin in storedProducts) {
+                        if (storedProducts.hasOwnProperty(asin)) { // Vérification pour éviter les propriétés héritées
+                            // Purger le produit sans vérifier la date
+                            delete storedProducts[asin];
+                        }
+                    }
+
+                    // Sauvegarder les modifications apportées à storedProducts
+                    GM_setValue("storedProducts", JSON.stringify(storedProducts));
+
+                    button.innerHTML = `En cours (66%)`;
+
+                    // Étape 4 : Synchronisation des produits
+                    setTimeout(() => {
+                        syncProducts(false, userHideAll, false);
+
+                        button.innerHTML = `Terminé (100%)`;
+
+                        // Étape 5 : Mise à jour finale du bouton
+                        setTimeout(() => {
+                            button.innerHTML = `Purger la mémoire ${afficherMemoireLocalStorage()}`;
+                        }, 1000); // 1 seconde avant la mise à jour finale
+
+                    }, 1000); // 1 seconde avant de passer à la synchronisation des produits
+
+                }, 1000); // 1 seconde avant de purger la surbrillance
+
+            }, 1000); // 1 seconde avant de purger les favoris et les caches
         }
 
         //On purge les anciens produits
@@ -3134,6 +3345,54 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
         }
 
+        // Fonction pour calculer la taille de localStorage en Mo
+        function calculerTailleLocalStorageEnMo() {
+            let tailleTotale = 0;
+
+            // Parcours de toutes les clés du localStorage
+            for (let i = 0; i < localStorage.length; i++) {
+                let key = localStorage.key(i);
+                let valeur = localStorage.getItem(key);
+
+                // Ajoute la taille de la clé et de la valeur (en octets)
+                tailleTotale += key.length + valeur.length;
+            }
+
+            // Convertit la taille totale en Mo (1 Mo = 1024 * 1024 octets)
+            return (tailleTotale / (1024 * 1024)).toFixed(2); // Limité à 2 décimales
+        }
+
+        // Fonction pour obtenir l'affichage de la mémoire avec couleur
+        function afficherMemoireLocalStorage() {
+            const tailleMaximale = 5; // 5 Mo de capacité maximale pour la plupart des navigateurs
+            const tailleActuelle = parseFloat(calculerTailleLocalStorageEnMo());
+            let utilisation = (tailleActuelle / tailleMaximale) * 100;
+
+            // Limite le pourcentage à 100%
+            if (utilisation > 100) {
+                utilisation = 100;
+            }
+
+            let couleur;
+            // Moins de 50% utilisé, affichage en vert
+            if (utilisation < 50) {
+                couleur = '#008000';
+                // Entre 50% et 90%, affichage en bleu
+            } else if (utilisation >= 50 && utilisation <= 90) {
+                couleur = '#007FFF';
+                // Plus de 90%, affichage en rouge
+            } else {
+                couleur = '#FF0000';
+            }
+
+            // Chaîne avec la taille utilisée et la taille maximale
+            let affichage = `(utilisation : <span style="color:${couleur};">${tailleActuelle} Mo (${utilisation.toFixed(2)}%)</span>)`;
+
+            // Retourner le texte centré
+            //return `<div style="text-align: center;">${affichage}</div>`;
+            return affichage;
+        }
+
         // Crée la fenêtre popup de configuration avec la fonction de déplacement
         async function createConfigPopup() {
             if (document.getElementById('configPopup')) {
@@ -3328,17 +3587,24 @@ ${isPlus ? `
                 }
             });
 
+            document.getElementById('hideEnabled').addEventListener('change', function() {
+                if (this.checked) {
+                    hideBas = window.confirm("Ajouter des boutons en bas de page pour rendre visibles ou cacher (en plus de ceux en haut de page) ?");
+                    GM_setValue('hideBas', hideBas);
+                }
+            });
+
             document.getElementById('notifEnabled').addEventListener('change', function() {
                 if (this.checked) {
                     document.getElementById('configurerNotif').disabled = false;
                     // Demander à l'utilisateur s'il est sur mobile ou PC
-                    var onMobile = window.confirm("Êtes-vous sur un appareil mobile ?");
+                    onMobile = window.confirm("Êtes-vous sur un appareil mobile ?");
 
                     // Utilisation de GM pour set la variable
                     GM_setValue('onMobile', onMobile);
 
                     // Demander à l'utilisateur s'il est sur mobile ou PC
-                    var shortcutNotif = window.confirm("Souhaitez-vous ajouter un raccourci vers le centre de notifications  ?");
+                    shortcutNotif = window.confirm("Souhaitez-vous ajouter un raccourci vers le centre de notifications  ?");
 
                     // Utilisation de GM pour set la variable
                     GM_setValue('shortcutNotif', shortcutNotif);
@@ -3417,6 +3683,10 @@ ${isPlus ? `
 
             document.getElementById('purgeHiddenObjects').addEventListener('click', () => {
                 purgeHiddenObjects(true);
+            });
+
+            document.getElementById('purgeAllItems').addEventListener('click', () => {
+                purgeAllItems();
             });
 
             dragElement(popup);
@@ -3563,12 +3833,13 @@ ${isPlus ? `
   <button id="configurerTouches">(PC) Configurer les raccourcis clavier</button>
   <button id="setUrl">(Webhook) Choisir l'URL</button>
   <button id="testUrl">(Webhook) Tester l'URL</button>
+  <button id="syncProducts">Synchroniser les produits avec le serveur</button>
   <button id="configurerNotif" ${isPremium || !notifEnabled ? 'disabled' : ''}>(Premium) Configurer les notifications</button>
-  <button id="syncProducts" ${isPremium ? 'disabled' : ''}>(Premium) Synchroniser les produits avec le serveur</button>
   <button id="saveData" ${isPremium ? 'disabled' : ''}>(Premium) Sauvegarder les paramètres/produits</button>
-  <button id="restoreData" ${isPremium ? 'disabled' : ''}>(Premium) Restaurer les paramètres/produits${dateLastSave ? ' (' + dateLastSave + ')' : ''}</button>
+  <button id="restoreData" ${isPremium || dateLastSave === "Aucune sauvegarde" ? 'disabled' : ''}>(Premium) Restaurer les paramètres/produits${dateLastSave ? ' (' + dateLastSave + ')' : ''}</button>
   <button id="purgeStoredProducts">Supprimer les produits enregistrés pour la surbrillance</button>
   <button id="purgeHiddenObjects">Supprimer les produits cachés et/ou les favoris</button>
+  <button style="flex-basis: 100%;" id="purgeAllItems">Purger la mémoire ${afficherMemoireLocalStorage()}</button>
 </div>
 <div class="button-container final-buttons">
   <button class="full-width" id="saveConfig">Enregistrer</button>
@@ -3603,7 +3874,7 @@ ${isPlus ? `
         ${createKeyInput('keyDown', 'Onglet précédent (flêche : ArrowDown)')}
         ${createKeyInput('keyHide', 'Tout cacher')}
         ${createKeyInput('keyShow', 'Tout montrer')}
-        ${createKeyInput('keySync', '(Premium) Synchroniser les produits avec le serveur et tout cacher', !isPremium)}
+        ${createKeyInput('keySync', 'Synchroniser les produits avec le serveur et tout cacher')}
 <div class="button-container final-buttons">
   <button class="full-width" id="saveKeyConfig">Enregistrer</button>
   <button class="full-width" id="closeKeyConfig">Fermer</button>
@@ -3777,7 +4048,7 @@ ${isPlus ? `
         }
         //End
 
-        // Removes old products if they've been in stored for 90+ days
+        //Supprime les produits la depuis plus de 90 jours
         function purgeOldItems() {
             const items = GM_getValue("config");
             const storedProducts = JSON.parse(GM_getValue("storedProducts", '{}'));
@@ -4461,7 +4732,7 @@ ${isPlus ? `
 
         //Afficher l'onglet "Favoris"
         function mesFavoris() {
-            const MAX_FAVORIS = 200; // Limite des favoris affichés
+            const MAX_fS = 200; // Limite des favoris affichés
 
             if (apiKey && hideEnabled) {
                 // Ajouter un nouvel onglet dans le menu
@@ -4529,10 +4800,10 @@ ${isPlus ? `
                     const favoris = [];
                     const listASINS = [];
                     const promises = Object.keys(localStorage).map(async (key) => {
-                        if (key.endsWith('_favori')) {
-                            const favori = JSON.parse(localStorage.getItem(key));
-                            if (favori.estFavori === true) {
-                                const asin = key.split('_favori')[0]; // Extraire l'ASIN de la clé
+                        if (key.endsWith('_f')) {
+                            const favori = localStorage.getItem(key);
+                            if (favori === '1') {
+                                const asin = key.split('_f')[0]; // Extraire l'ASIN de la clé
                                 listASINS.push("https://www.amazon.fr/dp/" + asin);
                                 try {
                                     const productInfo = await infoProduct(asin); // Appel à la fonction infoProduct avec l'ASIN
@@ -4555,8 +4826,8 @@ ${isPlus ? `
                         return a.timeDiff - b.timeDiff;
                     });
 
-                    // Limiter les favoris à MAX_FAVORIS
-                    const favorisAffiches = favoris.slice(0, MAX_FAVORIS);
+                    // Limiter les favoris à MAX_fS
+                    const favorisAffiches = favoris.slice(0, MAX_fS);
 
                     // Mettre à jour le titre avec le nombre de favoris affichés
                     document.querySelector('#favorisCount').textContent = `Favoris (${favorisAffiches.length})`;
@@ -4628,7 +4899,7 @@ ${isPlus ? `
                 function supprimerTousLesFavoris() {
                     if (confirm('Êtes-vous sûr de vouloir supprimer tous les favoris ?')) {
                         Object.keys(localStorage).forEach(key => {
-                            if (key.endsWith('_favori')) {
+                            if (key.endsWith('_f')) {
                                 localStorage.removeItem(key);
                             }
                         });
@@ -5204,7 +5475,7 @@ ${isPlus ? `
         }
 
         //Appel API pour synchroniser
-        function syncProducts(askHide = true) {
+        function syncProducts(askHide = true, hideAll = false, refresh = true) {
             const formData = new URLSearchParams({
                 version: version,
                 token: API_TOKEN,
@@ -5223,7 +5494,7 @@ ${isPlus ? `
                             try {
                                 // Tente de parser le texte de réponse en JSON
                                 const productsData = JSON.parse(response.responseText);
-                                syncProductsData(productsData, askHide);
+                                syncProductsData(productsData, askHide, hideAll, refresh);
                                 //console.log(jsonResponse); // Affiche la réponse parsée dans la console
                                 resolve(productsData);
                             } catch (error) {
@@ -5327,7 +5598,7 @@ ${isPlus ? `
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/qtyorders", // Assurez-vous que l'URL est correcte
+                    url: "https://pickme.alwaysdata.net/shyrka/qtyorders",
                     data: formData.toString(),
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
@@ -5335,14 +5606,14 @@ ${isPlus ? `
                     onload: function(response) {
                         if (response.status >= 200 && response.status < 300) {
                             try {
-                                // Tente de parser le texte de réponse en JSON
-                                const ordersData = JSON.parse(response.responseText); // Parsez le JSON de la réponse
+                                //Tente de parser le texte de réponse en JSON
+                                const ordersData = JSON.parse(response.responseText); //Parsez le JSON de la réponse
                                 qtyOrdersData(ordersData); // Traitez les données
                                 //console.log(jsonResponse); // Affiche la réponse parsée dans la console
-                                resolve(ordersData); // Résout la promesse avec l'objet JSON
+                                resolve(ordersData); //Résout la promesse avec l'objet JSON
                             } catch (error) {
                                 console.error("Erreur lors du parsing JSON:", error);
-                                reject(error); // Rejette la promesse si le parsing échoue
+                                reject(error); //Rejette la promesse si le parsing échoue
                             }
                         } else if (response.status == 401) {
                             //alert("Token invalide ou membre non Premium+");
@@ -5444,23 +5715,27 @@ ${isPlus ? `
         }
 
         //Ajout des données reçu par l'API pour synchroniser
-        function syncProductsData(productsData, askHide = true) {
+        function syncProductsData(productsData, askHide = true, hideAll = false, refresh = true) {
             let userHideAll;
             if (askHide) {
-                userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour activer, Annuler pour désactiver.");
+                userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour oui, Annuler pour non.");
             } else {
-                userHideAll = true;
+                if (hideAll) {
+                    userHideAll = true;
+                } else {
+                    userHideAll = false;
+                }
             }
             let storedProducts = JSON.parse(GM_getValue("storedProducts", "{}"));
             productsData.forEach(product => {
                 const asin = product.asin;
                 const currentDate = product.date_ajout;
                 if (userHideAll) {
-                    const etatFavoriKey = asin + '_favori';
-                    const etatFavori = JSON.parse(localStorage.getItem(etatFavoriKey)) || { estFavori: false };
-                    if (!etatFavori.estFavori) { // Ne modifie l'état de caché que si le produit n'est pas en favori
-                        const etatCacheKey = asin + '_cache';
-                        localStorage.setItem(etatCacheKey, JSON.stringify({ estCache: false }));
+                    const etatFavoriKey = asin + '_f';
+                    const etatFavori = localStorage.getItem(etatFavoriKey) || '0';
+                    if (etatFavori === '0') { // Ne modifie l'état de caché que si le produit n'est pas en favori
+                        const etatCacheKey = asin + '_c';
+                        localStorage.setItem(etatCacheKey, '1');
                     }
                 }
                 // Mettre à jour ou ajouter le produit dans storedProducts
@@ -5475,7 +5750,9 @@ ${isPlus ? `
             if (askHide) {
                 alert("Les produits ont été synchronisés.");
             }
-            window.location.reload();
+            if (refresh) {
+                window.location.reload();
+            }
         }
         //End
 
@@ -6065,33 +6342,33 @@ ${isPlus ? `
         //End Wheel Fix
 
         //Sauvegarder/Restaurer
-        // Fonction pour récupérer les données de localStorage
+        //Fonction pour récupérer les données de localStorage
         function getLocalStorageData() {
             let data = {};
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key.endsWith('_cache') || key.endsWith('_favori')) {
+                if (key.endsWith('_c') || key.endsWith('_f')) {
                     data[key] = localStorage.getItem(key);
                 }
             }
             return data;
         }
 
-        // Fonction pour restaurer les données dans localStorage
+        //Fonction pour restaurer les données dans localStorage
         function setLocalStorageData(data) {
             for (let key in data) {
-                if (key.endsWith('_cache') || key.endsWith('_favori')) {
+                if (key.endsWith('_c') || key.endsWith('_f')) {
                     localStorage.setItem(key, data[key]);
                 }
             }
         }
 
         function saveData() {
-            // Récupérez toutes les clés sauvegardées
+            //Récupérez toutes les clés sauvegardées
             const keys = GM_listValues();
             let data = {};
             //On exclu les paramètres propres a un appareil, pour éviter d'avoir l'affichage mobile sur PC par exemple
-            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'extendedEnabled', 'onMobile', 'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos', 'lastVisit'];
+            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'extendedEnabled', 'onMobile', 'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos', 'lastVisit', 'hideBas'];
             keys.forEach(key => {
                 if (!excludedKeys.includes(key)) {
                     data[key] = GM_getValue(key);
@@ -6122,6 +6399,7 @@ ${isPlus ? `
                     if (responseData.lastSaveDate) {
                         const restoreButton = document.getElementById('restoreData');
                         restoreButton.textContent = `(Premium) Restaurer les paramètres/produits (${convertToEuropeanDate(responseData.lastSaveDate)})`;
+                        document.getElementById('restoreData').removeAttribute('disabled');
                     } else {
                         console.error("La date de la dernière sauvegarde n'a pas été retournée.");
                     }
@@ -6150,7 +6428,7 @@ ${isPlus ? `
                     let restoreProducts = confirm("Souhaitez-vous restaurer les produits (surbrillance + visibilité cachée/visible) ?");
 
                     for (let key in data) {
-                        if (key.endsWith('_cache') || key.endsWith('_favori')) {
+                        if (key.endsWith('_c') || key.endsWith('_f')) {
                             if (restoreProducts) {
                                 localStorage.setItem(key, data[key]);
                             }
