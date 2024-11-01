@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.12
+// @version      1.13
 // @description  Outils pour les membres du discord AVFR
-// @author       Code : MegaMan, testeur : Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
+// @author       Code : MegaMan, testeurs : Louise et Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @match        https://www.amazon.fr/vine/vine-reviews*
@@ -376,11 +376,39 @@ NOTES:
             var titleContentLower;
             if (filterOption == "notifFavOnly") {
                 var favWordsTrimNotif = favWords.trim();
-                var favArrayNotif = favWordsTrimNotif.length > 0 ? favWordsTrimNotif.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+                var favArrayNotif = favWordsTrimNotif.length > 0
+                ? favWordsTrimNotif.split(',').map(pattern => {
+                    pattern = pattern.trim();
+                    if (pattern.length > 0) {
+                        try {
+                            return new RegExp(pattern, 'i');
+                        } catch (e) {
+                            console.error('Expression regex invalide :', pattern, e);
+                            return null;
+                        }
+                    } else {
+                        return null;
+                    }
+                }).filter(regex => regex != null)
+                : [];
 
             } else if (filterOption == "notifExcludeHidden") {
                 var hiddenWordsTrimNotif = hideWords.trim();
-                var hiddenArrayNotif = hiddenWordsTrimNotif.length > 0 ? hiddenWordsTrimNotif.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+                var hiddenArrayNotif = hiddenWordsTrimNotif.length > 0
+                ? hiddenWordsTrimNotif.split(',').map(pattern => {
+                    pattern = pattern.trim();
+                    if (pattern.length > 0) {
+                        try {
+                            return new RegExp(pattern, 'i');
+                        } catch (e) {
+                            console.error('Expression regex invalide :', pattern, e);
+                            return null;
+                        }
+                    } else {
+                        return null;
+                    }
+                }).filter(regex => regex != null)
+                : [];
             }
         }
         // Écouter les messages immédiatement
@@ -396,13 +424,16 @@ NOTES:
                     (event.data.info.toUpperCase() === "PRODUCT_AI" && notifPartageAI) ||
                     (event.data.info.toUpperCase() === "AUTRES" && notifAutres)) {
                     if (notifFav && event.data.info.toUpperCase() === "PRODUCT_AI") {
+
+                        console.log("prout1");
                         titleContentLower = event.data.description.toLowerCase().trim().replace(/\s+/g, '');
                         if (filterOption == "notifFavOnly") {
-                            if (favArrayNotif.length > 0 && favArrayNotif.some(mot => titleContentLower.includes(mot))) {
+                            if (favArrayNotif.length > 0 && favArrayNotif.some(regex => regex.test(titleContentLower))) {
                                 requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
                             }
                         } else if (filterOption == "notifExcludeHidden") {
-                            if (hiddenArrayNotif.length > 0 && !hiddenArrayNotif.some(mot => titleContentLower.includes(mot))) {
+                            console.log("prout2");
+                            if (hiddenArrayNotif.length > 0 && !hiddenArrayNotif.some(regex => regex.test(titleContentLower))) {
                                 requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
                             }
                         }
@@ -495,6 +526,23 @@ NOTES:
                 }
             }
         });
+        //Auto log si on a pickme installé
+        //On check s'il y a la zone de saisie de la clé API
+        const apiKeyInput = document.querySelector('input[type="text"].form-control#api_key[name="api_key"][required]');
+
+        //Vérifie si le message d'erreur n'est PAS présent
+        const errorAlert = document.querySelector('div.alert.alert-danger');
+        //Récupère le dernier moment de redirection enregistré pour éviter de le faire en boucle
+        const lastRedirect = localStorage.getItem('lastRedirectTime');
+        const now = Date.now();
+        //On le fait seulement s'il y a le champ de saisie, mais sans le message d'erreur et si pas fait depuis plus de 1 minute
+        if (apiKeyInput && !errorAlert && (!lastRedirect || now - lastRedirect > 60000)) {
+            if (apiKey) {
+                localStorage.setItem('lastRedirectTime', now);
+                const redirectUrl = "https://pickme.alwaysdata.net/search.php?key=" + encodeURIComponent(apiKey);
+                window.location.href = redirectUrl;
+            }
+        }
     }
 
     //Popup pour le bloc-notes
@@ -1491,28 +1539,61 @@ NOTES:
 
         if (autohideEnabled && apiOk) {
             function tryAutoHide() {
-                // Nettoie les chaînes et vérifie si elles sont vides
+                //Nettoie les chaînes et vérifie si elles sont vides
                 var favWordsTrim = favWords.trim();
                 var hideWordsTrim = hideWords.trim();
 
-                const favArray = favWordsTrim.length > 0 ? favWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
-                const hideArray = hideWordsTrim.length > 0 ? hideWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+                //var favArray = favWordsTrim.length > 0 ? favWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
+                //var hideArray = hideWordsTrim.length > 0 ? hideWordsTrim.split(',').map(mot => mot.toLowerCase().trim().replace(/\s+/g, '')).filter(mot => mot.length > 0) : [];
                 const itemTiles = document.querySelectorAll('.vvp-item-tile');
+
+                //Convertir en Regex
+                var favArray = favWordsTrim.length > 0
+                ? favWordsTrim.split(',').map(pattern => {
+                    pattern = pattern.trim();
+                    if (pattern.length > 0) {
+                        try {
+                            return new RegExp(pattern, 'i');
+                        } catch (e) {
+                            console.error('Expression regex invalide :', pattern, e);
+                            return null;
+                        }
+                    } else {
+                        return null;
+                    }
+                }).filter(regex => regex != null)
+                : [];
+
+                var hideArray = hideWordsTrim.length > 0
+                ? hideWordsTrim.split(',').map(pattern => {
+                    pattern = pattern.trim();
+                    if (pattern.length > 0) {
+                        try {
+                            return new RegExp(pattern, 'i');
+                        } catch (e) {
+                            console.error('Expression regex invalide :', pattern, e);
+                            return null;
+                        }
+                    } else {
+                        return null;
+                    }
+                }).filter(regex => regex != null)
+                : [];
 
                 if (itemTiles.length > 0) {
                     itemTiles.forEach(function(tile) {
                         const fullTextElement = tile.querySelector('.a-truncate-full.a-offscreen');
                         const parentDiv = tile.closest('.vvp-item-tile');
                         if (fullTextElement) {
-                            const textContentLower = fullTextElement.textContent.toLowerCase().trim().replace(/\s+/g, '');
-
-                            // Effectue la vérification seulement si favArray n'est pas vide
-                            if (favArray.length > 0 && favArray.some(mot => textContentLower.includes(mot))) {
-                                parentDiv.style.backgroundColor = highlightColorFav; // Assurez-vous que 'highlightColorFav' est bien défini
+                            //const textContentLower = fullTextElement.textContent.toLowerCase().trim().replace(/\s+/g, '');
+                            const textContent = fullTextElement.textContent.trim().replace(/\s+/g, ' ');
+                            //Effectue la vérification seulement si favArray n'est pas vide
+                            if (favArray.length > 0 && favArray.some(regex => regex.test(textContent))) {
+                                parentDiv.style.backgroundColor = highlightColorFav;
                                 parentDiv.parentNode.prepend(parentDiv);
                             }
-                            // Effectue la vérification seulement si hideArray n'est pas vide
-                            else if (hideArray.length > 0 && hideArray.some(mot => textContentLower.includes(mot))) {
+                            //Effectue la vérification seulement si hideArray n'est pas vide
+                            else if (hideArray.length > 0 && hideArray.some(regex => regex.test(textContent))) {
                                 const asin = parentDiv.getAttribute('data-asin') || parentDiv.querySelector('.vvp-details-btn input').getAttribute('data-asin');
                                 const etatCacheKey = asin + '_c';
                                 localStorage.setItem(etatCacheKey, '1');
@@ -2668,7 +2749,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             if ((firsthlEnabled || highlightEnabled) && apiOk) {
                 const asin = linkElement.href.split('/dp/')[1].split('/')[0]; // Extrait l'ASIN du produit
                 //const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
-                // Vérifier si le produit existe déjà dans les données locales
+                //Vérifier si le produit existe déjà dans les données locales
                 if (!storedProducts.hasOwnProperty(asin)) {
                     // Si le produit n'existe pas, l'ajouter aux données locales avec la date courante
                     const currentDate = new Date().toISOString(); // Obtenir la date courante en format ISO
@@ -2679,12 +2760,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
                     GM_setValue("storedProducts", JSON.stringify(storedProducts)); // Sauvegarder les changements
 
-                    // Appliquer la mise en surbrillance au div parent
+                    //Appliquer la mise en surbrillance au div parent
                     if (highlightEnabled) {
                         element.style.backgroundColor = highlightColor;
                         imgNew = true;
                     }
-                    // On stocke les produits qu'on va devoir remonter
+                    //On stocke les produits qu'on va devoir remonter
                     if (firsthlEnabled) {
                         //containerDiv.prepend(element);
                         elementsToPrepend.push(element);
@@ -2715,12 +2796,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             appelURL();
         }
 
-        // Durée maximale de l'ancienneté en millisecondes (ici: 1 jour)
+        //Durée maximale de l'ancienneté en millisecondes (ici: 1 jour)
         const MAX_c_AGE = 24 * 60 * 60 * 1000;
 
-        // Fonction pour vérifier si une page est potentiellement chargée depuis un cache ancien
+        //Fonction pour vérifier si une page est potentiellement chargée depuis un cache ancien
         function isPageCachedOld() {
-            // Récupère la date de dernière visite stockée
+            //Récupère la date de dernière visite stockée
             const lastVisit = GM_getValue('lastVisit', null);
             const now = new Date().getTime();
 
@@ -2728,14 +2809,14 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 const lastVisitDate = new Date(lastVisit);
                 const age = now - lastVisitDate.getTime();
 
-                // Si l'âge est supérieur à MAX_c_AGE, on considère la page comme obsolète
+                //Si l'âge est supérieur à MAX_c_AGE, on considère la page comme obsolète
                 if (age > MAX_c_AGE) {
                     GM_setValue('lastVisit', now);
                     return true;
                 }
             }
 
-            // Met à jour la date de dernière visite
+            //Met à jour la date de dernière visite
             GM_setValue('lastVisit', now);
             return false;
         }
@@ -3249,7 +3330,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 #configPopup label.disabled input[type="checkbox"] {
   cursor: not-allowed;
 }
-#saveConfig, #closeConfig, #saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig, #saveNote, #closeNote {
+#saveConfig, #closeConfig, #saveKeyConfig, #closeKeyConfig, #syncFavConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig, #saveNote, #closeNote {
   padding: 8px 15px !important; /* Plus de padding pour un meilleur visuel */
   margin-top !important: 5px;
   border-radius: 5px !important; /* Bordures légèrement arrondies */
@@ -3264,6 +3345,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   background-color: #4CAF50 !important; /* Vert pour le bouton "Enregistrer" */
 }
 
+#syncFavConfig {
+  background-color: #2196F3 !important; /* Bleu pour le bouton "Synchroniser" */
+}
+
 #closeConfig, #closeKeyConfig, #closeFavConfig, #closeColor, #closeNotifConfig, #closeNote {
   background-color: #f44336 !important; /* Rouge pour le bouton "Fermer" */
 }
@@ -3272,10 +3357,21 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   background-color: #45a049 !important; /* Assombrit le vert au survol */
 }
 
+#syncFavConfig:hover {
+  background-color: #1976D2 !important; /* Assombrit le bleu au survol */
+}
+
+#syncFavConfig:disabled {
+  background-color: #B0BEC5; /* Couleur grise pour le bouton désactivé */
+  color: #FFFFFF; /* Couleur du texte, si nécessaire */
+  cursor: not-allowed !important; /* Change le curseur pour indiquer que le bouton est désactivé */
+  opacity: 0.6; /* Optionnel : rend le bouton semi-transparent */
+}
+
 #closeConfig:hover, #closeKeyConfig:hover, #closeFavConfig:hover, #closeColor:hover, #closeNotifConfig:hover, #closeNote:hover {
   background-color: #e53935 !important; /* Assombrit le rouge au survol */
 }
-#saveKeyConfig, #closeKeyConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig, #saveNote, #closeNote {
+#saveKeyConfig, #closeKeyConfig, #syncFavConfig, #saveFavConfig, #closeFavConfig, #saveColor, #closeColor, #saveNotifConfig, #closeNotifConfig, #saveNote, #closeNote {
   margin-top: 10px; /* Ajoute un espace de 10px au-dessus du second bouton */
   width: 100%; /* Utilise width: 100% pour assurer que le bouton prend toute la largeur */
 }
@@ -3546,7 +3642,6 @@ ${isPlus ? `
 
             document.getElementById('cssEnabled').addEventListener('change', function() {
                 if (this.checked) {
-                    document.getElementById('extendedEnabled').checked = false;
                     document.getElementById('mobileEnabled').checked = false;
                 }
             });
@@ -3566,7 +3661,6 @@ ${isPlus ? `
 
             document.getElementById('extendedEnabled').addEventListener('change', function() {
                 if (this.checked) {
-                    document.getElementById('cssEnabled').checked = false;
                     document.getElementById('mobileEnabled').checked = false;
                 }
             });
@@ -3834,7 +3928,7 @@ ${isPlus ? `
 
   <button id="setHighlightColor">Couleur de surbrillance des nouveaux produits</button>
   <button id="setHighlightColorFav">Couleur de surbrillance des produits filtrés</button>
-  <button id="configurerFiltres" ${autohideEnabled ? '' : 'disabled'}>Configurer les mots-clés pour le filtre</button>
+  <button id="configurerFiltres">Configurer les mots-clés pour le filtre</button>
   <button id="configurerTouches">(PC) Configurer les raccourcis clavier</button>
   <button id="setUrl">(Webhook) Choisir l'URL</button>
   <button id="testUrl">(Webhook) Tester l'URL</button>
@@ -3941,7 +4035,7 @@ ${isPlus ? `
     ${createCheckbox('notifFav', 'Filtrer "Autres articles"', 'Utilise les filtres (soit celui des favoris, soit celui pour exclure) pour ne remonter que les notifications favoris ou sans mots exclus et uniquement si c\'est un produit "Autres articles" (aucun filtre sur "Disponibles pour tous"). La notification apparaitra tout de même dans le centre de notifications. Prend en compte le filtre, même si l\'option des filtres est désactivée')}
     ${createCheckbox('notifSound', 'Jouer un son', 'Permet de jouer un son à réception d\'une notification. Astuce : pour personnaliser le son, il est possible d\'utiliser l\'option expérimentale pour saisir l\'URL du mp3 (uniquement) de votre choix')}
     <select id="filterOptions" ${notifFav ? '' : 'disabled'} style="margin-bottom: 10px;">
-       <option value="notifFavOnly" ${filterOption === 'notifFavOnly' ? 'selected' : ''}>Ne voir que les favoris</option>
+       <option value="notifFavOnly" ${filterOption === 'notifFavOnly' ? 'selected' : ''}>Ne voir que les produits avec mots-clés</option>
        <option value="notifExcludeHidden" ${filterOption === 'notifExcludeHidden' ? 'selected' : ''}>Tout voir sauf mots exclus</option>
     </select>
     ${createCheckbox('onMobile', 'Version mobile')}
@@ -3990,13 +4084,16 @@ ${isPlus ? `
         }
 
         // Fonction pour créer la fenêtre popup de configuration des filtres
-        function createFavConfigPopup() {
+        async function createFavConfigPopup() {
             // Vérifie si une popup existe déjà et la supprime si c'est le cas
             const existingPopup = document.getElementById('favConfigPopup');
             if (existingPopup) {
                 existingPopup.remove();
             }
-
+            let isRole = false;
+            const responseRole = await verifyTokenRole(API_TOKEN);
+            isRole = responseRole && responseRole.status === 200;
+            console.log(isRole);
             // Crée la fenêtre popup
             const popup = document.createElement('div');
             popup.id = "favConfigPopup";
@@ -4007,9 +4104,10 @@ ${isPlus ? `
             popup.innerHTML = `
         <h2 id="configPopupHeader">Configuration des mots-clés<span id="closeFavPopup" style="float: right; cursor: pointer;">&times;</span></h2>
         <div>
-            <label for="favWords">Produits favoris :</label>
+            <label for="favWords">Produits à mettre en avant :</label>
             <textarea id="favWords" name="favWords" style="width: 100%; height: 70px;">${GM_getValue('favWords', '')}</textarea>
         </div>
+        <button class="full-width" id="syncFavConfig" ${isRole ? '' : 'disabled'}>(Synchroniser) Envoyer la liste vers discord</button>
         <div style="margin-top: 10px;">
             <label for="hideWords">Produits à cacher/exclure :</label>
             <textarea id="hideWords" name="hideWords" style="width: 100%; height: 110px">${GM_getValue('hideWords', '')}</textarea>
@@ -4025,6 +4123,7 @@ ${isPlus ? `
             //dragElement(popup); // Utilise ta fonction existante pour rendre la popup déplaçable
 
             // Ajout des écouteurs d'événements pour les boutons
+            document.getElementById('syncFavConfig').addEventListener('click', syncFavConfig);
             document.getElementById('saveFavConfig').addEventListener('click', saveFavConfig);
             document.getElementById('closeFavConfig').addEventListener('click', () => document.getElementById('favConfigPopup').remove());
             document.getElementById('closeFavPopup').addEventListener('click', () => {
@@ -4039,6 +4138,50 @@ ${isPlus ? `
             GM_setValue('favWords', favWords);
             GM_setValue('hideWords', hideWords);
             document.getElementById('favConfigPopup').remove(); // Ferme la popup après enregistrement
+        }
+
+        function syncFavConfig() {
+            if (confirm('Cela remplacera votre liste de mots-clés sur discord par celle de PickMe, êtes-vous sûr ?')) {
+                const favWords = document.getElementById('favWords').value;
+                const formData = new URLSearchParams({
+                    version: version,
+                    token: API_TOKEN,
+                    keywords: favWords,
+                });
+
+                return new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: "POST",
+                        url: "https://pickme.alwaysdata.net/shyrka/synckeywords",
+                        data: formData.toString(),
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        },
+                        onload: function(response) {
+                            if (response && response.status === 200) {
+                                const syncButton = document.getElementById('syncFavConfig');
+                                const originalText = syncButton.textContent;
+                                syncButton.innerHTML = response.responseText;
+                                console.log(response.responseText);
+                                setTimeout(() => {
+                                    syncButton.textContent = originalText;
+                                }, 2000);
+                                resolve(response);
+                            } else if (response && response.status === 201) {
+                                const syncButton = document.getElementById('syncFavConfig');
+                                syncButton.innerHTML = 'Non autorisé';
+                                syncButton.disabled = true;
+                                resolve("Non autorisé");
+                            } else {
+                                reject("Erreur lors de la récupération de la dernière sauvegarde");
+                            }
+                        },
+                        onerror: function(error) {
+                            reject("Erreur lors de la récupération de la dernière sauvegarde : " + error);
+                        }
+                    });
+                });
+            }
         }
 
         // Modification de la fonction configurerTouches pour ouvrir la popup
@@ -4070,7 +4213,6 @@ ${isPlus ? `
         }
         //purgeOldItems();
 
-        // Comment gets truncated by its lists, since the lengths of those are unknown, and we'll just say how many more there are at the end
         function truncateString(originalString) {
             var arr = originalString.split('\n');
             var tooLong = true;
@@ -4090,7 +4232,7 @@ ${isPlus ? `
             while (tooLong) {
 
                 if (count > 30) {
-                    tooLong = false; // in the rare likelihood that this will loop forever
+                    tooLong = false;
                 }
 
                 for (let x=0; x<arr.length; x++) {
@@ -4101,8 +4243,8 @@ ${isPlus ? `
                     }
 
                     if (split.length > 1 && fullArrayLength > MAX_COMMENT_LENGTH && compareItemLengths(x)) {
-                        variantQuantities[x] = split.length - 1; // keep track of this index's array length
-                        variantsRemoved[x] = (variantsRemoved.hasOwnProperty(x)) ? variantsRemoved[x]+1 : 1; // used for tracking the number of variants that were truncated
+                        variantQuantities[x] = split.length - 1;
+                        variantsRemoved[x] = (variantsRemoved.hasOwnProperty(x)) ? variantsRemoved[x]+1 : 1;
                         split.pop();
                         arr[x] = split.join(' ● ');
                         arr[x] += `** ... +${variantsRemoved[x]} more**`;
@@ -4112,7 +4254,6 @@ ${isPlus ? `
                 }
 
                 if (!(arr.join('\n').length > MAX_COMMENT_LENGTH)) {
-                    // the string is finally short enough to be sent over the API
                     truncatedString = arr.join('\n');
                     tooLong = false;
                 }
@@ -4362,6 +4503,26 @@ ${isPlus ? `
             });
         }
 
+        function verifyTokenRole(token) {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "GET",
+                    url: `https://pickme.alwaysdata.net/shyrka/userrole/${token}`,
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    onload: function(response) {
+                        //console.log(response.status, response.responseText);
+                        resolve(response);
+                    },
+                    onerror: function(error) {
+                        console.error(error);
+                        reject(error);
+                    },
+                });
+            });
+        }
+
         //Info serveur pour les commandes rapides
         function varFastCmd() {
             const formData = new URLSearchParams({
@@ -4479,12 +4640,10 @@ ${isPlus ? `
             return str;
         }
 
-        // Checks if each dropdown has more than 1 option
-        // Useful for pointing out misleading parent products
         function countVariations(obj) {
             for (const key in obj) {
                 if (Array.isArray(obj[key]) && obj[key].length > 1) {
-                    return false; // If there are multiple variations, then we're better off not alerting anyone
+                    return false;
                 }
             }
             return true;
@@ -4503,11 +4662,11 @@ ${isPlus ? `
             (notes.length > 0) ? comment.push(noteFormatting(notes)) : null;
 
             if (comment.length > MAX_COMMENT_LENGTH) {
-                comment = truncateString(comment); // Comment truncation, if necessary
+                comment = truncateString(comment);
             }
 
             comment = comment.join('\n');
-            comment = comment?.replace("\n", "\n\n"); // A fix for the weird formatting issue where the 1st line break requires 2 newlines instead of 1
+            comment = comment?.replace("\n", "\n\n");
 
             return comment;
         }
@@ -5160,7 +5319,7 @@ ${isPlus ? `
                 });
 
                 if (ordersInfos && ordersEnabled) {
-                    ordersPostCmd(listASINS, "cmd");
+                    ordersPostCmd(listASINS, "orders");
                     if (ordersPercent) {
                         ordersPostPercent(listASINS);
                     }
@@ -5168,8 +5327,39 @@ ${isPlus ? `
             }
         }
 
+        //Affiche les "boules" sur les avis
+        function reviewOrders() {
+            if (window.location.href.includes('vine-reviews')) {
+                const listASINS = [];
+                //Extraction des données de chaque ligne de produit
+                document.querySelectorAll('.vvp-reviews-table--row').forEach(row => {
+                    let productUrl = row.querySelector('.vvp-reviews-table--text-col a');
+                    let asin;
+                    if (productUrl) {
+                        productUrl = productUrl.href;
+                        asin = extractASIN(productUrl);
+                    } else {
+                        const asinElement = row.querySelector('.vvp-reviews-table--text-col');
+                        asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
+                    }
+                    //On ajoute chaque asin à la liste pour appeler les infos de commandes
+                    listASINS.push("https://www.amazon.fr/dp/" + asin);
+                });
+                if (ordersInfos && ordersEnabled) {
+                    ordersPostCmd(listASINS, "reviews");
+                    if (ordersPercent) {
+                        ordersPostPercent(listASINS);
+                    }
+
+                }
+            }
+        }
+
         if (ordersEnabled) {
             saveOrders();
+            if (ordersInfos) {
+                reviewOrders();
+            }
         }
 
         function ordersPost(data) {
@@ -5205,7 +5395,7 @@ ${isPlus ? `
             });
         }
 
-        function ordersPostCmd(data, tab = "cmd") {
+        function ordersPostCmd(data, tab = "orders") {
             var apiURL = "https://pickme.alwaysdata.net/shyrka/asinsinfocmd";
             if (tab == "fav") {
                 apiURL = "https://pickme.alwaysdata.net/shyrka/asinsinfofav";
@@ -5227,7 +5417,7 @@ ${isPlus ? `
                     onload: function(response) {
                         if (response.status == 200) {
                             const productsData = JSON.parse(response.responseText);
-                            showOrdersCmd(productsData);
+                            showOrdersCmd(productsData, tab);
                             resolve(productsData);
                         } else {
                             reject(`Error: ${response.status} ${response.statusText}`);
@@ -5329,17 +5519,17 @@ ${isPlus ? `
         }
 
         //Pour afficher les commandes réussies ou non dans la liste des commandes
-        async function showOrdersCmd(data) {
-            const items = document.querySelectorAll('.vvp-orders-table--row');
+        async function showOrdersCmd(data, tab = "orders") {
+            const items = document.querySelectorAll('.vvp-' + tab + '-table--row');
             if (items.length === 0) return;
 
             for (const item of items) {
-                const imageElement = item.querySelector('.vvp-orders-table--image-col img');
-                let productLink = item.querySelector('.vvp-orders-table--text-col a');
+                const imageElement = item.querySelector('.vvp-' + tab + '-table--image-col img');
+                let productLink = item.querySelector('.vvp-' + tab + '-table--text-col a');
                 let url;
 
                 if (!productLink) {
-                    const asinElement = item.querySelector('.vvp-orders-table--text-col');
+                    const asinElement = item.querySelector('.vvp-' + tab + '-table--text-col');
                     let asin = asinElement ? asinElement.childNodes[0].nodeValue.trim() : null;
                     const productInfo = await infoProduct(asin);
                     if (productInfo && productInfo.title) {
@@ -5360,9 +5550,10 @@ ${isPlus ? `
                     error: "https://pickme.alwaysdata.net/img/ordererror.png"
                 };
 
-                const positions = mobileEnabled ? 'bottom: 10%;' : 'bottom: 10%;';
-                const iconSize = mobileEnabled ? '28px' : '28px';
-                const fontSize = mobileEnabled ? '14px' : '14px';
+                const bottomValue = (tab === 'reviews' && !mobileEnabled) ? '28.5%' : '10%';
+                const positions = `bottom: ${bottomValue};`;
+                const iconSize = '28px';
+                const fontSize = '14px';
                 const sidePadding = mobileEnabled ? '30%' : '8px';
 
                 ['success', 'error'].forEach(type => {
@@ -5738,7 +5929,7 @@ ${isPlus ? `
                 if (userHideAll) {
                     const etatFavoriKey = asin + '_f';
                     const etatFavori = localStorage.getItem(etatFavoriKey) || '0';
-                    if (etatFavori === '0') { // Ne modifie l'état de caché que si le produit n'est pas en favori
+                    if (etatFavori === '0') { //Ne modifie l'état de caché que si le produit n'est pas en favori
                         const etatCacheKey = asin + '_c';
                         localStorage.setItem(etatCacheKey, '1');
                     }
@@ -5926,20 +6117,69 @@ ${isPlus ? `
                         const fullTextElement = tile.querySelector('.a-truncate-full.a-offscreen');
                         const cutTextElement = tile.querySelector('.a-truncate-cut');
                         if (fullTextElement && cutTextElement && fullTextElement.textContent) {
-                            cutTextElement.textContent = fullTextElement.textContent;
-                            // Appliquez les styles directement pour surmonter les restrictions CSS
-                            cutTextElement.style.cssText = 'height: auto !important; max-height: none !important; overflow: visible !important; white-space: normal !important;';
+                            if (!cssEnabled) {
+                                cutTextElement.textContent = fullTextElement.textContent;
+                                // Appliquez les styles directement pour surmonter les restrictions CSS
+                                cutTextElement.style.cssText = 'height: auto !important; max-height: none !important; overflow: visible !important; white-space: normal !important;';
+                            } else {
+                                document.addEventListener('mouseover', function(event) {
+                                    // Vérifie si la cible est dans le conteneur souhaité
+                                    const target = event.target.closest('.vvp-item-product-title-container');
+                                    if (target) {
+                                        const fullTextElement = target.querySelector('.a-truncate-full.a-offscreen');
+                                        if (fullTextElement) {
+                                            const fullText = fullTextElement.textContent;
+
+                                            // Crée le popup
+                                            const popup = document.createElement('div');
+                                            popup.textContent = fullText;
+                                            popup.style.position = 'fixed';
+                                            popup.style.maxWidth = '300px';
+                                            popup.style.wordWrap = 'break-word';
+                                            if (savedTheme == "dark") {
+                                                popup.style.backgroundColor = '#fff';
+                                                popup.style.color = 'rgba(0, 0, 0, 0.8)';
+                                            } else {
+                                                popup.style.backgroundColor = 'rgb(25, 25, 25)';
+                                                popup.style.color = '#fff';
+                                            }
+                                            popup.style.padding = '5px 10px';
+                                            popup.style.borderRadius = '5px';
+                                            popup.style.zIndex = '1000';
+                                            popup.style.pointerEvents = 'none';
+
+                                            // Positionne le popup près du curseur
+                                            document.body.appendChild(popup);
+                                            const movePopup = (e) => {
+                                                popup.style.top = `${e.clientY + 10}px`;
+                                                popup.style.left = `${e.clientX + 10}px`;
+                                            };
+                                            movePopup(event); // Place le popup initialement
+                                            document.addEventListener('mousemove', movePopup);
+
+                                            // Supprime le popup lorsque la souris quitte
+                                            const removePopup = () => {
+                                                popup.remove();
+                                                document.removeEventListener('mousemove', movePopup);
+                                                target.removeEventListener('mouseleave', removePopup);
+                                            };
+                                            target.addEventListener('mouseleave', removePopup);
+                                        }
+                                    }
+                                });
+                            }
                         }
                     });
                 } else {
                     setTimeout(tryExtended, 100);
                 }
 
-
-                // Appliquez des styles plus spécifiques pour surmonter les restrictions CSS
-                document.querySelectorAll('.vvp-item-tile .a-truncate').forEach(function(element) {
-                    element.style.cssText = 'max-height: 5.6em !important;';
-                });
+                if (!cssEnabled) {
+                    // Appliquez des styles plus spécifiques pour surmonter les restrictions CSS
+                    document.querySelectorAll('.vvp-item-tile .a-truncate').forEach(function(element) {
+                        element.style.cssText = 'max-height: 5.6em !important;';
+                    });
+                }
             }
             setTimeout(tryExtended, 600);
             //tryExtended();
@@ -6223,7 +6463,9 @@ ${isPlus ? `
                                         .replace(/>/g, "&gt;")
                                         .replace(/"/g, "&quot;")
                                         .replace(/'/g, "&#039;")
-                                        .replace(/°/g, "&#176;");
+                                        .replace(/°/g, "&#176;")
+                                        .replace(/\(/g, "|")
+                                        .replace(/\)/g, "|");
 
                                     //Si la valeur a changé, on incrémente fixed
                                     if (originalValue !== variation.dimensions[key]) {
