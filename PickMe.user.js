@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.13
+// @version      1.13.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeurs : Louise et Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -1017,6 +1017,7 @@ NOTES:
         let ordersPercent = GM_getValue('ordersPercent', false);
         let fastCmd = GM_getValue('fastCmd', false);
         let hideBas = GM_getValue('hideBas', true);
+        let statsInReviews = GM_getValue('statsInReviews', false);
 
         // Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
@@ -1047,6 +1048,7 @@ NOTES:
         GM_setValue("ordersPercent", ordersPercent);
         GM_setValue("fastCmd", fastCmd);
         GM_setValue("hideBas", hideBas);
+        GM_setValue("statsInReviews", statsInReviews);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -3693,6 +3695,13 @@ ${isPlus ? `
                 }
             });
 
+            document.getElementById('ordersInfos').addEventListener('change', function() {
+                if (this.checked) {
+                    statsInReviews = window.confirm("Afficher également les informations de la communauté sur les commandes dans les avis ?");
+                    GM_setValue('statsInReviews', statsInReviews);
+                }
+            });
+
             document.getElementById('notifEnabled').addEventListener('change', function() {
                 if (this.checked) {
                     document.getElementById('configurerNotif').disabled = false;
@@ -5050,7 +5059,7 @@ ${isPlus ? `
                             localStorage.removeItem(key);
                             const listItem = this.closest('tr');
                             if (listItem) {
-                                listItem.remove(); // Supprimer la ligne correspondante
+                                listItem.remove(); //Supprimer la ligne correspondante
                             }
                             // Mettre à jour le titre avec le nombre de favoris affichés
                             const nbFavorisRestants = document.querySelectorAll('#favorisList .vvp-orders-table--row').length;
@@ -5346,7 +5355,9 @@ ${isPlus ? `
                     listASINS.push("https://www.amazon.fr/dp/" + asin);
                 });
                 if (ordersInfos && ordersEnabled) {
-                    ordersPostCmd(listASINS, "reviews");
+                    if (statsInReviews) {
+                        ordersPostCmd(listASINS, "reviews");
+                    }
                     if (ordersPercent) {
                         ordersPostPercent(listASINS);
                     }
@@ -5520,6 +5531,9 @@ ${isPlus ? `
 
         //Pour afficher les commandes réussies ou non dans la liste des commandes
         async function showOrdersCmd(data, tab = "orders") {
+            if (tab == "fav") {
+                tab = "orders";
+            }
             const items = document.querySelectorAll('.vvp-' + tab + '-table--row');
             if (items.length === 0) return;
 
@@ -5550,8 +5564,8 @@ ${isPlus ? `
                     error: "https://pickme.alwaysdata.net/img/ordererror.png"
                 };
 
-                const bottomValue = (tab === 'reviews' && !mobileEnabled) ? '28.5%' : '10%';
-                const positions = `bottom: ${bottomValue};`;
+                const topValue = '70px';
+                const positions = `top: ${topValue};`;
                 const iconSize = '28px';
                 const fontSize = '14px';
                 const sidePadding = mobileEnabled ? '30%' : '8px';
