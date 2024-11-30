@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.13.1
+// @version      1.13.2
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeurs : Louise et Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -2738,6 +2738,20 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             const imgElement = element.querySelector('img');
             const imgUrl = imgElement ? imgElement.src : null;
 
+            //Récupérer l'enrollment
+            const recommendationId = element.getAttribute('data-recommendation-id');
+            let enrollment = null;
+
+            if (recommendationId) {
+                //Découper la chaîne pour isoler la dernière partie après le dernier '#'
+                const parts = recommendationId.split('#');
+                enrollment = parts[parts.length - 1];
+                //Supprimer "vine.enrollment." si présent
+                if (enrollment.startsWith('vine.enrollment.')) {
+                    enrollment = enrollment.replace('vine.enrollment.', '');
+                }
+            }
+
             //Récupérer l'URL du produit
             const productUrl = linkElement ? linkElement.href : null;
 
@@ -2745,7 +2759,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             listElements.push({
                 title: title,
                 imgUrl: imgUrl,
-                productUrl: productUrl
+                productUrl: productUrl,
+                enrollment: enrollment
             });
             listElementsOrder.push(productUrl);
             if ((firsthlEnabled || highlightEnabled) && apiOk) {
@@ -3163,41 +3178,97 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         //On purge les anciens produits
         purgeStoredProducts();
 
-        // On affiche les pages en haut si l'option est activée
+        //On affiche les pages en haut si l'option est activée
         if (paginationEnabled && apiOk) {
-            // Sélection du contenu HTML du div source
+            //Sélection du contenu HTML du div source
             const sourceElement = document.querySelector('.a-text-center');
-            // Vérifier si l'élément source existe
+            //Vérifier si l'élément source existe
             if (sourceElement) {
-                // Maintenant que l'élément source a été mis à jour, copier son contenu HTML
-                const sourceContent = sourceElement.outerHTML;
 
-                // Création d'un nouveau div pour le contenu copié
-                const newDiv = document.createElement('div');
-                newDiv.innerHTML = sourceContent;
-                newDiv.style.textAlign = 'center'; // Centrer le contenu
-                newDiv.style.paddingBottom = '10px'; // Ajouter un petit espace après
-
-                // Sélection du div cible où le contenu sera affiché
-                const targetDiv = document.getElementById('vvp-items-grid-container');
-
-                // S'assurer que le div cible existe avant d'insérer le nouveau div
-                if (targetDiv) {
-                    // Insertion du nouveau div au début du div cible
-                    targetDiv.insertBefore(newDiv, targetDiv.firstChild);
-                }
-                // Trouver ou créer le conteneur de pagination si nécessaire
+                /*//Ajout de pages
+                const numberOfAdditionalPages = 3;
+                const url = new URL(window.location);
+                const params = url.searchParams;
+                const currentPage = parseInt(params.get('page') || '1', 10);
+                let ellipsisElement = null;
+                //Trouver ou créer le conteneur de pagination si nécessaire
                 let paginationContainer = sourceElement.querySelector('.a-pagination');
                 if (!paginationContainer) {
                     paginationContainer = document.createElement('ul');
                     paginationContainer.className = 'a-pagination';
                     sourceElement.appendChild(paginationContainer);
                 }
+                const paginationItems = paginationContainer.querySelectorAll('li.a-disabled[aria-disabled="true"]');
+                paginationItems.forEach(function(item) {
+                    if (item.textContent.trim() === '...') {
+                        ellipsisElement = item;
+                    }
+                });
+
+                // Si l'élément "..." est trouvé, insérer les pages supplémentaires avant lui
+                if (ellipsisElement) {
+                    // Boucle pour créer et insérer les pages supplémentaires
+                    for (let i = 4; i < 4 + numberOfAdditionalPages; i++) {
+                        const pageLi = document.createElement('li');
+                        if (i === currentPage) {
+                            pageLi.className = 'a-selected';
+                            pageLi.innerHTML = `<a href="?page=${i}" aria-current="page">${i}</a>`;
+                        } else {
+                            pageLi.className = 'a-normal';
+                            pageLi.innerHTML = `<a href="?page=${i}">${i}</a>`;
+                        }
+                        // Insérer le nouvel élément avant l'élément "..."
+                        paginationContainer.insertBefore(pageLi, ellipsisElement);
+                    }
+                }
+                //Maintenant que l'élément source a été mis à jour, copier son contenu HTML
+                const sourceContent = sourceElement.outerHTML;
+
+                //Création d'un nouveau div pour le contenu copié
+                const newDiv = document.createElement('div');
+                newDiv.innerHTML = sourceContent;
+                newDiv.style.textAlign = 'center'; // Centrer le contenu
+                newDiv.style.paddingBottom = '10px'; // Ajouter un petit espace après
+
+                //Sélection du div cible où le contenu sera affiché
+                const targetDiv = document.getElementById('vvp-items-grid-container');
+
+                //S'assurer que le div cible existe avant d'insérer le nouveau div
+                if (targetDiv) {
+                    //Insertion du nouveau div au début du div cible
+                    targetDiv.insertBefore(newDiv, targetDiv.firstChild);
+                }*/
+
+                //Maintenant que l'élément source a été mis à jour, copier son contenu HTML
+                const sourceContent = sourceElement.outerHTML;
+
+                //Création d'un nouveau div pour le contenu copié
+                const newDiv = document.createElement('div');
+                newDiv.innerHTML = sourceContent;
+                newDiv.style.textAlign = 'center'; // Centrer le contenu
+                newDiv.style.paddingBottom = '10px'; // Ajouter un petit espace après
+
+                //Sélection du div cible où le contenu sera affiché
+                const targetDiv = document.getElementById('vvp-items-grid-container');
+
+                //S'assurer que le div cible existe avant d'insérer le nouveau div
+                if (targetDiv) {
+                    //Insertion du nouveau div au début du div cible
+                    targetDiv.insertBefore(newDiv, targetDiv.firstChild);
+                }
+                //Trouver ou créer le conteneur de pagination si nécessaire
+                let paginationContainer = sourceElement.querySelector('.a-pagination');
+                if (!paginationContainer) {
+                    paginationContainer = document.createElement('ul');
+                    paginationContainer.className = 'a-pagination';
+                    sourceElement.appendChild(paginationContainer);
+                }
+
                 //Ajout du bouton "Aller à" en haut et en bas
                 if (window.location.href.includes("queue=encore")) {
                     // Création du bouton "Aller à la page X"
                     const gotoButtonUp = document.createElement('li');
-                    gotoButtonUp.className = 'a-last'; // Utiliser la même classe que le bouton "Suivant" pour le style
+                    gotoButtonUp.className = 'a-last'; //Utiliser la même classe que le bouton "Suivant" pour le style
                     gotoButtonUp.innerHTML = `<a id="goToPageButton">${pageX}<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
 
                     // Ajouter un événement click au bouton "Aller à"
@@ -3207,7 +3278,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
                     // Création du bouton "Aller à la page X"
                     const gotoButton = document.createElement('li');
-                    gotoButton.className = 'a-last'; // Utiliser la même classe que le bouton "Suivant" pour le style
+                    gotoButton.className = 'a-last'; //Utiliser la même classe que le bouton "Suivant" pour le style
                     gotoButton.innerHTML = `<a id="goToPageButton">${pageX}<span class="a-letter-space"></span><span class="a-letter-space"></span></a>`;
 
                     // Ajouter un événement click au bouton "Aller à"
@@ -6479,7 +6550,8 @@ ${isPlus ? `
                                         .replace(/'/g, "&#039;")
                                         .replace(/°/g, "&#176;")
                                         .replace(/\(/g, "|")
-                                        .replace(/\)/g, "|");
+                                        .replace(/\)/g, "|")
+                                        .replace(/,/g, "");
 
                                     //Si la valeur a changé, on incrémente fixed
                                     if (originalValue !== variation.dimensions[key]) {
