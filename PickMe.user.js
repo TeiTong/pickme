@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.13.2
+// @version      1.13.3
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeurs : Louise et Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -2705,6 +2705,29 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         addGlobalStyle(`.a-button-discord.mobile-vertical { margin-top: 7px; margin-left: 0px; }`);
 
         //PickMe add
+        //Récupérer l'enrollment
+        function getEnrollment(element) {
+            const recommendationId = element.getAttribute('data-recommendation-id');
+            let enrollment = null;
+
+            if (recommendationId) {
+                //Découper la chaîne pour isoler la dernière partie après le dernier '#'
+                const parts = recommendationId.split('#');
+                enrollment = parts[parts.length - 1];
+                //Supprimer "vine.enrollment." si présent
+                if (enrollment.startsWith('vine.enrollment.')) {
+                    enrollment = enrollment.replace('vine.enrollment.', '');
+                }
+            }
+            return enrollment;
+        }
+
+        //Générer la combinaison ASIN et enrollment
+        function getAsinEnrollment(asin, enrollment) {
+            const enrollmentPart = enrollment.split('-')[1];
+            return asin + enrollmentPart;
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
 
         let valeurQueue = urlParams.get('queue');
@@ -2739,18 +2762,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             const imgUrl = imgElement ? imgElement.src : null;
 
             //Récupérer l'enrollment
-            const recommendationId = element.getAttribute('data-recommendation-id');
-            let enrollment = null;
-
-            if (recommendationId) {
-                //Découper la chaîne pour isoler la dernière partie après le dernier '#'
-                const parts = recommendationId.split('#');
-                enrollment = parts[parts.length - 1];
-                //Supprimer "vine.enrollment." si présent
-                if (enrollment.startsWith('vine.enrollment.')) {
-                    enrollment = enrollment.replace('vine.enrollment.', '');
-                }
-            }
+            let enrollment = getEnrollment(element);
 
             //Récupérer l'URL du produit
             const productUrl = linkElement ? linkElement.href : null;
@@ -4703,6 +4715,45 @@ ${isPlus ? `
             return variations;
         }
 
+        function generateCombinations(variations) {
+            const variationKeys = Object.keys(variations);
+            const variationValues = variationKeys.map(key => variations[key]);
+
+            //Vérifier s'il y a au moins une variation avec des options
+            if (variationValues.length === 0) {
+                return [];
+            }
+
+            //Fonction pour calculer le produit cartésien avec gestion des cas spéciaux
+            function cartesianProduct(arrays) {
+                if (!arrays || arrays.length === 0) {
+                    return [];
+                }
+                if (arrays.length === 1) {
+                    //Retourner un tableau de tableaux pour maintenir la cohérence
+                    return arrays[0].map(item => [item]);
+                }
+                return arrays.reduce((acc, curr) => {
+                    return acc.flatMap(accItem => {
+                        return curr.map(currItem => {
+                            return [].concat(accItem, currItem);
+                        });
+                    });
+                });
+            }
+
+            const combinations = cartesianProduct(variationValues);
+
+            //Transformer les combinaisons en objets avec les clés appropriées
+            return combinations.map(combination => {
+                const comboObject = {};
+                combination.forEach((value, index) => {
+                    comboObject[variationKeys[index]] = value;
+                });
+                return comboObject;
+            });
+        }
+
         function variationFormatting(variations) {
             var str = (Object.keys(variations).length > 1) ? ':arrow_down: Dropdowns' : ':arrow_down: Dropdown';
             for (const type in variations) {
@@ -4728,6 +4779,19 @@ ${isPlus ? `
             }
             return true;
         }
+
+        //PickMe Add
+        //Compte le nombre de variations d'un objet
+        function nbVariations(obj) {
+            let total = 1;
+            for (const key in obj) {
+                if (Array.isArray(obj[key]) && obj[key].length > 0) {
+                    total *= obj[key].length;
+                }
+            }
+            return total;
+        }
+        //PickMe End
 
         function writeComment(productData) {
             var hasNoSiblings = countVariations(productData.variations);
@@ -4762,16 +4826,20 @@ ${isPlus ? `
             productData.variations = (Object.keys(variations).length > 0) ? variations : null;
             productData.isLimited = (document.querySelector('#vvp-product-details-modal--limited-quantity').style.display !== 'none') ? true : false;
             productData.asin = parentAsin;
-            productData.differentChild = (parentAsin !== childAsin) ? true : false; // comparing the asin loaded in the modal to the one on the webpage
+            productData.enrollment = parentEnrollment;
+            productData.differentChild = (parentAsin !== childAsin) ? true : false; //comparing the asin loaded in the modal to the one on the webpage
             productData.differentImages = (parentImage !== childImage.src?.match(PRODUCT_IMAGE_ID)[1]) ? true : false;
             productData.etv = document.querySelector("#vvp-product-details-modal--tax-value-string")?.innerText.replace("€", "");
             productData.queue = queueType;
             productData.seller = document.querySelector("#vvp-product-details-modal--by-line").innerText.replace(/^par /, '');
-            productData.comments = writeComment(productData);
+            //productData.comments = writeComment(productData);
 
             const response = await sendDataToAPI(productData);
 
             var listOfItems = GM_getValue('config');
+            //Test pour supprimer un partage
+            //const asintest = "B0D25RX87G";
+            //listOfItems[asintest] = {};
 
             if (response) {
                 if (response.status == 200) {
@@ -4917,15 +4985,18 @@ ${isPlus ? `
 
         //PickMe edit
         function sendDataToAPI(data) {
-
             const formData = new URLSearchParams({
                 version: version,
                 token: API_TOKEN,
                 page: valeurPage,
                 tab: valeurQueue,
                 asin: data.asin,
+                enrollment: data.enrollment,
+                seller: data.seller,
+                isLimited: data.isLimited,
+                variations: JSON.stringify(data.variations),
                 etv: data.etv,
-                comment: data.comments,
+                nb_variations: nbVariations(data.variations),
             });
             //End
             updateButtonIcon(1);
@@ -6052,17 +6123,18 @@ ${isPlus ? `
 
         }
 
-        let parentAsin, parentImage, queueType;
+        let parentAsin, parentImage, parentEnrollment, queueType;
 
-        // As much as I hate this, this adds event listeners to all of the "See details" buttons
+        //As much as I hate this, this adds event listeners to all of the "See details" buttons
         document.querySelectorAll('.a-button-primary.vvp-details-btn > .a-button-inner > input').forEach(function(element) {
             element.addEventListener('click', function() {
 
                 parentAsin = this.getAttribute('data-asin');
                 parentImage = this.parentElement.parentElement.parentElement.querySelector('img').src.match(PRODUCT_IMAGE_ID)[1];
+                parentEnrollment = getEnrollment(this);
                 queueType = urlData?.[2] || d_queueType(this.getAttribute('data-recommendation-type'));
 
-                // silencing console errors; a null error is inevitable with this arrangement; I might fix this in the future
+                //silencing console errors; a null error is inevitable with this arrangement; I might fix this in the future
                 try {
                     document.querySelector("button.a-button-discord").style.display = 'none'; // hiding the button until the modal content loads
                 } catch (error) {
