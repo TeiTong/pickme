@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.13.3
+// @version      1.14
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeurs : Louise et Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -16,13 +16,11 @@
 // @icon         https://pickme.alwaysdata.net/img/PM-ICO-2.png
 // @updateURL    https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
 // @downloadURL  https://raw.githubusercontent.com/teitong/pickme/main/PickMe.user.js
-// @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_listValues
-// @grant        unsafeWindow
 // @run-at       document-start
 // @require      https://code.jquery.com/jquery-3.7.1.min.js
 // ==/UserScript==
@@ -252,39 +250,33 @@ NOTES:
             asin: asin,
         });
 
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: "POST",
-                url: "https://pickme.alwaysdata.net/shyrka/infoasin",
-                data: formData.toString(),
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                onload: function(response) {
-                    if (response && response.status == 200) {
-                        try {
-                            const data = JSON.parse(response.responseText);
-                            const { date_last, title, linkText, linkUrl, main_image } = data;
-                            const date_last_eu = convertToEuropeanDate(date_last);
-                            resolve({ date_last_eu, title, linkText, linkUrl, main_image });
-                        } catch (error) {
-                            console.error("Erreur lors de l'analyse de la réponse JSON:", error);
-                            reject(new Error("Erreur lors de l'analyse de la réponse JSON"));
-                        }
-                    } else if (response.status == 201) {
-                        //console.log(response.status, response.responseText);
-                        resolve(response.responseText);
-                    } else {
-                        // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
-                        console.error("Erreur HTTP:", response.status, response.statusText);
-                        reject(new Error(`Erreur HTTP: ${response.status} ${response.statusText}`));
-                    }
-                },
-                onerror: function(error) {
-                    console.error("Erreur de requête:", error);
-                    reject(error);
-                }
-            });
+        return fetch("https://pickme.alwaysdata.net/shyrka/infoasin", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: formData.toString()
+        })
+            .then(response => {
+            if (response.status === 200) {
+                return response.json().then(data => {
+                    const { date_last, title, linkText, linkUrl, main_image } = data;
+                    const date_last_eu = convertToEuropeanDate(date_last);
+                    return { date_last_eu, title, linkText, linkUrl, main_image };
+                }).catch(error => {
+                    console.error("Erreur lors de l'analyse de la réponse JSON:", error);
+                    throw new Error("Erreur lors de l'analyse de la réponse JSON");
+                });
+            } else if (response.status === 201) {
+                return response.text();
+            } else {
+                console.error("Erreur HTTP:", response.status, response.statusText);
+                throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+            }
+        })
+            .catch(error => {
+            console.error("Erreur de requête:", error);
+            throw error;
         });
     }
 
@@ -424,15 +416,12 @@ NOTES:
                     (event.data.info.toUpperCase() === "PRODUCT_AI" && notifPartageAI) ||
                     (event.data.info.toUpperCase() === "AUTRES" && notifAutres)) {
                     if (notifFav && event.data.info.toUpperCase() === "PRODUCT_AI") {
-
-                        console.log("prout1");
                         titleContentLower = event.data.description.toLowerCase().trim().replace(/\s+/g, '');
                         if (filterOption == "notifFavOnly") {
                             if (favArrayNotif.length > 0 && favArrayNotif.some(regex => regex.test(titleContentLower))) {
                                 requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
                             }
                         } else if (filterOption == "notifExcludeHidden") {
-                            console.log("prout2");
                             if (hiddenArrayNotif.length > 0 && !hiddenArrayNotif.some(regex => regex.test(titleContentLower))) {
                                 requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
                             }
@@ -720,7 +709,7 @@ NOTES:
         const titleElement = 'meta[name="title"]';
         const descriptionElement = 'meta[name="description"]';
         const localBlockSelectors = ['.cr-widget-FocalReviews', '#cm_cr-review_list'];
-        const rBlockClass = '.a-section.review';
+        const rBlockClass = '[data-hook="review"]';
         const pRowSelectors = ['.genome-widget-row', '[data-hook="genome-widget"]'];
         const pLinkClass = '.a-profile';
         const bSelectors = ['[data-hook="linkless-vine-review-badge"]', '[data-hook="linkless-format-strip-whats-this"]'];
@@ -759,21 +748,12 @@ NOTES:
                     current: window.location.href,
                     urls: JSON.stringify(pUrls),
                 });
-                return new Promise((resolve, reject) => {
-                    GM_xmlhttpRequest({
-                        method: "POST",
-                        url: "https://pickme.alwaysdata.net/shyrka/omh",
-                        data: formData.toString(),
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded"
-                        },
-                        onload: function(response) {
-                            resolve(response);
-                        },
-                        onerror: function(error) {
-                            reject(error);
-                        }
-                    });
+                return fetch("https://pickme.alwaysdata.net/shyrka/omh", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
                 });
             }
         }
@@ -995,6 +975,7 @@ NOTES:
 
         let highlightColor = GM_getValue("highlightColor", "rgba(255, 255, 0, 0.5)");
         let highlightColorFav = GM_getValue("highlightColorFav", "rgba(255, 0, 0, 0.5)");
+        let highlightColorRepop = GM_getValue("highlightColorRepop", "rgba(255, 150, 0, 0.5)");
         let taxValue = GM_getValue("taxValue", true);
         let catEnabled = GM_getValue("catEnabled", true);
         let cssEnabled = GM_getValue("cssEnabled", false);
@@ -1026,6 +1007,7 @@ NOTES:
 
         GM_setValue("highlightColor", highlightColor);
         GM_setValue("highlightColorFav", highlightColorFav);
+        GM_setValue("highlightColorRepop", highlightColorRepop);
         GM_setValue("taxValue", taxValue);
         GM_setValue("catEnabled", catEnabled);
         GM_setValue("cssEnabled", cssEnabled);
@@ -1110,23 +1092,26 @@ NOTES:
                     token: API_TOKEN,
                     url: callUrl,
                 });
-                return new Promise((resolve, reject) => {
-                    GM_xmlhttpRequest({
-                        method: "POST",
-                        url: "https://pickme.alwaysdata.net/shyrka/webhookreco",
-                        data: formData.toString(),
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded"
-                        },
-                        onload: function(response) {
-                            console.log(response.status, response.responseText);
-                            resolve(response);
-                        },
-                        onerror: function(error) {
-                            console.error(error);
-                            reject(error);
-                        }
+                return fetch("https://pickme.alwaysdata.net/shyrka/webhookreco", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
+                })
+                    .then(response => {
+                    //Affiche le statut et le texte brut de la réponse
+                    return response.text().then(text => {
+                        console.log(response.status, text);
+                        return {
+                            status: response.status,
+                            responseText: text
+                        };
                     });
+                })
+                    .catch(error => {
+                    console.error(error);
+                    throw error;
                 });
             }
         }
@@ -1204,17 +1189,29 @@ NOTES:
         }
 
         function setHighlightColor() {
-            // Extraire les composantes r, g, b de la couleur actuelle
-            const rgbaMatch = highlightColor.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),\s*(\d*\.?\d+)\)$/);
-            let hexColor = "#FFFF00"; // Fallback couleur jaune si la conversion échoue
-            if (rgbaMatch) {
-                const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0');
-                const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, '0');
-                const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, '0');
-                hexColor = `#${r}${g}${b}`;
+
+            //Pour la suite, on convertit la couleur RGBA existante en format hexadécimal pour <input type="color">.
+            //Fonction helper pour extraire #rrggbb depuis un rgba(...) ou rgb(...).
+            function rgbaToHex(rgbaString, defaultHex = '#FFFF00') {
+                const rgbaMatch = rgbaString.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d*\.?\d+))?\)$/);
+                if (!rgbaMatch) {
+                    return defaultHex; // Couleur par défaut (ici : jaune) si la conversion échoue
+                }
+                const r = parseInt(rgbaMatch[1], 10).toString(16).padStart(2, '0');
+                const g = parseInt(rgbaMatch[2], 10).toString(16).padStart(2, '0');
+                const b = parseInt(rgbaMatch[3], 10).toString(16).padStart(2, '0');
+                return `#${r}${g}${b}`;
             }
 
-            // Vérifie si une popup existe déjà et la supprime si c'est le cas
+            //Couleurs par défaut (au cas où highlightColor / highlightColorRepop seraient vides)
+            const defaultHexNew = '#FFFF00';
+            const defaultHexRepop = '#FF9600';
+
+            //Convertit la couleur RGBA existante en hexa
+            const hexColor = rgbaToHex(highlightColor, defaultHexNew);
+            const hexColorRepop = rgbaToHex(highlightColorRepop, defaultHexRepop);
+
+            // Vérifie si une popup existe déjà et la supprime
             const existingPopup = document.getElementById('colorPickerPopup');
             if (existingPopup) {
                 existingPopup.remove();
@@ -1233,30 +1230,52 @@ NOTES:
         background-color: white;
         border: 1px solid #ccc;
         box-shadow: 0px 0px 10px #ccc;
+        width: 300px;
     `;
+
+            // Construction du HTML de la popup, avec deux sélecteurs de couleur
             popup.innerHTML = `
-          <h2 id="configPopupHeader">Couleur de surbrillance des nouveaux produits<span id="closeColorPicker" style="float: right; cursor: pointer;">&times;</span></h2>
-        <input type="color" id="colorPicker" value="${hexColor}" style="width: 100%;">
+        <h2 id="configPopupHeader" style="margin-top: 0;">
+            Couleurs de surbrillance
+            <span id="closeColorPicker" style="float: right; cursor: pointer;">&times;</span>
+        </h2>
+        <div style="margin-bottom: 15px;">
+            <label for="colorPickerNew" style="display: block;">Nouveau produit :</label>
+            <input type="color" id="colorPickerNew" value="${hexColor}" style="width: 100%;">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label for="colorPickerRepop" style="display: block;">Repop d'un produit :</label>
+            <input type="color" id="colorPickerRepop" value="${hexColorRepop}" style="width: 100%;">
+        </div>
         <div class="button-container final-buttons">
-            <button class="full-width" id="saveColor">Enregistrer</button>
-            <button class="full-width" id="closeColor">Fermer</button>
+            <button class="full-width" id="saveColor" style="width: 100%; margin-bottom: 5px;">Enregistrer</button>
+            <button class="full-width" id="closeColor" style="width: 100%;">Fermer</button>
         </div>
     `;
 
             document.body.appendChild(popup);
 
-            // Ajoute des écouteurs d'événement pour les boutons
             document.getElementById('saveColor').addEventListener('click', function() {
-                const selectedColor = document.getElementById('colorPicker').value;
-                // Convertir la couleur hexadécimale en RGBA pour la transparence
-                const r = parseInt(selectedColor.substr(1, 2), 16);
-                const g = parseInt(selectedColor.substr(3, 2), 16);
-                const b = parseInt(selectedColor.substr(5, 2), 16);
-                const rgbaColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
+                //Récupère la valeur hex des deux color pickers
+                const selectedColorNew = document.getElementById('colorPickerNew').value;
+                const selectedColorRepop = document.getElementById('colorPickerRepop').value;
 
-                // Stocker la couleur sélectionnée
-                GM_setValue("highlightColor", rgbaColor);
-                highlightColor = rgbaColor;
+                //Convertit en RGBA
+                const hexToRgba = (hex) => {
+                    const r = parseInt(hex.substr(1, 2), 16);
+                    const g = parseInt(hex.substr(3, 2), 16);
+                    const b = parseInt(hex.substr(5, 2), 16);
+                    return `rgba(${r}, ${g}, ${b}, 0.5)`;
+                };
+
+                const rgbaColorNew = hexToRgba(selectedColorNew);
+                const rgbaColorRepop = hexToRgba(selectedColorRepop);
+
+                GM_setValue("highlightColor", rgbaColorNew);
+                GM_setValue("highlightColorRepop", rgbaColorRepop);
+                highlightColor = rgbaColorNew;
+                highlightColorRepop = rgbaColorRepop;
+
                 popup.remove();
             });
 
@@ -1269,7 +1288,7 @@ NOTES:
         }
 
         function setHighlightColorFav() {
-            // Extraire les composantes r, g, b de la couleur actuelle
+            //Extraire les composantes r, g, b de la couleur actuelle
             const rgbaMatch = highlightColorFav.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),\s*(\d*\.?\d+)\)$/);
             let hexColor = "#FF0000"; // Fallback couleur jaune si la conversion échoue
             if (rgbaMatch) {
@@ -1279,13 +1298,13 @@ NOTES:
                 hexColor = `#${r}${g}${b}`;
             }
 
-            // Vérifie si une popup existe déjà et la supprime si c'est le cas
+            //Vérifie si une popup existe déjà et la supprime si c'est le cas
             const existingPopup = document.getElementById('colorPickerPopup');
             if (existingPopup) {
                 existingPopup.remove();
             }
 
-            // Crée la fenêtre popup
+            //Crée la fenêtre popup
             const popup = document.createElement('div');
             popup.id = "colorPickerPopup";
             popup.style.cssText = `
@@ -1310,16 +1329,16 @@ NOTES:
 
             document.body.appendChild(popup);
 
-            // Ajoute des écouteurs d'événement pour les boutons
+            //Ajoute des écouteurs d'événement pour les boutons
             document.getElementById('saveColor').addEventListener('click', function() {
                 const selectedColor = document.getElementById('colorPicker').value;
-                // Convertir la couleur hexadécimale en RGBA pour la transparence
+                //Convertir la couleur hexadécimale en RGBA pour la transparence
                 const r = parseInt(selectedColor.substr(1, 2), 16);
                 const g = parseInt(selectedColor.substr(3, 2), 16);
                 const b = parseInt(selectedColor.substr(5, 2), 16);
                 const rgbaColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
 
-                // Stocker la couleur sélectionnée
+                //Stocker la couleur sélectionnée
                 GM_setValue("highlightColorFav", rgbaColor);
                 highlightColorFav = rgbaColor;
                 popup.remove();
@@ -1347,7 +1366,7 @@ NOTES:
             }
         }
 
-        // Définir des valeurs par défaut
+        //Définir des valeurs par défaut
         const defaultKeys = {
             left: 'q',
             right: 'd',
@@ -1358,7 +1377,7 @@ NOTES:
             sync: ''
         };
 
-        // Fonction pour récupérer la configuration des touches
+        //Fonction pour récupérer la configuration des touches
         function getKeyConfig() {
             return {
                 left: GM_getValue('keyLeft', defaultKeys.left),
@@ -1371,23 +1390,46 @@ NOTES:
             };
         }
 
-        // Fonction pour simuler un clic sur un bouton, identifié par son id
+        //Fonction pour simuler un clic sur un bouton, identifié par son id
         function simulerClicSurBouton(idBouton) {
-            // Pour les autres boutons, continue à simuler un clic réel
+            //Pour les autres boutons, continue à simuler un clic réel
             const bouton = document.getElementById(idBouton);
             if (bouton) {
                 bouton.click();
             }
         }
 
-        // Écouteur d'événements pour la navigation des pages
-        document.addEventListener('keydown', function(e) {
-            const activeElement = document.activeElement; // Obtient l'élément actuellement en focus
-            const searchBox = document.getElementById('twotabsearchtextbox'); // L'élément du champ de recherche d'Amazon
+        function adjustAlpha(rgbaString, alphaDelta) {
+            //On utilise une RegExp simple pour extraire R, G, B et A
+            const match = rgbaString.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/);
+            if (!match) {
+                //Si le format ne correspond pas, on renvoie la couleur telle quelle
+                return rgbaString;
+            }
 
-            // Vérifie si l'élément en focus est le champ de recherche
+            let [ , r, g, b, a ] = match;
+            r = parseInt(r, 10);
+            g = parseInt(g, 10);
+            b = parseInt(b, 10);
+            a = parseFloat(a);
+
+            //On modifie l’alpha en lui ajoutant (ou soustrayant) alphaDelta
+            a = a + alphaDelta;
+
+            //On s’assure de rester dans [0, 1]
+            a = Math.max(0, Math.min(1, a));
+
+            return `rgba(${r}, ${g}, ${b}, ${a})`;
+        }
+
+        //Écouteur d'événements pour la navigation des pages
+        document.addEventListener('keydown', function(e) {
+            const activeElement = document.activeElement; //Obtient l'élément actuellement en focus
+            const searchBox = document.getElementById('twotabsearchtextbox'); //L'élément du champ de recherche d'Amazon
+
+            //Vérifie si l'élément en focus est le champ de recherche
             if (activeElement === searchBox) {
-                return; // Ignore le reste du code si le champ de recherche est en focus
+                return; //Ignore le reste du code si le champ de recherche est en focus
             }
 
             const existingPopupNote = document.getElementById('notePopup');
@@ -1452,26 +1494,26 @@ NOTES:
         }
 
         function naviguerPage(direction) {
-            // Extraire le numéro de page actuel de l'URL
+            //Extraire le numéro de page actuel de l'URL
             const url = new URL(window.location);
             const params = url.searchParams;
             let page = parseInt(params.get('page') || '1', 10);
 
-            // Calculer la nouvelle page
+            //Calculer la nouvelle page
             page += direction;
 
-            // S'assurer que la page est au minimum à 1
+            //S'assurer que la page est au minimum à 1
             if (page < 1) page = 1;
 
-            // Mettre à jour le paramètre de page dans l'URL
+            //Mettre à jour le paramètre de page dans l'URL
             params.set('page', page);
             url.search = params.toString();
 
-            // Naviguer vers la nouvelle page
+            //Naviguer vers la nouvelle page
             window.location.href = url.toString();
         }
 
-        // Fonction pour calculer et formater le temps écoulé
+        //Fonction pour calculer et formater le temps écoulé
         function formaterTempsEcoule(date) {
             const maintenant = new Date();
             const tempsEcoule = maintenant - new Date(date);
@@ -1480,31 +1522,31 @@ NOTES:
             const heures = minutes / 60;
             const jours = heures / 24;
 
-            // Si moins d'une minute s'est écoulée
+            //Si moins d'une minute s'est écoulée
             if (secondes < 60) {
                 return Math.round(secondes) + 's';
             }
-            // Si moins d'une heure s'est écoulée
+            //Si moins d'une heure s'est écoulée
             else if (minutes < 60) {
                 return Math.round(minutes) + 'm';
             }
-            // Si moins d'un jour s'est écoulé
+            //Si moins d'un jour s'est écoulé
             else if (heures < 24) {
-                // Convertir les décimales des heures en minutes arrondies
+                //Convertir les décimales des heures en minutes arrondies
                 const heuresArrondies = Math.floor(heures);
                 const minutesRestantes = Math.round((heures - heuresArrondies) * 60);
                 return heuresArrondies + 'h ' + minutesRestantes + 'm';
             }
-            // Si un ou plusieurs jours se sont écoulés
+            //Si un ou plusieurs jours se sont écoulés
             else {
-                // Convertir les décimales des jours en heures arrondies
+                //Convertir les décimales des jours en heures arrondies
                 const joursArrondis = Math.floor(jours);
                 const heuresRestantes = Math.round((jours - joursArrondis) * 24);
                 return joursArrondis + 'j ' + heuresRestantes + 'h';
             }
         }
 
-        // Fonction pour ajouter l'étiquette de temps à chaque produit
+        //Fonction pour ajouter l'étiquette de temps à chaque produit
         function ajouterEtiquetteTemps() {
             const produits = document.querySelectorAll('.vvp-item-tile');
 
@@ -1516,29 +1558,31 @@ NOTES:
                     const dateAjout = storedProducts[asin].dateAdded;
                     const texteTempsEcoule = formaterTempsEcoule(dateAjout);
 
-                    // Créer l'étiquette de temps
+                    //Créer l'étiquette de temps
                     const etiquetteTemps = document.createElement('div');
                     etiquetteTemps.style.position = 'absolute';
                     etiquetteTemps.style.top = '5px';
-                    etiquetteTemps.style.left = '5px'; // Position à gauche
+                    etiquetteTemps.style.left = '5px'; //Position à gauche
                     etiquetteTemps.style.backgroundColor = 'rgba(255,255,255,0.7)';
                     etiquetteTemps.style.color = 'black';
                     etiquetteTemps.style.padding = '1px 2px';
                     etiquetteTemps.style.borderRadius = '5px';
                     etiquetteTemps.style.fontSize = '12px';
-                    etiquetteTemps.style.whiteSpace = 'nowrap'; // Empêche le texte de passer à la ligne
+                    etiquetteTemps.style.whiteSpace = 'nowrap'; //Empêche le texte de passer à la ligne
                     etiquetteTemps.textContent = texteTempsEcoule;
 
-                    // Ajouter l'étiquette de temps à l'image du produit
+                    //Ajouter l'étiquette de temps à l'image du produit
                     produit.querySelector('.vvp-item-tile-content').style.position = 'relative';
                     produit.querySelector('.vvp-item-tile-content').appendChild(etiquetteTemps);
 
-                    // Ajuster la largeur du bandeau à celle du texte
+                    //Ajuster la largeur du bandeau à celle du texte
                     etiquetteTemps.style.width = 'auto';
                 }
             });
         }
 
+        //Variable pour savoir s'il y a eu un nouvel objet
+        var imgNew = false;
         if (autohideEnabled && apiOk) {
             function tryAutoHide() {
                 //Nettoie les chaînes et vérifie si elles sont vides
@@ -1597,7 +1641,9 @@ NOTES:
                             //Effectue la vérification seulement si hideArray n'est pas vide
                             else if (hideArray.length > 0 && hideArray.some(regex => regex.test(textContent))) {
                                 const asin = parentDiv.getAttribute('data-asin') || parentDiv.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                                const etatCacheKey = asin + '_c';
+                                const enrollment = getEnrollment(parentDiv);
+                                const hideKey = getAsinEnrollment(asin, enrollment);
+                                const etatCacheKey = hideKey + '_c';
                                 localStorage.setItem(etatCacheKey, '1');
                                 parentDiv.style.display = 'none';
                             }
@@ -1839,7 +1885,9 @@ NOTES:
             function toggleTousLesProduits(cacher) {
                 produits.forEach(produit => {
                     const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                    const etatCacheKey = asin + '_c';
+                    const enrollment = getEnrollment(produit);
+                    const hideKey = getAsinEnrollment(asin, enrollment);
+                    const etatCacheKey = hideKey + '_c';
                     const etatFavoriKey = asin + '_f';
 
                     // Vérifie si le produit est en favori avant de changer son état de caché
@@ -1859,20 +1907,39 @@ NOTES:
                 afficherProduits(cacher);
             }
 
-            // Affiche les produits en fonction du filtre : visible ou caché
+            //Affiche les produits en fonction du filtre : visible ou caché
             function afficherProduits(afficherVisibles) {
                 const produitsFavoris = [];
                 produits.forEach(produit => {
                     const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                    const etatCacheKey = asin + '_c';
+                    const enrollment = getEnrollment(produit);
+                    const hideKey = getAsinEnrollment(asin, enrollment);
+                    const etatCacheKey = hideKey + '_c';
                     const etatFavoriKey = asin + '_f';
 
-                    // Initialisation des états si non définis
+                    //Convertir de la key ASIN à la key ASIN + enrollment, à partir de la 1.14
+                    const etatCacheOldKey = asin + '_c';
+                    const oldValue = localStorage.getItem(etatCacheOldKey);
+                    if (oldValue !== null) {
+                        localStorage.setItem(etatCacheKey, oldValue);
+                        localStorage.removeItem(etatCacheOldKey);
+                    }
+                    //Fin de conversion
+
+                    //Initialisation des états si non définis
                     let etatCache = localStorage.getItem(etatCacheKey) || '0';
                     let etatFavori = localStorage.getItem(etatFavoriKey) || '0';
 
-                    // Enregistre les valeurs par défaut si nécessaire
+                    //Enregistre les valeurs par défaut si nécessaire
                     if (localStorage.getItem(etatCacheKey) === null) {
+                        if (highlightEnabled) {
+                            var hlColorRepop = highlightColor;
+                            if (storedProducts.hasOwnProperty(asin)) {
+                                hlColorRepop = highlightColorRepop;
+                            }
+                            produit.style.backgroundColor = hlColorRepop;
+                            imgNew = true;
+                        }
                         localStorage.setItem(etatCacheKey, etatCache);
                     }
                     if (localStorage.getItem(etatFavoriKey) === null) {
@@ -1880,8 +1947,8 @@ NOTES:
                     }
                     //On test s'il est favori et si on peut le cacher ou non
                     if (etatFavori == '1') {
-                        // Les produits favoris sont toujours affichés dans l'onglet "Produits visibles"
-                        // et cachés dans l'onglet "Produits cachés"
+                        //Les produits favoris sont toujours affichés dans l'onglet "Produits visibles"
+                        //et cachés dans l'onglet "Produits cachés"
                         produit.style.display = afficherVisibles ? '' : 'none';
                         produitsFavoris.push(produit);
                     } else {
@@ -1911,7 +1978,9 @@ NOTES:
 
             produits.forEach(produit => {
                 const asin = produit.getAttribute('data-asin') || produit.querySelector('.vvp-details-btn input').getAttribute('data-asin');
-                const etatCacheKey = asin + '_c';
+                const enrollment = getEnrollment(produit);
+                const hideKey = getAsinEnrollment(asin, enrollment);
+                const etatCacheKey = hideKey + '_c';
                 const etatFavoriKey = asin + '_f';
                 const iconeOeil = document.createElement('img');
 
@@ -2169,6 +2238,8 @@ body {
         if (mobileEnabled && apiOk)
         {
             var mobileCss = document.createElement('style');
+            // On calcule si on doit appliquer la hauteur ou non
+            var applyHeight = !(extendedEnabled && mobileEnabled);
 
             mobileCss.textContent = `
 #configPopup {
@@ -2654,7 +2725,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   .vvp-item-tile
   .vvp-item-tile-content
   > .vvp-item-product-title-container {
-  height: var(--max-product-title) !important;
+  ${applyHeight ? 'height: var(--max-product-title) !important;' : ''}
   font-size: var(--product-title-text-size) !important;
 }
 
@@ -2749,8 +2820,6 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         const listElements = [];
         const listElementsOrder = [];
 
-        //Variable pour savoir s'il y a eu un nouvel objet
-        let imgNew = false;
         let elementsToPrepend = [];
         items.forEach(element => {
             //Récupérer le texte à partir du lien dans .vvp-item-product-title-container
@@ -2780,10 +2849,13 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 //const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
                 //Vérifier si le produit existe déjà dans les données locales
                 if (!storedProducts.hasOwnProperty(asin)) {
-                    // Si le produit n'existe pas, l'ajouter aux données locales avec la date courante
+                    //Si le produit n'existe pas, l'ajouter aux données locales avec la date courante
                     const currentDate = new Date().toISOString(); // Obtenir la date courante en format ISO
+                    const enrollmentKey = getAsinEnrollment(asin, enrollment);
+
                     storedProducts[asin] = {
                         added: true, // Marquer le produit comme ajouté
+                        enrollmentKey: enrollmentKey,
                         dateAdded: currentDate // Stocker la date d'ajout
                     };
 
@@ -3067,18 +3139,18 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         const btn_error = `<span class='a-button-discord-icon a-button-discord-error a-hires' style='background-position: -451px -422px;'></span>`;
         const btn_info = `<span class='a-button-discord-icon a-button-discord-info a-hires' style='background-position: -257px -354px;'></span>`;
 
-        // The modals related to error messages
+        //The modals related to error messages
         const errorMessages = document.querySelectorAll('#vvp-product-details-error-alert, #vvp-out-of-inventory-error-alert');
 
         //PickMe add
         function purgeStoredProducts(purgeAll = false) {
-            // Charger les produits stockés ou initialiser comme un objet vide si aucun produit n'est trouvé
+            //Charger les produits stockés ou initialiser comme un objet vide si aucun produit n'est trouvé
             var storedProducts = JSON.parse(GM_getValue("storedProducts", '{}'));
             const currentDate = new Date().getTime(); // Obtenir la date et l'heure courantes en millisecondes
 
-            // Parcourir les clés (ASIN) dans storedProducts
+            //Parcourir les clés (ASIN) dans storedProducts
             for (const asin in storedProducts) {
-                if (storedProducts.hasOwnProperty(asin)) { // Vérification pour éviter les propriétés héritées
+                if (storedProducts.hasOwnProperty(asin)) { //Vérification pour éviter les propriétés héritées
                     const cacheKey = asin + '_c';
                     const favoriKey = asin + '_f';
                     if (purgeAll) {
@@ -3087,10 +3159,15 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     } else {
                         // Purger le produit en fonction de la date d'expiration
                         const productDateAdded = new Date(storedProducts[asin].dateAdded).getTime(); // Convertir la date d'ajout en millisecondes
-                        if (currentDate - productDateAdded >= ITEM_EXPIRY) { // Vérifier si le produit a expiré
-                            delete storedProducts[asin]; // Supprimer le produit expiré
+                        if (currentDate - productDateAdded >= ITEM_EXPIRY) { //Vérifier si le produit a expiré
+                            if (storedProducts[asin] && storedProducts[asin].enrollmentKey) {
+                                const hideKey = storedProducts[asin].enrollmentKey + '_c';
+                                localStorage.removeItem(hideKey);
+                            }
+                            //On supprime l'ancienne clé pour cacher pour l'instant (utilisé avant la 1.14)
                             localStorage.removeItem(cacheKey);
                             localStorage.removeItem(favoriKey);
+                            delete storedProducts[asin]; // Supprimer le produit expiré
                         }
                     }
                 }
@@ -3130,10 +3207,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             const userHideAll = confirm("Voulez-vous également cacher tous les produits ? OK pour oui, Annuler pour non.");
             const button = document.getElementById('purgeAllItems');
 
-            // Étape 1 : Mise à jour initiale du bouton
+            //Étape 1 : Mise à jour initiale du bouton
             button.innerHTML = `En cours (0%)`;
 
-            // Étape 2 : Purger les favoris et les caches
+            //Étape 2 : Purger les favoris et les caches
             setTimeout(() => {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const key = localStorage.key(i);
@@ -3151,12 +3228,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
                 button.innerHTML = `En cours (33%)`;
 
-                // Étape 3 : Purger la surbrillance
+                //Étape 3 : Purger la surbrillance
                 setTimeout(() => {
-                    // Charger les produits stockés ou initialiser comme un objet vide si aucun produit n'est trouvé
+                    //Charger les produits stockés ou initialiser comme un objet vide si aucun produit n'est trouvé
                     var storedProducts = JSON.parse(GM_getValue("storedProducts", '{}'));
 
-                    // Parcourir les clés (ASIN) dans storedProducts
+                    //Parcourir les clés (ASIN) dans storedProducts
                     for (const asin in storedProducts) {
                         if (storedProducts.hasOwnProperty(asin)) { // Vérification pour éviter les propriétés héritées
                             // Purger le produit sans vérifier la date
@@ -3164,27 +3241,27 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         }
                     }
 
-                    // Sauvegarder les modifications apportées à storedProducts
+                    //Sauvegarder les modifications apportées à storedProducts
                     GM_setValue("storedProducts", JSON.stringify(storedProducts));
 
                     button.innerHTML = `En cours (66%)`;
 
-                    // Étape 4 : Synchronisation des produits
+                    //Étape 4 : Synchronisation des produits
                     setTimeout(() => {
                         syncProducts(false, userHideAll, false);
 
                         button.innerHTML = `Terminé (100%)`;
 
-                        // Étape 5 : Mise à jour finale du bouton
+                        //Étape 5 : Mise à jour finale du bouton
                         setTimeout(() => {
                             button.innerHTML = `Purger la mémoire ${afficherMemoireLocalStorage()}`;
-                        }, 1000); // 1 seconde avant la mise à jour finale
+                        }, 1000); //1 seconde avant la mise à jour finale
 
-                    }, 1000); // 1 seconde avant de passer à la synchronisation des produits
+                    }, 1000); //1 seconde avant de passer à la synchronisation des produits
 
-                }, 1000); // 1 seconde avant de purger la surbrillance
+                }, 1000); //1 seconde avant de purger la surbrillance
 
-            }, 1000); // 1 seconde avant de purger les favoris et les caches
+            }, 1000); //1 seconde avant de purger les favoris et les caches
         }
 
         //On purge les anciens produits
@@ -3663,7 +3740,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
       ${createCheckbox('fastCmdEnabled', '(PC) Accélérer le processus de commandes', 'Met le focus sur le bouton pour commander (il suffira donc de faire "Entrée" pour valider) et agrandir la fenêtre contenant les adresses, ce qui alignera les boutons de validation des deux fenêtres si vous souhaitez cliquer')}
       ${createCheckbox('recoHReload', '(PC) Recharger la page reco à heure fixe', 'Recharge la page (uniquement celle des recos, celle-ci doit être ouverte pour que ça fonctionne) quand on est une heure fixe (00 minutes, auquel on prend 3 à 8 secondes en plus par sécurité) pour vérifier la reco horaire. Il est conseillé de coupler avec le webhook pour être prévenu. Incompatible sur mobile')}
       ${createCheckbox('notifEnabled', '(Premium) Activer les notifications', 'Affiche une notification lors du signalement d\'un nouvel objet "Disponible pour tous", un up ou autre selon la configuration. Ne fonctionne que si une page Amazon était active dans les dernières secondes ou si le centre de notifications est ouvert en Auto-refresh de moins de 30 secondes',!isPremium)}
-      ${createCheckbox('ordersInfos', '(Premium) Afficher l\'ETV et les informations de la communauté sur les commandes','Affiche l\'ETV du produit (si disponible) ainsi que le nombre de personnes ayant pu commander ou non le produit (rond vert : commande réussie, rond rouge : commande en erreur)', !isPremium)}
+      ${createCheckbox('ordersInfos', '(Premium) Afficher l\'ETV et les informations de la communauté sur les commandes','Affiche l\'ETV du produit, le nombre de variantes et s\'il est limité (si info disponible) ainsi que le nombre de personnes ayant pu commander ou non le produit (rond vert : commande réussie, rond rouge : commande en erreur)', !isPremium)}
       ${createCheckbox('statsEnabled', '(Premium+) Afficher les statistiques produits','Affiche la quantité de produits ajoutés ce jour et dans le mois à côté des catégories', !isPremiumPlus)}
       ${createCheckbox('ordersStatsEnabled', '(Premium+) Afficher le nombre de commandes du jour/mois','Affiche le nombre de commandes passées sur la journée et le mois en cours', !isPremiumPlus)}
     </div>
@@ -3731,22 +3808,15 @@ ${isPlus ? `
                 }
             });
 
-            if (document.getElementById('extendedEnabled').checked || document.getElementById('cssEnabled').checked || document.getElementById('fastCmdEnabled').checked || document.getElementById('recoHReload').checked) {
+            if (document.getElementById('cssEnabled').checked || document.getElementById('fastCmdEnabled').checked || document.getElementById('recoHReload').checked) {
                 document.getElementById('mobileEnabled').checked = false;
             }
 
             document.getElementById('mobileEnabled').addEventListener('change', function() {
                 if (this.checked) {
-                    document.getElementById('extendedEnabled').checked = false;
                     document.getElementById('cssEnabled').checked = false;
                     document.getElementById('fastCmdEnabled').checked = false;
                     document.getElementById('recoHReload').checked = false;
-                }
-            });
-
-            document.getElementById('extendedEnabled').addEventListener('change', function() {
-                if (this.checked) {
-                    document.getElementById('mobileEnabled').checked = false;
                 }
             });
 
@@ -4018,7 +4088,7 @@ ${isPlus ? `
             return `
 <div class="button-container action-buttons">
 
-  <button id="setHighlightColor">Couleur de surbrillance des nouveaux produits</button>
+  <button id="setHighlightColor">Couleur de surbrillance des repop/nouveaux produits</button>
   <button id="setHighlightColorFav">Couleur de surbrillance des produits filtrés</button>
   <button id="configurerFiltres">Configurer les mots-clés pour le filtre</button>
   <button id="configurerTouches">(PC) Configurer les raccourcis clavier</button>
@@ -4185,7 +4255,6 @@ ${isPlus ? `
             let isRole = false;
             const responseRole = await verifyTokenRole(API_TOKEN);
             isRole = responseRole && responseRole.status === 200;
-            console.log(isRole);
             // Crée la fenêtre popup
             const popup = document.createElement('div');
             popup.id = "favConfigPopup";
@@ -4241,37 +4310,36 @@ ${isPlus ? `
                     keywords: favWords,
                 });
 
-                return new Promise((resolve, reject) => {
-                    GM_xmlhttpRequest({
-                        method: "POST",
-                        url: "https://pickme.alwaysdata.net/shyrka/synckeywords",
-                        data: formData.toString(),
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded"
-                        },
-                        onload: function(response) {
-                            if (response && response.status === 200) {
-                                const syncButton = document.getElementById('syncFavConfig');
-                                const originalText = syncButton.textContent;
-                                syncButton.innerHTML = response.responseText;
-                                console.log(response.responseText);
-                                setTimeout(() => {
-                                    syncButton.textContent = originalText;
-                                }, 2000);
-                                resolve(response);
-                            } else if (response && response.status === 201) {
-                                const syncButton = document.getElementById('syncFavConfig');
-                                syncButton.innerHTML = 'Non autorisé';
-                                syncButton.disabled = true;
-                                resolve("Non autorisé");
-                            } else {
-                                reject("Erreur lors de la récupération de la dernière sauvegarde");
-                            }
-                        },
-                        onerror: function(error) {
-                            reject("Erreur lors de la récupération de la dernière sauvegarde : " + error);
-                        }
-                    });
+                return fetch("https://pickme.alwaysdata.net/shyrka/synckeywords", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
+                })
+                    .then(response => {
+                    if (response.status === 200) {
+                        //On récupère le texte de la réponse
+                        return response.text().then(text => {
+                            const syncButton = document.getElementById('syncFavConfig');
+                            const originalText = syncButton.textContent;
+                            syncButton.innerHTML = text;
+                            setTimeout(() => {
+                                syncButton.textContent = originalText;
+                            }, 2000);
+                            return {status: response.status, responseText: text};
+                        });
+                    } else if (response.status === 201) {
+                        const syncButton = document.getElementById('syncFavConfig');
+                        syncButton.innerHTML = 'Non autorisé';
+                        syncButton.disabled = true;
+                        return "Non autorisé";
+                    } else {
+                        throw new Error("Erreur lors de la récupération de la dernière sauvegarde");
+                    }
+                })
+                    .catch(error => {
+                    throw new Error("Erreur lors de la récupération de la dernière sauvegarde : " + error);
                 });
             }
         }
@@ -4500,6 +4568,7 @@ ${isPlus ? `
             document.body.querySelectorAll('.vvp-item-tile').forEach(createCartPurchaseButton)
         }
 
+        //Met a jour le bouton s'il y a des variantes du produit
         function changeButtonProduct(item) {
             const isParent = item.querySelector('input').getAttribute('data-is-parent-asin') === 'true'
             var button = item.querySelector('.a-button-text');
@@ -4515,103 +4584,110 @@ ${isPlus ? `
             button.textContent = newText;
         }
 
+        //Met a jour le bouton s'il y a des variantes du produit, en fonction du retour de l'API avec l'info limited et le nb de variantes
+        function changeButtonProductPlus(item, limited = 0, nb_variations = 0) {
+            const isParent = item.querySelector('input').getAttribute('data-is-parent-asin') === 'true'
+            var button = item.querySelector('.a-button-text');
+            var newText = "";
+            var showDetails = true;
+            if (limited == '1') {
+                newText = newText + "⌛ ";
+                showDetails = false;
+            }
+            if (isParent && isParentEnabled && nb_variations > 1) {
+                newText = newText + "🛍️ (" + nb_variations + ") ";
+                showDetails = false;
+            } else if (isParent && isParentEnabled && nb_variations == 0) {
+                newText = newText + "🛍️ ";
+                showDetails = false;
+            }
+            if (mobileEnabled || cssEnabled) {
+                if (showDetails) {
+                    newText = newText + "Détails";
+                }
+            } else {
+                newText = newText + "Voir les détails";
+            }
+            button.textContent = newText;
+        }
+
         function verifyToken(token) {
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "GET",
-                    url: `https://pickme.alwaysdata.net/shyrka/user/${token}`,
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    onload: function(response) {
-                        //console.log(response.status, response.responseText);
-                        resolve(response);
-                    },
-                    onerror: function(error) {
-                        console.error(error);
-                        reject(error);
-                    },
-                });
+            return fetch(`https://pickme.alwaysdata.net/shyrka/user/${token}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            })
+                .then(response => response.text().then(text => {
+                return {status: response.status, statusText: response.statusText, responseText: text};
+            }))
+                .catch(error => {
+                console.error(error);
+                throw error;
             });
         }
 
         function verifyTokenPremiumPlus(token) {
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "GET",
-                    url: `https://pickme.alwaysdata.net/shyrka/userpremiumplus/${token}`,
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    onload: function(response) {
-                        //console.log(response.status, response.responseText);
-                        resolve(response);
-                    },
-                    onerror: function(error) {
-                        console.error(error);
-                        reject(error);
-                    },
-                });
+            return fetch(`https://pickme.alwaysdata.net/shyrka/userpremiumplus/${token}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            })
+                .then(response => response.text().then(text => {
+                return {status: response.status, statusText: response.statusText, responseText: text};
+            }))
+                .catch(error => {
+                console.error(error);
+                throw error;
             });
         }
 
         function verifyTokenPremium(token) {
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "GET",
-                    url: `https://pickme.alwaysdata.net/shyrka/userpremium/${token}`,
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    onload: function(response) {
-                        //console.log(response.status, response.responseText);
-                        resolve(response);
-                    },
-                    onerror: function(error) {
-                        console.error(error);
-                        reject(error);
-                    },
-                });
+            return fetch(`https://pickme.alwaysdata.net/shyrka/userpremium/${token}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            })
+                .then(response => response.text().then(text => {
+                return {status: response.status, statusText: response.statusText, responseText: text};
+            }))
+                .catch(error => {
+                console.error(error);
+                throw error;
             });
         }
 
         function verifyTokenPlus(token) {
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "GET",
-                    url: `https://pickme.alwaysdata.net/shyrka/userplus/${token}`,
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    onload: function(response) {
-                        //console.log(response.status, response.responseText);
-                        resolve(response);
-                    },
-                    onerror: function(error) {
-                        console.error(error);
-                        reject(error);
-                    },
-                });
+            return fetch(`https://pickme.alwaysdata.net/shyrka/userplus/${token}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            })
+                .then(response => response.text().then(text => {
+                return {status: response.status, statusText: response.statusText, responseText: text};
+            }))
+                .catch(error => {
+                console.error(error);
+                throw error;
             });
         }
 
         function verifyTokenRole(token) {
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "GET",
-                    url: `https://pickme.alwaysdata.net/shyrka/userrole/${token}`,
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    onload: function(response) {
-                        //console.log(response.status, response.responseText);
-                        resolve(response);
-                    },
-                    onerror: function(error) {
-                        console.error(error);
-                        reject(error);
-                    },
-                });
+            return fetch(`https://pickme.alwaysdata.net/shyrka/userrole/${token}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            })
+                .then(response => response.text().then(text => {
+                return {status: response.status, statusText: response.statusText, responseText: text};
+            }))
+                .catch(error => {
+                console.error(error);
+                throw error;
             });
         }
 
@@ -4622,28 +4698,26 @@ ${isPlus ? `
                 token: API_TOKEN,
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/fastcmd",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        if (response.status == 200) {
-                            const varData = JSON.parse(response.responseText);
-                            const data = varData.data;
-                            GM_setValue("fastCmdVar", data);
-                            resolve(response);
-                        } else {
-                            reject(`Error: ${response.status} ${response.statusText}`);
-                        }
-                    },
-                    onerror: function(error) {
-                        reject(error);
-                    }
-                });
+            return fetch("https://pickme.alwaysdata.net/shyrka/fastcmd", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+                .then(varData => {
+                const data = varData.data;
+                GM_setValue("fastCmdVar", data);
+                return { status: 200, responseText: JSON.stringify(varData) };
+            })
+                .catch(error => {
+                throw error;
             });
         }
 
@@ -5001,26 +5075,24 @@ ${isPlus ? `
             //End
             updateButtonIcon(1);
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "PUT",
-                    url: "https://pickme.alwaysdata.net/shyrka/newproduct",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    onload: function(response) {
-                        console.log(response.status, response.responseText);
-                        resolve(response);
-                    },
-                    onerror: function(error) {
-                        console.error(error);
-                        updateButtonIcon(6);
-                        reject(error);
-                    },
+            return fetch("https://pickme.alwaysdata.net/shyrka/newproduct", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                return response.text().then(text => {
+                    console.log(response.status, text);
+                    return {status: response.status, statusText: response.statusText, responseText: text};
                 });
+            })
+                .catch(error => {
+                console.error(error);
+                updateButtonIcon(6);
+                throw error;
             });
-
         }
 
         //PickMe add
@@ -5289,23 +5361,18 @@ ${isPlus ? `
                 page: valeurPage,
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/newproducts",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        //console.log(response.status, response.responseText);
-                        resolve(response);
-                    },
-                    onerror: function(error) {
-                        //console.error(error);
-                        reject(error);
-                    }
-                });
+            return fetch("https://pickme.alwaysdata.net/shyrka/newproducts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => response.text().then(text => {
+                return {status: response.status, statusText: response.statusText, responseText: text};
+            }))
+                .catch(error => {
+                throw error;
             });
         }
 
@@ -5392,63 +5459,73 @@ ${isPlus ? `
                             asin: asin,
                         });
 
-                        GM_xmlhttpRequest({
+                        fetch("https://pickme.alwaysdata.net/shyrka/infocancel", {
                             method: "POST",
-                            url: "https://pickme.alwaysdata.net/shyrka/infocancel",
-                            data: formDataCancel.toString(),
                             headers: {
                                 "Content-Type": "application/x-www-form-urlencoded"
                             },
-                            onload: function(response) {
-                                if (response.status == 200) {
-                                    if (response.responseText == "true") {
-                                        cancelButton.textContent = 'Intégrer';
-                                        buttonDetails.style.background = '#dc3545';
-                                    } else {
-                                        cancelButton.textContent = 'Annuler';
-                                        buttonDetails.style.background = '#28a745';
-                                    }
-                                }
-                            },
-                            onerror: function(error) {
-                                console.error(error);
+                            body: formDataCancel.toString()
+                        })
+                            .then(response => {
+                            if (!response.ok) {
+                                throw new Error("Erreur réseau : " + response.status);
                             }
+                            return response.text();
+                        })
+                            .then(responseText => {
+                            if (responseText === "true") {
+                                cancelButton.textContent = 'Intégrer';
+                                buttonDetails.style.background = '#dc3545';
+                            } else {
+                                cancelButton.textContent = 'Annuler';
+                                buttonDetails.style.background = '#28a745';
+                            }
+                        })
+                            .catch(error => {
+                            console.error("Erreur lors de la requête :", error);
                         });
 
                         cancelButton.addEventListener('click', (event) => {
                             event.preventDefault();
                             const isCancelled = cancelButton.textContent.includes('Intégrer');
                             const newStatus = isCancelled ? 'uncancel' : 'cancel';
-                            GM_xmlhttpRequest({
+                            fetch("https://pickme.alwaysdata.net/shyrka/switchcancel", {
                                 method: "POST",
-                                url: "https://pickme.alwaysdata.net/shyrka/switchcancel",
-                                data: formDataCancel.toString(),
                                 headers: {
                                     "Content-Type": "application/x-www-form-urlencoded"
                                 },
-                                onload: function(response) {
-                                    const greenCircle = row.querySelector('span:nth-of-type(1)');
-                                    let greenCount = parseInt(greenCircle.textContent);
-                                    //console.log(greenCount);
-                                    if (response.status == 200) {
-                                        if (isCancelled) {
-                                            cancelButton.textContent = 'Annuler';
-                                            buttonDetails.style.background = '#28a745';
-                                            if (ordersInfos && Number.isInteger(greenCount)) {
-                                                greenCircle.textContent = greenCount + 1;
-                                            }
-                                        } else {
-                                            cancelButton.textContent = 'Intégrer';
-                                            buttonDetails.style.background = '#dc3545';
-                                            if (ordersInfos && Number.isInteger(greenCount) && greenCount > 0) {
-                                                greenCircle.textContent = greenCount - 1;
-                                            }
-                                        }
-                                    }
-                                },
-                                onerror: function(error) {
-                                    console.error(error);
+                                body: formDataCancel.toString()
+                            })
+                                .then(response => {
+                                // On vérifie le statut de la réponse
+                                if (!response.ok) {
+                                    throw new Error(`Network response was not ok (status: ${response.status})`);
                                 }
+                                return response.text(); // ou response.json() si la réponse est au format JSON
+                            })
+                                .then(data => {
+                                const greenCircle = row.querySelector('span:nth-of-type(1)');
+                                let greenCount = parseInt(greenCircle.textContent);
+
+                                if (isCancelled) {
+                                    cancelButton.textContent = 'Annuler';
+                                    buttonDetails.style.background = '#28a745';
+                                    if (ordersInfos && Number.isInteger(greenCount)) {
+                                        greenCircle.textContent = greenCount + 1;
+                                    }
+                                } else {
+                                    cancelButton.textContent = 'Intégrer';
+                                    buttonDetails.style.background = '#dc3545';
+                                    if (ordersInfos && Number.isInteger(greenCount) && greenCount > 0) {
+                                        greenCircle.textContent = greenCount - 1;
+                                    }
+                                }
+
+                                // 'data' contient le contenu de la réponse (si besoin)
+                                // console.log(data);
+                            })
+                                .catch(error => {
+                                console.error(error);
                             });
                         });
 
@@ -5458,13 +5535,24 @@ ${isPlus ? `
                             actionCol.appendChild(buttonContainer);
                         }
 
-                        GM_xmlhttpRequest({
+                        fetch("https://pickme.alwaysdata.net/shyrka/orderlist", {
                             method: "POST",
-                            url: "https://pickme.alwaysdata.net/shyrka/orderlist",
-                            data: formData.toString(),
                             headers: {
                                 "Content-Type": "application/x-www-form-urlencoded"
                             },
+                            body: formData.toString()
+                        })
+                            .then(response => {
+                            if (!response.ok) {
+                                throw new Error("Erreur réseau " + response.status);
+                            }
+                            return response.text();
+                        })
+                            .then(data => {
+                            console.log("Réponse du serveur :", data);
+                        })
+                            .catch(error => {
+                            console.error("Erreur lors de la requête :", error);
                         });
                     }
                 });
@@ -5523,65 +5611,62 @@ ${isPlus ? `
                 queue: valeurQueue,
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/asinsinfo",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        if (response.status == 200) {
-                            const productsData = JSON.parse(response.responseText);
-                            showOrders(productsData);
-                            resolve(productsData);
-                        } else {
-                            reject(`Error: ${response.status} ${response.statusText}`);
-                        }
-                    },
-                    onerror: function(error) {
-                        //console.error(error);
-                        reject(error);
-                    }
-                });
+            return fetch("https://pickme.alwaysdata.net/shyrka/asinsinfo", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+                .then(productsData => {
+                showOrders(productsData);
+                return productsData;
+            })
+                .catch(error => {
+                // console.error(error);
+                throw error;
             });
         }
 
         function ordersPostCmd(data, tab = "orders") {
             var apiURL = "https://pickme.alwaysdata.net/shyrka/asinsinfocmd";
-            if (tab == "fav") {
+            if (tab === "fav") {
                 apiURL = "https://pickme.alwaysdata.net/shyrka/asinsinfofav";
             }
+
             const formData = new URLSearchParams({
                 version: version,
                 token: API_TOKEN,
                 urls: JSON.stringify(data),
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: apiURL,
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        if (response.status == 200) {
-                            const productsData = JSON.parse(response.responseText);
-                            showOrdersCmd(productsData, tab);
-                            resolve(productsData);
-                        } else {
-                            reject(`Error: ${response.status} ${response.statusText}`);
-                        }
-                    },
-                    onerror: function(error) {
-                        //console.error(error);
-                        reject(error);
-                    }
-                });
+            return fetch(apiURL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+                .then(productsData => {
+                showOrdersCmd(productsData, tab);
+                return productsData;
+            })
+                .catch(error => {
+                throw error; // vous pouvez logguer ou gérer l'erreur autrement si nécessaire
             });
+
         }
 
         function ordersPostPercent(data) {
@@ -5591,33 +5676,29 @@ ${isPlus ? `
                 urls: JSON.stringify(data),
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/asinsinfocmdpercent",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        if (response.status == 200) {
-                            const productsData = JSON.parse(response.responseText);
-                            //console.log(productsData);
-                            showOrdersPercent(productsData);
-                            resolve(productsData);
-                        } else {
-                            reject(`Error: ${response.status} ${response.statusText}`);
-                        }
-                    },
-                    onerror: function(error) {
-                        //console.error(error);
-                        reject(error);
-                    }
-                });
+            return fetch("https://pickme.alwaysdata.net/shyrka/asinsinfocmdpercent", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+                .then(productsData => {
+                showOrdersPercent(productsData);
+                return productsData;
+            })
+                .catch(error => {
+                throw error;
             });
         }
 
-        //Pour afficher les commandes et l'etv
+        //Pour afficher les commandes, l'etv, si c'est limité et les variations
         function showOrders(data) {
             const items = document.querySelectorAll('.vvp-item-tile');
             if (items.length === 0) return;
@@ -5628,7 +5709,7 @@ ${isPlus ? `
                 const url = "https://www.amazon.fr/dp/" + asin;
                 const orderData = data.find(d => d.url === url);
                 if (!orderData) return;
-
+                changeButtonProductPlus(item, orderData.limited, orderData.nb_variations);
                 item.style.position = 'relative';
 
                 const iconSources = {
@@ -5636,13 +5717,19 @@ ${isPlus ? `
                     error: "https://pickme.alwaysdata.net/img/ordererror.png"
                 };
 
+                // Imaginons que extendedEnabled soit une variable booléenne :
                 const positions = fastCmd && cssEnabled && !mobileEnabled
                 ? 'bottom: 47%;'
-                : (fastCmd && !cssEnabled && !mobileEnabled)
+                : fastCmd && !cssEnabled && !mobileEnabled
                 ? 'bottom: 50.2%;'
-                : (mobileEnabled
-                   ? (fastCmd ? 'bottom: 54%;' : 'bottom: 43.5%;')
-                   : (cssEnabled ? (fastCmd ? 'bottom: 45%;' : 'bottom: 37.5%;') : 'bottom: 45.4%;'));
+                : (mobileEnabled && extendedEnabled)
+                ? 'bottom: 58.5%;' // <-- Valeur spécifique quand mobileEnabled && extendedEnabled
+                : mobileEnabled
+                ? (fastCmd ? 'bottom: 54%;' : 'bottom: 43.5%;')
+                : cssEnabled
+                ? (fastCmd ? 'bottom: 45%;' : 'bottom: 37.5%;')
+                : 'bottom: 45.4%;';
+
 
                 const iconSize = mobileEnabled || cssEnabled ? '21px' : '28px';
                 const fontSize = mobileEnabled || cssEnabled ? '12px' : '14px';
@@ -5833,41 +5920,39 @@ ${isPlus ? `
                 token: API_TOKEN,
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/sync",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        if (response.status >= 200 && response.status < 300) {
-                            try {
-                                // Tente de parser le texte de réponse en JSON
-                                const productsData = JSON.parse(response.responseText);
-                                syncProductsData(productsData, askHide, hideAll, refresh);
-                                //console.log(jsonResponse); // Affiche la réponse parsée dans la console
-                                resolve(productsData);
-                            } catch (error) {
-                                console.error("Erreur lors du parsing JSON:", error);
-                                reject(error);
-                            }
-                        } else if (response.status == 401) {
-                            alert("Clé API invalide ou membre non Premium+");
-                            //console.log(response.status, response.responseText);
-                            resolve(response);
-                        } else {
-                            // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
-                            console.error("Erreur HTTP:", response.status, response.statusText);
-                            reject(new Error(`Erreur HTTP: ${response.status} ${response.statusText}`));
-                        }
-                    },
-                    onerror: function(error) {
-                        console.error("Erreur de requête:", error);
-                        reject(error); // Rejette la promesse en cas d'erreur de requête
-                    }
+            return fetch("https://pickme.alwaysdata.net/shyrka/sync", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                if (response.status === 401) {
+                    alert("Clé API invalide ou membre non Premium+");
+                    return response;
+                }
+
+                if (!response.ok) {
+                    //Pour les autres statuts d'erreur
+                    console.error("Erreur HTTP:", response.status, response.statusText);
+                    throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                }
+
+                //On tente de parser la réponse en JSON
+                return response.json().catch(error => {
+                    console.error("Erreur lors du parsing JSON:", error);
+                    throw error;
                 });
+            })
+                .then(productsData => {
+                //Si on arrive ici, c'est qu'on a un code 2xx
+                syncProductsData(productsData, askHide, hideAll, refresh);
+                return productsData;
+            })
+                .catch(error => {
+                console.error("Erreur de requête:", error);
+                throw error;
             });
         }
 
@@ -5878,41 +5963,39 @@ ${isPlus ? `
                 token: API_TOKEN,
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/qtyproducts", // Assurez-vous que l'URL est correcte
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        if (response.status >= 200 && response.status < 300) {
-                            try {
-                                // Tente de parser le texte de réponse en JSON
-                                const productsData = JSON.parse(response.responseText); // Parsez le JSON de la réponse
-                                qtyProductsData(productsData); // Traitez les données
-                                //console.log(jsonResponse); // Affiche la réponse parsée dans la console
-                                resolve(productsData); // Résout la promesse avec l'objet JSON
-                            } catch (error) {
-                                console.error("Erreur lors du parsing JSON:", error);
-                                reject(error); // Rejette la promesse si le parsing échoue
-                            }
-                        } else if (response.status == 401) {
-                            //alert("Token invalide ou membre non Premium+");
-                            //console.log(response.status, response.responseText);
-                            resolve(response);
-                        } else {
-                            // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
-                            console.error("Erreur HTTP:", response.status, response.statusText);
-                            reject(new Error(`Erreur HTTP: ${response.status} ${response.statusText}`));
-                        }
-                    },
-                    onerror: function(error) {
-                        console.error("Erreur de requête:", error);
-                        reject(error); // Rejette la promesse en cas d'erreur de requête
-                    }
+            return fetch("https://pickme.alwaysdata.net/shyrka/qtyproducts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                if (response.status === 401) {
+                    return response;
+                }
+
+                if (!response.ok) {
+                    //Erreur HTTP (ex: 404, 500, etc.)
+                    console.error("Erreur HTTP:", response.status, response.statusText);
+                    throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                }
+
+                //Réponse 2xx, on essaie de parser le JSON
+                return response.json().catch(error => {
+                    console.error("Erreur lors du parsing JSON:", error);
+                    throw error;
                 });
+            })
+                .then(productsData => {
+                //On a réussi à parser le JSON, on appelle qtyProductsData
+                qtyProductsData(productsData);
+                return productsData;
+            })
+                .catch(error => {
+                //Erreur réseau ou de parsing déjà gérée ci-dessus
+                console.error("Erreur de requête:", error);
+                throw error;
             });
         }
 
@@ -5947,41 +6030,39 @@ ${isPlus ? `
                 token: API_TOKEN,
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/qtyorders",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        if (response.status >= 200 && response.status < 300) {
-                            try {
-                                //Tente de parser le texte de réponse en JSON
-                                const ordersData = JSON.parse(response.responseText); //Parsez le JSON de la réponse
-                                qtyOrdersData(ordersData); // Traitez les données
-                                //console.log(jsonResponse); // Affiche la réponse parsée dans la console
-                                resolve(ordersData); //Résout la promesse avec l'objet JSON
-                            } catch (error) {
-                                console.error("Erreur lors du parsing JSON:", error);
-                                reject(error); //Rejette la promesse si le parsing échoue
-                            }
-                        } else if (response.status == 401) {
-                            //alert("Token invalide ou membre non Premium+");
-                            //console.log(response.status, response.responseText);
-                            resolve(response);
-                        } else {
-                            // Gérer les réponses HTTP autres que le succès (ex. 404, 500, etc.)
-                            console.error("Erreur HTTP:", response.status, response.statusText);
-                            reject(new Error(`Erreur HTTP: ${response.status} ${response.statusText}`));
-                        }
-                    },
-                    onerror: function(error) {
-                        console.error("Erreur de requête:", error);
-                        reject(error); // Rejette la promesse en cas d'erreur de requête
-                    }
+            return fetch("https://pickme.alwaysdata.net/shyrka/qtyorders", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                if (response.status === 401) {
+                    return response;
+                }
+
+                if (!response.ok) {
+                    //Erreur HTTP (ex: 404, 500, etc.)
+                    console.error("Erreur HTTP:", response.status, response.statusText);
+                    throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                }
+
+                //Réponse 2xx, on essaie de parser le JSON
+                return response.json().catch(error => {
+                    console.error("Erreur lors du parsing JSON:", error);
+                    throw error;
                 });
+            })
+                .then(ordersData => {
+                //On a réussi à parser le JSON, on appelle qtyOrdersData
+                qtyOrdersData(ordersData);
+                return ordersData;
+            })
+                .catch(error => {
+                //Erreur réseau ou de parsing déjà gérée ci-dessus
+                console.error("Erreur de requête:", error);
+                throw error;
             });
         }
 
@@ -6082,18 +6163,21 @@ ${isPlus ? `
             productsData.forEach(product => {
                 const asin = product.asin;
                 const currentDate = product.date_ajout;
+                const enrollment = product.enrollment;
+                const hideKey = getAsinEnrollment(asin, enrollment);
                 if (userHideAll) {
                     const etatFavoriKey = asin + '_f';
                     const etatFavori = localStorage.getItem(etatFavoriKey) || '0';
                     if (etatFavori === '0') { //Ne modifie l'état de caché que si le produit n'est pas en favori
-                        const etatCacheKey = asin + '_c';
+                        const etatCacheKey = hideKey + '_c';
                         localStorage.setItem(etatCacheKey, '1');
                     }
                 }
                 // Mettre à jour ou ajouter le produit dans storedProducts
                 storedProducts[asin] = {
-                    added: true, // Marquer le produit comme ajouté
-                    dateAdded: currentDate // Utilisez la date d'ajout fournie par l'API
+                    added: true, //Marquer le produit comme ajouté
+                    enrollmentKey: hideKey, //Key pour la fonction cacher
+                    dateAdded: currentDate //Utilisez la date d'ajout fournie par l'API
                 };
             });
 
@@ -6120,7 +6204,6 @@ ${isPlus ? `
                 default:
                     return null;
             }
-
         }
 
         let parentAsin, parentImage, parentEnrollment, queueType;
@@ -6276,18 +6359,18 @@ ${isPlus ? `
                         if (fullTextElement && cutTextElement && fullTextElement.textContent) {
                             if (!cssEnabled) {
                                 cutTextElement.textContent = fullTextElement.textContent;
-                                // Appliquez les styles directement pour surmonter les restrictions CSS
+                                //Appliquez les styles directement pour surmonter les restrictions CSS
                                 cutTextElement.style.cssText = 'height: auto !important; max-height: none !important; overflow: visible !important; white-space: normal !important;';
                             } else {
                                 document.addEventListener('mouseover', function(event) {
-                                    // Vérifie si la cible est dans le conteneur souhaité
+                                    //Vérifie si la cible est dans le conteneur souhaité
                                     const target = event.target.closest('.vvp-item-product-title-container');
                                     if (target) {
                                         const fullTextElement = target.querySelector('.a-truncate-full.a-offscreen');
                                         if (fullTextElement) {
                                             const fullText = fullTextElement.textContent;
 
-                                            // Crée le popup
+                                            //Crée le popup
                                             const popup = document.createElement('div');
                                             popup.textContent = fullText;
                                             popup.style.position = 'fixed';
@@ -6305,16 +6388,16 @@ ${isPlus ? `
                                             popup.style.zIndex = '1000';
                                             popup.style.pointerEvents = 'none';
 
-                                            // Positionne le popup près du curseur
+                                            //Positionne le popup près du curseur
                                             document.body.appendChild(popup);
                                             const movePopup = (e) => {
                                                 popup.style.top = `${e.clientY + 10}px`;
                                                 popup.style.left = `${e.clientX + 10}px`;
                                             };
-                                            movePopup(event); // Place le popup initialement
+                                            movePopup(event); //Place le popup initialement
                                             document.addEventListener('mousemove', movePopup);
 
-                                            // Supprime le popup lorsque la souris quitte
+                                            //Supprime le popup lorsque la souris quitte
                                             const removePopup = () => {
                                                 popup.remove();
                                                 document.removeEventListener('mousemove', movePopup);
@@ -6332,7 +6415,7 @@ ${isPlus ? `
                 }
 
                 if (!cssEnabled) {
-                    // Appliquez des styles plus spécifiques pour surmonter les restrictions CSS
+                    //Appliquez des styles plus spécifiques pour surmonter les restrictions CSS
                     document.querySelectorAll('.vvp-item-tile .a-truncate').forEach(function(element) {
                         element.style.cssText = 'max-height: 5.6em !important;';
                     });
@@ -6345,11 +6428,97 @@ ${isPlus ? `
         //Wheel Fix
         if (apiOk) {
             if (wheelfixEnabled || ordersEnabled) {
+                const script = document.createElement('script');
+                script.textContent = `
+                function showMagicStars() {
+                    var style = document.createElement('style');
+                    style.innerHTML = \`
+            @keyframes sparkle {
+                0% { transform: scale(0); opacity: 1; }
+                100% { transform: scale(1); opacity: 0; }
+            }
+            .star {
+                position: fixed;
+                font-size: 60px; /* Plus grand */
+                animation: sparkle 3s forwards; /* Durée plus longue */
+                animation-timing-function: ease-out;
+                z-index: 999999; /* Très élevé */
+            }
+            .magic-text {
+                position: fixed;
+                top: 30%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 40px;
+                color: #000099;
+           text-shadow:
+              -1px -1px 0 #000,
+               1px -1px 0 #000,
+              -1px  1px 0 #000,
+               1px  1px 0 #000; /* Contour noir */
+                z-index: 1000000; /* Encore plus élevé */
+                animation: fadeInOut 4s forwards; /* Animation pour le texte */
+            }
+            @keyframes fadeInOut {
+                0% { opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { opacity: 0; }
+            }
+        \`;
+                    document.head.appendChild(style);
+
+                    var symbolColorPairs = [
+                        { symbol: '★', color: '#FFD700' },
+                        { symbol: '❆', color: '#07EEFD' },
+                        { symbol: '🐱', color: '#FFD700' },
+                        { symbol: '🔥', color: '#FFD700' },
+                        { symbol: '🦆', color: '#FFD700' },
+                        { symbol: '🐝', color: '#FFD700' },
+                        { symbol: '🐧', color: '#FFD700' },
+                        { symbol: '🥚', color: '#FFD700' },
+                        { symbol: '❤', color: '#FF69B4' }
+                    ];
+
+                    // Créer le texte "PickMe Fix"
+                    var magicText = document.createElement('div');
+                    magicText.className = 'magic-text';
+                    magicText.textContent = 'PickMe Fix';
+                    document.body.appendChild(magicText);
+
+                    // Supprimer le texte après 3 secondes
+                    setTimeout(() => {
+                        document.body.removeChild(magicText);
+                    }, 3000);
+                    let index = Math.floor(Math.random() * symbolColorPairs.length);
+                    let pair = symbolColorPairs[index];
+                    // Créer et afficher le symbole
+                    for (let i = 0; i < 50; i++) {
+                        let star = document.createElement('div');
+                        star.className = 'star';
+                        star.textContent = pair.symbol;
+                        star.style.color = pair.color;
+                        star.style.top = \`\${Math.random() * window.innerHeight}px\`;
+                        star.style.left = \`\${Math.random() * window.innerWidth}px\`;
+                        document.body.appendChild(star);
+
+                        // Supprimer l'étoile après l'animation
+                        setTimeout(() => {
+                            document.body.removeChild(star);
+                        }, 3000 + Math.random() * 500);
+                    }
+                }
+
+                const API_TOKEN = ${JSON.stringify(API_TOKEN)};
+                const version = ${JSON.stringify(version)};
+                const valeurQueue = ${JSON.stringify(valeurQueue)};
+                const ordersEnabled = ${JSON.stringify(ordersEnabled)};
+                const wheelfixEnabled = ${JSON.stringify(wheelfixEnabled)};
                 const origFetch = window.fetch;
                 var lastParentVariant = null;
                 var responseData = {};
                 var postData = {};
-                unsafeWindow.fetch = async (...args) => {
+                window.fetch = async (...args) => {
                     let response = await origFetch(...args);
                     let lastParent = lastParentVariant;
                     let regex = null;
@@ -6389,37 +6558,35 @@ ${isPlus ? `
                                     success: "failed",
                                     reason: responseData.error, //CROSS_BORDER_SHIPMENT, SCHEDULED_DELIVERY_REQUIRED, ITEM_NOT_IN_ENROLLMENT, ITEM_ALREADY_ORDERED
                                 });
-                                // Sélectionner tous les éléments avec la classe "a-alert-content"
+                                //Sélectionner tous les éléments avec la classe "a-alert-content"
                                 var alertContents = document.querySelectorAll('.a-alert-content');
 
-                                // Texte à ajouter en gras avec un retour à la ligne avant
-                                var texteAAjouter = "<br><strong> (PickMe) Code erreur  : " + responseData.error +
-                                    '</strong> (<a href="https://pickme.alwaysdata.net/wiki/doku.php?id=plugins:pickme:codes_erreur" target="_blank">wiki des codes d\'erreurs</a>)';
+                                //Texte à ajouter en gras avec un retour à la ligne avant
+                                var texteAAjouter = "<br><strong>(PickMe) Code erreur : " + responseData.error + "</strong> (<a href='https://pickme.alwaysdata.net/wiki/doku.php?id=plugins:pickme:codes_erreur' target='_blank'>wiki des codes d'erreurs</a>)";
 
-
-                                // Parcourir tous les éléments sélectionnés
+                                //Parcourir tous les éléments sélectionnés
                                 alertContents.forEach(function(alertContent) {
-                                    // Ajouter le texte après le contenu actuel
+                                    //Ajouter le texte après le contenu actuel
                                     alertContent.innerHTML += texteAAjouter;
                                 });
                             }
 
-                            GM_xmlhttpRequest({
+                            fetch("https://pickme.alwaysdata.net/shyrka/order", {
                                 method: "POST",
-                                url: "https://pickme.alwaysdata.net/shyrka/order",
-                                data: formData.toString(),
                                 headers: {
                                     "Content-Type": "application/x-www-form-urlencoded"
                                 },
+                                body: formData.toString()
                             });
 
-                            //Wait 500ms following an order to allow for the order report query to go through before the redirect happens.
+                            //Attendre 500ms après la commande pour laisser le temps au serveur de traiter avant la redirection.
                             await new Promise((r) => setTimeout(r, 500));
+
                             return response;
                         }
                     }
 
-                    regex = /^api\/recommendations\/.*$/;
+                    regex = new RegExp("^api/recommendations/.*$");
                     if (url.startsWith("api/recommendations")) {
                         try {
                             responseData = await response.clone().json();
@@ -6437,7 +6604,7 @@ ${isPlus ? `
                             //The item has variations and so is a parent, store it for later interceptions
                             lastParentVariant = result;
                         } else if (result.taxValue !== undefined) {
-                            // The item has an ETV value, let's find out if it's a child or a parent
+                            //The item has an ETV value, let's find out if it's a child or a parent
                             const isChild = !!lastParent?.variations?.some((v) => v.asin == result.asin);
                             var asinData = result.asin;
                             //On test si le produit a des variantes, on récupère le parent pour notre base de données
@@ -6446,21 +6613,52 @@ ${isPlus ? `
                                 let arrMatchesP = lastParent.recommendationId.match(regex);
                                 asinData = arrMatchesP[1];
                             }
+
+                            function returnVariations() {
+                                var variations = {};
+
+                                document.querySelectorAll('#vvp-product-details-modal--variations-container .vvp-variation-dropdown').forEach(function(elem) {
+
+                                    const type = elem.querySelector('h5').innerText;
+                                    const names = Array.from(elem.querySelectorAll('.a-dropdown-container select option')).map(function(option) {
+                                        return option.innerText.replace(/[*_~|\`]/g, '\\$&');
+                                    });
+                                    variations[type] = names;
+                                });
+                                return variations;
+                            }
+
+                            function nbVariations(obj) {
+                                let total = 1;
+                                for (const key in obj) {
+                                    if (Array.isArray(obj[key]) && obj[key].length > 0) {
+                                        total *= obj[key].length;
+                                    }
+                                }
+                                return total;
+                            }
+
+                            var variations = returnVariations();
+                            variations = (Object.keys(variations).length > 0) ? variations : null;
+
                             var formDataETV = new URLSearchParams({
                                 version: version,
                                 token: API_TOKEN,
                                 asin: asinData,
                                 etv: result.taxValue,
                                 queue: valeurQueue,
+                                limited: result.limitedQuantity,
+                                seller: result.byLineContributors[0],
+                                variations: JSON.stringify(variations),
+                                nb_variations: nbVariations(variations),
                             });
                             if (ordersEnabled) {
-                                GM_xmlhttpRequest({
+                                fetch("https://pickme.alwaysdata.net/shyrka/newetv", {
                                     method: "POST",
-                                    url: "https://pickme.alwaysdata.net/shyrka/etv",
-                                    data: formDataETV.toString(),
                                     headers: {
                                         "Content-Type": "application/x-www-form-urlencoded"
                                     },
+                                    body: formDataETV.toString()
                                 });
                             }
                         }
@@ -6562,7 +6760,6 @@ ${isPlus ? `
                                         backButton.removeEventListener('click', clearModalContent);
                                         closeButton.removeEventListener('click', clearModalContent);
                                         parent.appendChild(spinner);
-                                        console.log(timeoutId);
                                         // Annuler le timer en cours
                                         clearTimeout(timeoutId);
                                     }
@@ -6615,15 +6812,15 @@ ${isPlus ? `
 
                                     //Échapper les caractères spéciaux
                                     variation.dimensions[key] = variation.dimensions[key]
-                                        .replace(/&/g, "&amp;")
-                                        .replace(/</g, "&lt;")
-                                        .replace(/>/g, "&gt;")
-                                        .replace(/"/g, "&quot;")
-                                        .replace(/'/g, "&#039;")
-                                        .replace(/°/g, "&#176;")
-                                        .replace(/\(/g, "|")
-                                        .replace(/\)/g, "|")
-                                        .replace(/,/g, "");
+                                        .replace(new RegExp("&", "g"), "&amp;")
+                                        .replace(new RegExp("<", "g"), "&lt;")
+                                        .replace(new RegExp(">", "g"), "&gt;")
+                                        .replace(new RegExp('"', "g"), "&quot;")
+                                        .replace(new RegExp("'", "g"), "&#039;")
+                                        .replace(new RegExp("°", "g"), "&#176;")
+                                        .replace(new RegExp("\\\\(", "g"), "|")
+                                         .replace(new RegExp("\\\\)", "g"), "|")
+                                        .replace(new RegExp(",", "g"), "");
 
                                     //Si la valeur a changé, on incrémente fixed
                                     if (originalValue !== variation.dimensions[key]) {
@@ -6653,86 +6850,9 @@ ${isPlus ? `
                         }
                     }
                     return response;
-                };
-            }
-
-            function showMagicStars() {
-                var style = document.createElement('style');
-                style.innerHTML = `
-            @keyframes sparkle {
-                0% { transform: scale(0); opacity: 1; }
-                100% { transform: scale(1); opacity: 0; }
-            }
-            .star {
-                position: fixed;
-                font-size: 60px; /* Plus grand */
-                animation: sparkle 3s forwards; /* Durée plus longue */
-                animation-timing-function: ease-out;
-                z-index: 999999; /* Très élevé */
-            }
-            .magic-text {
-                position: fixed;
-                top: 30%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                font-size: 40px;
-                color: #000099;
-           text-shadow:
-              -1px -1px 0 #000,
-               1px -1px 0 #000,
-              -1px  1px 0 #000,
-               1px  1px 0 #000; /* Contour noir */
-                z-index: 1000000; /* Encore plus élevé */
-                animation: fadeInOut 4s forwards; /* Animation pour le texte */
-            }
-            @keyframes fadeInOut {
-                0% { opacity: 0; }
-                10% { opacity: 1; }
-                90% { opacity: 1; }
-                100% { opacity: 0; }
-            }
-        `;
-                document.head.appendChild(style);
-
-                var symbolColorPairs = [
-                    { symbol: '★', color: '#FFD700' },
-                    { symbol: '❆', color: '#07EEFD' },
-                    { symbol: '🐱', color: '#FFD700' },
-                    { symbol: '🔥', color: '#FFD700' },
-                    { symbol: '🦆', color: '#FFD700' },
-                    { symbol: '🐝', color: '#FFD700' },
-                    { symbol: '🐧', color: '#FFD700' },
-                    { symbol: '🥚', color: '#FFD700' },
-                    { symbol: '❤', color: '#FF69B4' }
-                ];
-
-                // Créer le texte "PickMe Fix"
-                var magicText = document.createElement('div');
-                magicText.className = 'magic-text';
-                magicText.textContent = 'PickMe Fix';
-                document.body.appendChild(magicText);
-
-                // Supprimer le texte après 3 secondes
-                setTimeout(() => {
-                    document.body.removeChild(magicText);
-                }, 3000);
-                let index = Math.floor(Math.random() * symbolColorPairs.length);
-                let pair = symbolColorPairs[index];
-                // Créer et afficher le symbole
-                for (let i = 0; i < 50; i++) {
-                    let star = document.createElement('div');
-                    star.className = 'star';
-                    star.textContent = pair.symbol;
-                    star.style.color = pair.color;
-                    star.style.top = `${Math.random() * window.innerHeight}px`;
-                    star.style.left = `${Math.random() * window.innerWidth}px`;
-                    document.body.appendChild(star);
-
-                    // Supprimer l'étoile après l'animation
-                    setTimeout(() => {
-                        document.body.removeChild(star);
-                    }, 3000 + Math.random() * 500);
-                }
+                };`;
+                document.documentElement.appendChild(script);
+                script.remove();
             }
 
             function isObjectEmpty(obj) {
@@ -6773,7 +6893,7 @@ ${isPlus ? `
             const keys = GM_listValues();
             let data = {};
             //On exclu les paramètres propres a un appareil, pour éviter d'avoir l'affichage mobile sur PC par exemple
-            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'extendedEnabled', 'onMobile', 'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos', 'lastVisit', 'hideBas'];
+            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'onMobile', 'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos', 'lastVisit', 'hideBas'];
             keys.forEach(key => {
                 if (!excludedKeys.includes(key)) {
                     data[key] = GM_getValue(key);
@@ -6791,27 +6911,31 @@ ${isPlus ? `
                 token: API_TOKEN,
                 settings: data,
             };
-            GM_xmlhttpRequest({
+            fetch("https://pickme.alwaysdata.net/shyrka/save", {
                 method: "POST",
-                url: "https://pickme.alwaysdata.net/shyrka/save",
-                data: JSON.stringify(formData),
                 headers: {
                     "Content-Type": "application/json"
                 },
-                onload: function(response) {
-                    console.log("Sauvegarde réussie");
-                    const responseData = JSON.parse(response.responseText);
-                    if (responseData.lastSaveDate) {
-                        const restoreButton = document.getElementById('restoreData');
-                        restoreButton.textContent = `(Premium) Restaurer les paramètres/produits (${convertToEuropeanDate(responseData.lastSaveDate)})`;
-                        document.getElementById('restoreData').removeAttribute('disabled');
-                    } else {
-                        console.error("La date de la dernière sauvegarde n'a pas été retournée.");
-                    }
-                },
-                onerror: function(error) {
-                    console.error("Erreur lors de la sauvegarde :", error);
+                body: JSON.stringify(formData)
+            })
+                .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur lors de la sauvegarde : ${response.status} ${response.statusText}`);
                 }
+                return response.json();
+            })
+                .then(responseData => {
+                console.log("Sauvegarde réussie");
+                if (responseData.lastSaveDate) {
+                    const restoreButton = document.getElementById('restoreData');
+                    restoreButton.textContent = `(Premium) Restaurer les paramètres/produits (${convertToEuropeanDate(responseData.lastSaveDate)})`;
+                    restoreButton.removeAttribute('disabled');
+                } else {
+                    console.error("La date de la dernière sauvegarde n'a pas été retournée.");
+                }
+            })
+                .catch(error => {
+                console.error("Erreur lors de la sauvegarde :", error);
             });
         }
 
@@ -6820,41 +6944,46 @@ ${isPlus ? `
                 version: version,
                 token: API_TOKEN,
             });
-            GM_xmlhttpRequest({
+            fetch("https://pickme.alwaysdata.net/shyrka/restore", {
                 method: "POST",
-                url: "https://pickme.alwaysdata.net/shyrka/restore",
-                data: formData.toString(),
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded"
                 },
-                onload: function(response) {
-                    let data = JSON.parse(response.responseText);
-                    let restoreSettings = confirm("Souhaitez-vous restaurer les paramètres ? (certains paramètres incompatibles entre eux ne sont pas pris en charge par cette fonction)");
-                    let restoreProducts = confirm("Souhaitez-vous restaurer les produits (surbrillance + visibilité cachée/visible) ?");
+                body: formData.toString()
+            })
+                .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur lors de la restauration : ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+                .then(data => {
+                let restoreSettings = confirm("Souhaitez-vous restaurer les paramètres ? (certains paramètres incompatibles entre eux ne sont pas pris en charge par cette fonction)");
+                let restoreProducts = confirm("Souhaitez-vous restaurer les produits (surbrillance + visibilité cachée/visible) ?");
 
-                    for (let key in data) {
-                        if (key.endsWith('_c') || key.endsWith('_f')) {
-                            if (restoreProducts) {
-                                localStorage.setItem(key, data[key]);
-                            }
-                        } else {
-                            if (restoreSettings) {
-                                GM_setValue(key, data[key]);
-                            }
+                for (let key in data) {
+                    if (key.endsWith('_c') || key.endsWith('_f')) {
+                        if (restoreProducts) {
+                            localStorage.setItem(key, data[key]);
+                        }
+                    } else {
+                        if (restoreSettings) {
+                            GM_setValue(key, data[key]);
                         }
                     }
-                    if (restoreSettings || restoreProducts) {
-                        console.log("Restauration réussie");
-                        alert("Restauration réussie");
-                        window.location.reload();
-                    } else {
-                        console.log("Restauration annulée");
-                        alert("Restauration annulée");
-                    }
-                },
-                onerror: function(error) {
-                    console.error("Erreur lors de la restauration :", error);
                 }
+
+                if (restoreSettings || restoreProducts) {
+                    console.log("Restauration réussie");
+                    alert("Restauration réussie");
+                    window.location.reload();
+                } else {
+                    console.log("Restauration annulée");
+                    alert("Restauration annulée");
+                }
+            })
+                .catch(error => {
+                console.error("Erreur lors de la restauration :", error);
             });
         }
 
@@ -6864,29 +6993,28 @@ ${isPlus ? `
                 token: API_TOKEN,
             });
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://pickme.alwaysdata.net/shyrka/lastsave",
-                    data: formData.toString(),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    onload: function(response) {
-                        if (response && response.status === 200) {
-                            const data = JSON.parse(response.responseText);
-                            const europeanDate = convertToEuropeanDate(data.lastSaveDate);
-                            resolve(europeanDate);
-                        } else if (response && response.status === 201) {
-                            resolve("Aucune sauvegarde");
-                        } else {
-                            reject("Erreur lors de la récupération de la dernière sauvegarde");
-                        }
-                    },
-                    onerror: function(error) {
-                        reject("Erreur lors de la récupération de la dernière sauvegarde : " + error);
-                    }
-                });
+            return fetch("https://pickme.alwaysdata.net/shyrka/lastsave", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            })
+                .then(response => {
+                if (response.status === 200) {
+                    return response.json().then(data => {
+                        const europeanDate = convertToEuropeanDate(data.lastSaveDate);
+                        return europeanDate;
+                    });
+                } else if (response.status === 201) {
+                    //Aucune sauvegarde
+                    return "Aucune sauvegarde";
+                } else {
+                    throw new Error("Erreur lors de la récupération de la dernière sauvegarde");
+                }
+            })
+                .catch(error => {
+                throw new Error("Erreur lors de la récupération de la dernière sauvegarde : " + error);
             });
         }
         //End sauvegarde
