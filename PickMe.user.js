@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      1.14
+// @version      1.14.1
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeurs : Louise et Ashemka (avec également du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -1917,7 +1917,7 @@ NOTES:
                     const etatCacheKey = hideKey + '_c';
                     const etatFavoriKey = asin + '_f';
 
-                    //Convertir de la key ASIN à la key ASIN + enrollment, à partir de la 1.14
+                    //Convertir de la key ASIN à la key ASIN + enrollment, à partir de la 1.14 ou après une synchro
                     const etatCacheOldKey = asin + '_c';
                     const oldValue = localStorage.getItem(etatCacheOldKey);
                     if (oldValue !== null) {
@@ -1932,14 +1932,6 @@ NOTES:
 
                     //Enregistre les valeurs par défaut si nécessaire
                     if (localStorage.getItem(etatCacheKey) === null) {
-                        if (highlightEnabled) {
-                            var hlColorRepop = highlightColor;
-                            if (storedProducts.hasOwnProperty(asin)) {
-                                hlColorRepop = highlightColorRepop;
-                            }
-                            produit.style.backgroundColor = hlColorRepop;
-                            imgNew = true;
-                        }
                         localStorage.setItem(etatCacheKey, etatCache);
                     }
                     if (localStorage.getItem(etatFavoriKey) === null) {
@@ -2848,18 +2840,16 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 const asin = linkElement.href.split('/dp/')[1].split('/')[0]; // Extrait l'ASIN du produit
                 //const containerDiv = document.getElementById('vvp-items-grid'); // L'élément conteneur de tous les produits
                 //Vérifier si le produit existe déjà dans les données locales
+                const enrollmentKey = getAsinEnrollment(asin, enrollment);
                 if (!storedProducts.hasOwnProperty(asin)) {
                     //Si le produit n'existe pas, l'ajouter aux données locales avec la date courante
                     const currentDate = new Date().toISOString(); // Obtenir la date courante en format ISO
-                    const enrollmentKey = getAsinEnrollment(asin, enrollment);
 
                     storedProducts[asin] = {
                         added: true, // Marquer le produit comme ajouté
                         enrollmentKey: enrollmentKey,
                         dateAdded: currentDate // Stocker la date d'ajout
                     };
-
-                    GM_setValue("storedProducts", JSON.stringify(storedProducts)); // Sauvegarder les changements
 
                     //Appliquer la mise en surbrillance au div parent
                     if (highlightEnabled) {
@@ -2872,11 +2862,23 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         elementsToPrepend.push(element);
                         imgNew = true;
                     }
+                } else if (storedProducts[asin] && storedProducts[asin].enrollmentKey != enrollmentKey) {
+                    storedProducts[asin].enrollmentKey = enrollmentKey;
+                    if (highlightEnabled) {
+                        element.style.backgroundColor = highlightColorRepop;
+                        imgNew = true;
+                    }
+                    if (firsthlEnabled) {
+                        elementsToPrepend.push(element);
+                        imgNew = true;
+                    }
                 }
             }
             //Modifier le texte du bouton détails
             changeButtonProduct(element);
         });
+
+        GM_setValue("storedProducts", JSON.stringify(storedProducts)); //Sauvegarder les changements (après le précédent traitement)
 
         //On remonte les produits dans leur ordre initial
         if (firsthlEnabled && apiOk) {
@@ -4627,68 +4629,72 @@ ${isPlus ? `
             });
         }
 
-        function verifyTokenPremiumPlus(token) {
-            return fetch(`https://pickme.alwaysdata.net/shyrka/userpremiumplus/${token}`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                }
-            })
-                .then(response => response.text().then(text => {
-                return {status: response.status, statusText: response.statusText, responseText: text};
-            }))
-                .catch(error => {
-                console.error(error);
+        async function verifyTokenPremiumPlus(token) {
+            try {
+                const response = await fetch(`https://pickme.alwaysdata.net/shyrka/userpremiumplus/${token}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    }
+                });
+
+                const text = await response.text();
+                return { status: response.status, statusText: response.statusText, responseText: text };
+            } catch (error) {
+                console.error("Erreur dans verifyTokenPremiumPlus :", error);
                 throw error;
-            });
+            }
         }
 
-        function verifyTokenPremium(token) {
-            return fetch(`https://pickme.alwaysdata.net/shyrka/userpremium/${token}`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                }
-            })
-                .then(response => response.text().then(text => {
-                return {status: response.status, statusText: response.statusText, responseText: text};
-            }))
-                .catch(error => {
-                console.error(error);
+        async function verifyTokenPremium(token) {
+            try {
+                const response = await fetch(`https://pickme.alwaysdata.net/shyrka/userpremium/${token}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    }
+                });
+
+                const text = await response.text();
+                return { status: response.status, statusText: response.statusText, responseText: text };
+            } catch (error) {
+                console.error("Erreur dans verifyTokenPremium :", error);
                 throw error;
-            });
+            }
         }
 
-        function verifyTokenPlus(token) {
-            return fetch(`https://pickme.alwaysdata.net/shyrka/userplus/${token}`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                }
-            })
-                .then(response => response.text().then(text => {
-                return {status: response.status, statusText: response.statusText, responseText: text};
-            }))
-                .catch(error => {
-                console.error(error);
+        async function verifyTokenPlus(token) {
+            try {
+                const response = await fetch(`https://pickme.alwaysdata.net/shyrka/userplus/${token}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    }
+                });
+
+                const text = await response.text();
+                return { status: response.status, statusText: response.statusText, responseText: text };
+            } catch (error) {
+                console.error("Erreur dans verifyTokenPlus :", error);
                 throw error;
-            });
+            }
         }
 
-        function verifyTokenRole(token) {
-            return fetch(`https://pickme.alwaysdata.net/shyrka/userrole/${token}`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                }
-            })
-                .then(response => response.text().then(text => {
-                return {status: response.status, statusText: response.statusText, responseText: text};
-            }))
-                .catch(error => {
-                console.error(error);
+        async function verifyTokenRole(token) {
+            try {
+                const response = await fetch(`https://pickme.alwaysdata.net/shyrka/userrole/${token}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    }
+                });
+
+                const text = await response.text();
+                return { status: response.status, statusText: response.statusText, responseText: text };
+            } catch (error) {
+                console.error("Erreur dans verifyTokenRole :", error);
                 throw error;
-            });
+            }
         }
 
         //Info serveur pour les commandes rapides
@@ -6169,16 +6175,22 @@ ${isPlus ? `
                     const etatFavoriKey = asin + '_f';
                     const etatFavori = localStorage.getItem(etatFavoriKey) || '0';
                     if (etatFavori === '0') { //Ne modifie l'état de caché que si le produit n'est pas en favori
-                        const etatCacheKey = hideKey + '_c';
+                        const etatCacheKey = asin + '_c';
                         localStorage.setItem(etatCacheKey, '1');
                     }
                 }
                 // Mettre à jour ou ajouter le produit dans storedProducts
-                storedProducts[asin] = {
-                    added: true, //Marquer le produit comme ajouté
-                    enrollmentKey: hideKey, //Key pour la fonction cacher
-                    dateAdded: currentDate //Utilisez la date d'ajout fournie par l'API
-                };
+                if (storedProducts[asin]) {
+                    // Si le produit existe déjà, on met uniquement à jour la date
+                    storedProducts[asin].dateAdded = currentDate;
+                } else {
+                    // Sinon, on ajoute le produit
+                    storedProducts[asin] = {
+                        added: true, // Marquer le produit comme ajouté
+                        enrollmentKey: hideKey, // Key pour la fonction cacher
+                        dateAdded: currentDate // Utilisez la date d'ajout fournie par l'API
+                    };
+                }
             });
 
             // Sauvegarder les changements dans storedProducts
@@ -6888,44 +6900,56 @@ ${isPlus ? `
             }
         }
 
-        function saveData() {
-            //Récupérez toutes les clés sauvegardées
-            const keys = GM_listValues();
-            let data = {};
-            //On exclu les paramètres propres a un appareil, pour éviter d'avoir l'affichage mobile sur PC par exemple
-            const excludedKeys = ['mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'onMobile', 'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos', 'lastVisit', 'hideBas'];
-            keys.forEach(key => {
-                if (!excludedKeys.includes(key)) {
-                    data[key] = GM_getValue(key);
-                } else {
-                    console.log(key);
-                }
-            });
+        async function saveData() {
+            try {
+                // Récupérez toutes les clés sauvegardées
+                const keys = GM_listValues();
+                let data = {};
 
-            // Ajouter les données de localStorage
-            const localStorageData = getLocalStorageData();
-            data = { ...data, ...localStorageData };
+                // Exclure les paramètres propres à un appareil
+                const excludedKeys = [
+                    'mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'onMobile',
+                    'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos',
+                    'lastVisit', 'hideBas'
+                ];
 
-            const formData = {
-                version: version,
-                token: API_TOKEN,
-                settings: data,
-            };
-            fetch("https://pickme.alwaysdata.net/shyrka/save", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(formData)
-            })
-                .then(response => {
+                keys.forEach(key => {
+                    if (!excludedKeys.includes(key)) {
+                        data[key] = GM_getValue(key);
+                    } else {
+                        console.log(`Exclusion de la clé : ${key}`);
+                    }
+                });
+
+                // Ajouter les données de localStorage
+                const localStorageData = getLocalStorageData();
+                data = { ...data, ...localStorageData };
+
+                // Préparation des données pour l'envoi
+                const formData = {
+                    version: version,
+                    token: API_TOKEN,
+                    settings: data,
+                };
+
+                // Effectuer la requête fetch
+                const response = await fetch("https://pickme.alwaysdata.net/shyrka/save", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                // Vérifier la réponse
                 if (!response.ok) {
                     throw new Error(`Erreur lors de la sauvegarde : ${response.status} ${response.statusText}`);
                 }
-                return response.json();
-            })
-                .then(responseData => {
+
+                const responseData = await response.json();
                 console.log("Sauvegarde réussie");
+
+                // Gérer les données de réponse
                 if (responseData.lastSaveDate) {
                     const restoreButton = document.getElementById('restoreData');
                     restoreButton.textContent = `(Premium) Restaurer les paramètres/produits (${convertToEuropeanDate(responseData.lastSaveDate)})`;
@@ -6933,35 +6957,36 @@ ${isPlus ? `
                 } else {
                     console.error("La date de la dernière sauvegarde n'a pas été retournée.");
                 }
-            })
-                .catch(error => {
+            } catch (error) {
                 console.error("Erreur lors de la sauvegarde :", error);
-            });
+            }
         }
 
-        function restoreData() {
-            const formData = new URLSearchParams({
-                version: version,
-                token: API_TOKEN,
-            });
-            fetch("https://pickme.alwaysdata.net/shyrka/restore", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                body: formData.toString()
-            })
-                .then(response => {
+        async function restoreData() {
+            try {
+                const formData = new URLSearchParams({
+                    version: version,
+                    token: API_TOKEN,
+                });
+
+                const response = await fetch("https://pickme.alwaysdata.net/shyrka/restore", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
+                });
+
                 if (!response.ok) {
                     throw new Error(`Erreur lors de la restauration : ${response.status} ${response.statusText}`);
                 }
-                return response.json();
-            })
-                .then(data => {
-                let restoreSettings = confirm("Souhaitez-vous restaurer les paramètres ? (certains paramètres incompatibles entre eux ne sont pas pris en charge par cette fonction)");
-                let restoreProducts = confirm("Souhaitez-vous restaurer les produits (surbrillance + visibilité cachée/visible) ?");
 
-                for (let key in data) {
+                const data = await response.json();
+
+                const restoreSettings = confirm("Souhaitez-vous restaurer les paramètres ? (certains paramètres incompatibles entre eux ne sont pas pris en charge par cette fonction)");
+                const restoreProducts = confirm("Souhaitez-vous restaurer les produits (surbrillance + visibilité cachée/visible) ?");
+
+                for (const key in data) {
                     if (key.endsWith('_c') || key.endsWith('_f')) {
                         if (restoreProducts) {
                             localStorage.setItem(key, data[key]);
@@ -6981,41 +7006,38 @@ ${isPlus ? `
                     console.log("Restauration annulée");
                     alert("Restauration annulée");
                 }
-            })
-                .catch(error => {
+            } catch (error) {
                 console.error("Erreur lors de la restauration :", error);
-            });
+            }
         }
 
         async function lastSave() {
-            const formData = new URLSearchParams({
-                version: version,
-                token: API_TOKEN,
-            });
+            try {
+                const formData = new URLSearchParams({
+                    version: version,
+                    token: API_TOKEN,
+                });
 
-            return fetch("https://pickme.alwaysdata.net/shyrka/lastsave", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                body: formData.toString()
-            })
-                .then(response => {
+                const response = await fetch("https://pickme.alwaysdata.net/shyrka/lastsave", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
+                });
+
                 if (response.status === 200) {
-                    return response.json().then(data => {
-                        const europeanDate = convertToEuropeanDate(data.lastSaveDate);
-                        return europeanDate;
-                    });
+                    const data = await response.json();
+                    const europeanDate = convertToEuropeanDate(data.lastSaveDate);
+                    return europeanDate;
                 } else if (response.status === 201) {
-                    //Aucune sauvegarde
                     return "Aucune sauvegarde";
                 } else {
                     throw new Error("Erreur lors de la récupération de la dernière sauvegarde");
                 }
-            })
-                .catch(error => {
+            } catch (error) {
                 throw new Error("Erreur lors de la récupération de la dernière sauvegarde : " + error);
-            });
+            }
         }
         //End sauvegarde
 
