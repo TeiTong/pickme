@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.00
+// @version      2.01
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -4104,7 +4104,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     const favoriKey = asin + '_f';
                     if (purgeAll) {
                         //Purger le produit sans vérifier la date
+                        //if (Math.random() < 0.5) {
                         delete storedProducts[asin];
+                        //}
                     } else {
                         //Purger le produit en fonction de la date d'expiration
                         const productDateAdded = new Date(storedProducts[asin].dateAdded).getTime(); //Convertir la date d'ajout en millisecondes
@@ -7835,7 +7837,7 @@ ${isPlus && apiOk ? `
                 const orderData = data.find(d => d.url === url);
                 if (!orderData) return;
                 const flagCountry = getFlag(orderData.flag);
-                if (!flagETV) {
+                if (!flagETV && flagEnabled) {
                     changeButtonProductPlus(item, orderData.limited, orderData.nb_variations, flagCountry);
                 } else {
                     changeButtonProductPlus(item, orderData.limited, orderData.nb_variations);
@@ -9352,43 +9354,13 @@ ${isPlus && apiOk ? `
         //End sauvegarde
 
         //Partage de reco
-        //A coté du bouton tout cacher
-        /*function insertButton2() {
-            const button = document.createElement('button');
-            button.className = 'bouton-filtre active';
-            button.textContent = copyShare;
-            button.style.marginRight = '10px';
-            button.addEventListener('click', handleButtonClick);
-
-            if (hideEnabled) {
-                //Fonction qui attend que le container soit présent
-                function waitForContainer() {
-                    const container = document.getElementById("divCacherHaut");
-                    if (container) {
-                        container.insertAdjacentElement("beforeend", button);
-                    } else {
-                        setTimeout(waitForContainer, 50);
-                    }
-                }
-                waitForContainer();
-            } else {
-                const resultats = document.querySelector('#vvp-items-grid-container > p');
-                const divBouton = document.createElement('div');
-                divBouton.style.marginTop = '5px';
-                divBouton.style.marginBottom = '15px';
-                divBouton.appendChild(button);
-                if (resultats) {
-                    resultats.after(divBouton);
-                }
-            }
-        }*/
-
         function insertButton() {
             const button = document.createElement('button');
+            button.id = 'share-main-button';
             button.className = 'bouton-action';
             button.textContent = copyShare;
             button.style.marginLeft = '5px';
-            button.addEventListener('click', handleButtonClick);
+            button.addEventListener('click', handleMainButtonClick);
 
             const pResultats = document.querySelector('#vvp-items-grid-container > p');
             if (pResultats) {
@@ -9412,15 +9384,83 @@ ${isPlus && apiOk ? `
             }
         }
 
-        function getAllImages() {
-            var produits = document.querySelectorAll('.vvp-item-tile');
+        //Clic bouton Partager
+        function handleMainButtonClick() {
             const newProducts = document.querySelectorAll('.newproduct');
-            if (newProducts.length > 0) {
-                const onlyNew = window.confirm("Souhaitez-vous copier uniquement les nouveaux produits de la page ?");
-                if (onlyNew) {
-                    produits = newProducts;
-                }
+            if (newProducts.length === 0) {
+                doShare(false);
+                return;
             }
+
+            showChoiceButtons();
+        }
+
+        //Affiche les boutons "Tout" et "Nouveaux"
+        function showChoiceButtons() {
+            const mainBtn = document.getElementById('share-main-button');
+            if (mainBtn) {
+                mainBtn.style.display = 'none';
+            }
+
+            const choiceContainer = document.createElement('div');
+            choiceContainer.id = 'choice-container';
+            choiceContainer.style.display = 'inline-block';
+            choiceContainer.style.marginLeft = '10px';
+
+            //Bouton "Tout"
+            const btnTout = document.createElement('button');
+            btnTout.textContent = 'Tout';
+            btnTout.className = 'bouton-action';
+            btnTout.style.marginRight = '5px';
+            btnTout.addEventListener('click', handleToutClick);
+
+            //Bouton "Nouveaux"
+            const btnNouveaux = document.createElement('button');
+            btnNouveaux.textContent = 'Nouveaux';
+            btnNouveaux.className = 'bouton-action';
+            btnNouveaux.addEventListener('click', handleNouveauxClick);
+
+            choiceContainer.appendChild(btnTout);
+            choiceContainer.appendChild(btnNouveaux);
+
+            const pResultats = document.querySelector('#vvp-items-grid-container > p');
+            if (pResultats && mainBtn) {
+                pResultats.insertBefore(choiceContainer, mainBtn.nextSibling);
+            }
+        }
+
+        //Gestion du clic "Tout"
+        function handleToutClick() {
+            removeChoiceButtons();
+            doShare(false);
+        }
+
+        //Gestion du clic "Nouveaux"
+        function handleNouveauxClick() {
+            removeChoiceButtons();
+            doShare(true);
+        }
+
+        //Supprime les deux boutons de choix et ré-affiche le bouton principal
+        function removeChoiceButtons() {
+            const choiceContainer = document.getElementById('choice-container');
+            if (choiceContainer) {
+                choiceContainer.remove();
+            }
+            const mainBtn = document.getElementById('share-main-button');
+            if (mainBtn) {
+                mainBtn.style.display = 'inline-block';
+            }
+        }
+
+        function getAllImages(onlyNew = false) {
+            let produits = document.querySelectorAll('.vvp-item-tile');
+            const newProducts = document.querySelectorAll('.newproduct');
+
+            if (onlyNew && newProducts.length > 0) {
+                produits = newProducts;
+            }
+
             const images = [];
             produits.forEach((produit) => {
                 const imageEl = produit.querySelector('.vvp-item-tile-content img');
@@ -9444,14 +9484,14 @@ ${isPlus && apiOk ? `
                         name: name,
                         url: productUrl
                     });
-
                 }
             });
             return images;
         }
 
-        function handleButtonClick() {
-            const produits = getAllImages();
+        function doShare(onlyNew) {
+            const produits = getAllImages(onlyNew);
+
             if (produits.length === 0) {
                 alert("Aucun produit trouvé sur la page");
                 return;
@@ -9461,6 +9501,7 @@ ${isPlus && apiOk ? `
                 version: version,
                 token: API_TOKEN,
                 urls: produits,
+                new: onlyNew,
             };
 
             fetch('https://pickme.alwaysdata.net/shyrka/sharereco', {
@@ -9472,7 +9513,6 @@ ${isPlus && apiOk ? `
             })
                 .then(response => {
                 if (response.status === 201) {
-                    //Le token n'est pas valide
                     return response.text().then(message => {
                         alert(message);
                         throw new Error("Token invalide");
@@ -9486,6 +9526,10 @@ ${isPlus && apiOk ? `
                 if (data.url) {
                     //Construire le texte à copier dans le presse-papiers
                     let pasteText = '[Recommandations](' + data.url + ")\n" + data.text;
+                    if (onlyNew) {
+                        pasteText = '[Recommandations Horaire/Nouvelles](' + data.url + ")\n" + data.text;
+                    }
+
                     if (shareOnlyProduct) {
                         pasteText = data.url;
                     }
