@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.02
+// @version      2.03
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -1057,6 +1057,7 @@ NOTES:
 
         let statsEnabled = GM_getValue("statsEnabled", false);
         let extendedEnabled = GM_getValue("extendedEnabled", false);
+        let extendedDelay = GM_getValue("extendedDelay", '600');
         let isParentEnabled = GM_getValue("isParentEnabled", true);
         let wheelfixEnabled = GM_getValue("wheelfixEnabled", true);
         let autohideEnabled = GM_getValue("autohideEnabled", false);
@@ -1196,6 +1197,7 @@ NOTES:
 
         GM_setValue("statsEnabled", statsEnabled);
         GM_setValue("extendedEnabled", extendedEnabled);
+        GM_setValue("extendedDelay", extendedDelay);
         GM_setValue("isParentEnabled", isParentEnabled);
         GM_setValue("wheelfixEnabled", wheelfixEnabled);
         GM_setValue("autohideEnabled", autohideEnabled);
@@ -1814,17 +1816,24 @@ NOTES:
 
             //Si moins d'une minute s'est écoulée
             if (secondes < 60) {
-                return Math.round(secondes) + 's';
+                const secs = Math.min(59, Math.round(secondes)); // MODIFIÉ
+                return secs + 's';
             }
             //Si moins d'une heure s'est écoulée
             else if (minutes < 60) {
-                return Math.round(minutes) + 'm';
+                const mins = Math.min(59, Math.round(minutes)); // MODIFIÉ
+                return mins + 'm';
             }
             //Si moins d'un jour s'est écoulé
             else if (heures < 24) {
                 //Convertir les décimales des heures en minutes arrondies
-                const heuresArrondies = Math.floor(heures);
-                const minutesRestantes = Math.round((heures - heuresArrondies) * 60);
+                const heuresArrondies = Math.min(23, Math.floor(heures));
+                let minutesRestantes = Math.round((heures - heuresArrondies) * 60);
+
+                if (minutesRestantes === 60) {
+                    minutesRestantes = 59;
+                }
+
                 return heuresArrondies + 'h ' + minutesRestantes + 'm';
             }
             //Si un ou plusieurs jours se sont écoulés
@@ -2067,7 +2076,7 @@ NOTES:
                 //À chaque mutation, on vérifie s’il y a au moins un .vvp-item-tile
                 const itemTiles = document.querySelectorAll('.vvp-item-tile');
                 if (itemTiles.length > 0) {
-                    setTimeout(tryAutoHideAndExtend, 600);
+                    setTimeout(tryAutoHideAndExtend, extendedDelay);
                     //Si on veut n’exécuter cette logique qu’une fois, on peut stopper l’observation :
                     observer.disconnect();
                 }
@@ -3208,6 +3217,10 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   > .vvp-item-product-title-container
   .a-truncate {
   max-height: var(--max-product-title) !important;
+}
+
+#vvp-header .vvp-header-links-container {
+  display: block !important;
 }
 `;
             //On adapte la règle suivant si on a fixer les colonnes ou pas
@@ -6148,6 +6161,7 @@ ${isPlus && apiOk ? `
             ajouterOptionTexte('newUrl', 'URL de l\'image lors d\'un nouveau produit', 'https://pickme.alwaysdata.net/img/new.png');
             ajouterOptionTexte('notifUrl', 'URL du son des notifications', 'https://pickme.alwaysdata.net/sw/notif3.mp3');
             ajouterOptionTexte('fullTitleLine', 'Nombre de lignes quand on affiche le nom complet des produits.\nLa valeur devenant fixe, cela peut augmenter inutilement la taille des encadrés produits et le rendu peut être variable suivant l\'appareil (PC, mobile, taille de l\'écran, etc...)', '4');
+            ajouterOptionTexte('extendedDelay', 'Délai (en ms) pour afficher les noms complets des produits (à augmenter si l\'affichage du nom complet ne fonctionne pas', '600');
             ajouterOptionCheckbox('mobileEnabledRR', 'Activer l\'affichage mobile sur toutes les pages (à activer si vous êtes sur mobile et que vous n\'avez pas installé ReviewRemember)');
             ajouterOptionCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée (et des variantes sur mobile)');
             ajouterOptionCheckbox('isParentEnabled', 'Distinguer les produits ayant des variantes. Si c\'est le cas, cela ajoute l\'icone 🛍️ dans le texte du bouton des détails');
