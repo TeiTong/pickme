@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.04
+// @version      2.05
 // @description  Outils pour les membres du discord AVFR
 // @author       Code : MegaMan, testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -3306,6 +3306,19 @@ body {
                 var mobileCssRR = document.createElement('style');
 
                 mobileCssRR.textContent = `
+/* Fix CSS du 12/05/25 */
+.vvp-centered-logo {
+  width: auto !important;
+}
+.vvp-items-button-and-search-container {
+  margin-top: 0 !important;
+  margin-left: 0 !important;
+}
+
+#vvp-header .vvp-header-links-container {
+  display: block !important;
+}
+
 /* Taille de police différente
 .a-ember body {
      font-size : 12px !important;
