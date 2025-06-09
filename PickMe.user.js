@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.0.6
+// @version      2.6.0
 // @description  PLugin d'aide à la navigation pour les membres du discord Amazon Vine FR
 // @author       Créateur/Codeur : MegaMan / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
