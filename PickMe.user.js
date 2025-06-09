@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.05
-// @description  Outils pour les membres du discord AVFR
-// @author       Code : MegaMan, testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
+// @version      2.1
+// @description  PLugin d'aide à la navigation pour les membres du discord Amazon Vine FR
+// @author       Créateur/Codeur : MegaMan / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
 // @match        https://www.amazon.fr/vine/vine-reviews*
@@ -962,11 +962,24 @@ NOTES:
     }
 
     let fullloadEnabled = GM_getValue("fullloadEnabled", false);
+
     if (fullloadEnabled && asinProduct == null) {
-        //Masquer le contenu de la page immédiatement
         var styleElement = document.createElement('style');
         styleElement.id = 'hide-page-style';
-        styleElement.innerHTML = 'body { display: none !important; }';
+        if (savedTheme === "dark") {
+            styleElement.textContent = `
+    html {
+      background-color: #191919 !important;
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      display: none !important;
+    }
+  `;
+        } else {
+            styleElement.innerHTML = 'body { display: none !important; }';
+        }
         document.head.appendChild(styleElement);
     }
 
@@ -1035,6 +1048,8 @@ NOTES:
         (GM_getValue("config")) ? GM_getValue("config") : GM_setValue("config", {});
 
         //PickMe add
+        let allFinish = false;
+
         //Initialiser ou lire la configuration existante
         let highlightEnabled = GM_getValue("highlightEnabled", true);
         let firsthlEnabled = GM_getValue("firsthlEnabled", true);
@@ -1054,6 +1069,9 @@ NOTES:
         let callUrlFav = GM_getValue("callUrlFav", "");
         let callUrlTypeFav = GM_getValue("callUrlTypeFav", "callFavOnly");
         let autoRefresh = GM_getValue("autoRefresh", false);
+        let autoRefreshTimeSlot = GM_getValue("autoRefreshTimeSlot", false);
+        let timeSlotStart = GM_getValue("timeSlotStart", "02:00");
+        let timeSlotEnd = GM_getValue("timeSlotEnd", "14:00");
 
         let statsEnabled = GM_getValue("statsEnabled", false);
         let extendedEnabled = GM_getValue("extendedEnabled", false);
@@ -1156,6 +1174,19 @@ NOTES:
         let catManuelReset = GM_getValue('catManuelReset', false);
         let fullTitleLine = GM_getValue('fullTitleLine', '4');
 
+        let firstSeenEnabled = GM_getValue('firstSeenEnabled', true);
+        let firstSeenAllTime = GM_getValue('firstSeenAllTime', true);
+        let firstSeenOver = GM_getValue('firstSeenOver', false);
+        let firstSeenUrl = GM_getValue('firstSeenUrl', 'https://pickme.alwaysdata.net/img/firstseen.png');
+        let firstSeenWidth = GM_getValue('firstSeenWidth', '120px');
+        let firstSeenHeight = GM_getValue('firstSeenHeight', '120px');
+        let firstSeenHorizontal = GM_getValue('firstSeenHorizontal', '0px');
+        let firstSeenVertical = GM_getValue('firstSeenVertical', '0px');
+        let firstSeenWidthMobile = GM_getValue('firstSeenWidthMobile', '70px');
+        let firstSeenHeightMobile = GM_getValue('firstSeenHeightMobile', '70px');
+        let firstSeenHorizontalMobile = GM_getValue('firstSeenHorizontalMobile', '0px');
+        let firstSeenVerticalMobile = GM_getValue('firstSeenVerticalMobile', '0px');
+
         let rondeEnabled = GM_getValue('rondeEnabled', false);
         let rondeResume = GM_getValue('rondeResume', true);
         let rondeDelay = GM_getValue('rondeDelay', '5');
@@ -1174,6 +1205,12 @@ NOTES:
 
         let columnEnabled = GM_getValue('columnEnabled', false);
         let nbColumn = GM_getValue('nbColumn', '5');
+
+        let sizeMobileCat = GM_getValue('sizeMobileCat', '54px');
+
+        let customSortingEnabled = GM_getValue('customSortingEnabled', false);
+        let customSorting = GM_getValue('customSorting', [{ type: 'firstproduct' }, { type: 'newproduct' }, { type: 'putproduct' }, { type: 'favproduct' }, { type: 'price', order: 'desc' }, { type: 'etv', order: 'asc' }]);
+        let menuSorting = GM_getValue('menuSorting', false);
 
         //Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
@@ -1194,6 +1231,11 @@ NOTES:
         GM_setValue("callUrlEnabled", callUrlEnabled);
         GM_setValue("callUrlFav", callUrlFav);
         GM_setValue("callUrlTypeFav", callUrlTypeFav);
+
+        GM_setValue("autoRefresh", autoRefresh);
+        GM_setValue("autoRefreshTimeSlot", autoRefreshTimeSlot);
+        GM_setValue("timeSlotStart", timeSlotStart);
+        GM_setValue("timeSlotEnd", timeSlotEnd);
 
         GM_setValue("statsEnabled", statsEnabled);
         GM_setValue("extendedEnabled", extendedEnabled);
@@ -1295,6 +1337,19 @@ NOTES:
         GM_setValue("newUrl", newUrl);
         GM_setValue("fullTitleLine", fullTitleLine);
 
+        GM_setValue("firstSeenEnabled", firstSeenEnabled);
+        GM_setValue("firstSeenAllTime", firstSeenAllTime);
+        GM_setValue("firstSeenOver", firstSeenOver);
+        GM_setValue('firstSeenUrl', firstSeenUrl);
+        GM_setValue('firstSeenWidth', firstSeenWidth);
+        GM_setValue('firstSeenHeight', firstSeenHeight);
+        GM_setValue('firstSeenHorizontal', firstSeenHorizontal);
+        GM_setValue('firstSeenVertical', firstSeenVertical);
+        GM_setValue('firstSeenWidthMobile', firstSeenWidthMobile);
+        GM_setValue('firstSeenHeightMobile', firstSeenHeightMobile);
+        GM_setValue('firstSeenHorizontalMobile', firstSeenHorizontalMobile);
+        GM_setValue('firstSeenVerticalMobile', firstSeenVerticalMobile);
+
         GM_setValue("rondeEnabled", rondeEnabled);
         GM_setValue("rondeResume", rondeResume);
         GM_setValue("rondeDelay", rondeDelay);
@@ -1310,6 +1365,12 @@ NOTES:
 
         GM_setValue("columnEnabled", columnEnabled);
         GM_setValue("nbColumn", nbColumn);
+
+        GM_setValue("sizeMobileCat", sizeMobileCat);
+
+        GM_setValue("customSortingEnabled", customSortingEnabled);
+        GM_setValue("customSorting", customSorting);
+        GM_setValue("menuSorting", menuSorting);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -1886,6 +1947,7 @@ NOTES:
                     etiquetteTemps.style.backgroundColor = 'rgba(255,255,255,0.7)';
                     etiquetteTemps.style.color = 'black';
                     etiquetteTemps.style.borderRadius = '5px';
+                    etiquetteTemps.style.zIndex = '5';
                     if (cssEnabled || mobileEnabled) {
                         etiquetteTemps.style.fontSize = timeFontMobile;
                     } else {
@@ -2047,6 +2109,7 @@ NOTES:
                             if (favArray.length > 0 && favArray.some(regex => regex.test(textContent))) {
                                 parentDiv.style.backgroundColor = highlightColorFav;
                                 parentDiv.parentNode.prepend(parentDiv);
+                                parentDiv.classList.add('putproduct');
                                 if (hlFav) {
                                     highlightMatch(favArray, `background-color: ${colorHlFav};`);
                                 }
@@ -2069,6 +2132,8 @@ NOTES:
                         ajouterIconeEtFonctionCacher();
                     }
                 }
+                //On signifie que le script a fini son action la plus "longue" pour les actions de fin
+                allFinish = true;
             }
 
             //On instancie le MutationObserver et on définit la fonction de callback
@@ -2372,6 +2437,7 @@ NOTES:
                 if (containerDiv) {
                     produitsFavoris.reverse().forEach(element => {
                         containerDiv.prepend(element);
+                        element.classList.add('favproduct');
                     });
                 }
                 boutonsHaut.boutonVisibles.classList.toggle('active', afficherVisibles); //Active ou désactive le bouton des produits visibles
@@ -2383,6 +2449,9 @@ NOTES:
                 boutonsBas.boutonCacherTout.style.display = afficherVisibles ? '' : 'none';
                 boutonsHaut.boutonToutAfficher.style.display = !afficherVisibles ? '' : 'none';
                 boutonsBas.boutonToutAfficher.style.display = !afficherVisibles ? '' : 'none';
+                if (customSortingEnabled) {
+                    sortItems(customSorting);
+                }
             }
 
             produits.forEach(produit => {
@@ -2481,6 +2550,7 @@ NOTES:
                     etatFavoriActuel = etatFavoriActuel === '1' ? '0' : '1';
                     localStorage.setItem(etatFavoriKey, etatFavoriActuel);
                     iconeFavori.setAttribute('src', etatFavoriActuel === '1' ? urlIconeFavoriRouge : urlIconeFavoriGris);
+                    produit.classList.toggle('favproduct');
 
                     if (etatFavoriActuel === '1') {
                         //Si le produit est marqué comme favori, s'assurer qu'il est marqué comme non caché
@@ -2929,7 +2999,7 @@ body {
 
 #vvp-items-button-container .a-button-toggle.a-button a {
   font-size: 12px !important;
-  height: 54px;
+  height: ${sizeMobileCat};
   display: flex;
   align-items: center;
   padding: 0 !important;
@@ -3764,7 +3834,8 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     storedProducts[asin] = {
                         added: true, //Marquer le produit comme ajouté
                         enrollmentKey: enrollmentKey,
-                        dateAdded: currentDate //Stocker la date d'ajout
+                        dateAdded: currentDate, //Stocker la date d'ajout
+                        firstSeen: false
                     };
 
                     //On le marque comme étant nouveau pour le retrouver plus tard
@@ -3778,7 +3849,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     //On stocke les produits qu'on va devoir remonter
                     if (firsthlEnabled) {
                         //containerDiv.prepend(element);
-                        elementsToPrepend.push(element);;
+                        elementsToPrepend.push(element);
                         imgNew = true;
                     }
                 } else if (storedProducts[asin] && storedProducts[asin].enrollmentKey != enrollmentKey) {
@@ -3791,6 +3862,31 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         elementsToPrepend.push(element);
                         imgNew = true;
                     }
+                } else if (firstSeenEnabled && firstSeenAllTime && storedProducts[asin]?.firstSeen) {
+                    const imgFirstSeen = firstSeenUrl;
+                    const wrapper = imgElement.parentElement;
+                    if (getComputedStyle(wrapper).position === 'static') {
+                        wrapper.style.position = 'relative';
+                    }
+                    //Pour savoir si on met l'image par dessus le temps ou non
+                    var firstSeenIndex = '4';
+                    if (firstSeenOver) {
+                        firstSeenIndex = '6';
+                    }
+                    const overlay = document.createElement('img');
+                    overlay.src = imgFirstSeen;
+                    overlay.alt = "First seen";
+                    Object.assign(overlay.style, {
+                        position:'absolute',
+                        top: mobileEnabled ? firstSeenVerticalMobile : firstSeenVertical,
+                        left: mobileEnabled ? firstSeenHorizontalMobile : firstSeenHorizontal,
+                        width: mobileEnabled ? firstSeenWidthMobile : firstSeenWidth,
+                        height: mobileEnabled ? firstSeenHeightMobile : firstSeenHeight,
+                        zIndex: firstSeenIndex
+                    });
+
+                    wrapper.appendChild(overlay);
+
                 }
             }
             //Modifier le texte du bouton détails
@@ -3912,7 +4008,53 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         }
 
         if (listElements.length > 0 && !isPageCachedOld()) {
-            sendDatasToAPI(listElements);
+            sendDatasToAPI(listElements)
+                .then(urlArray => {
+                //Si aucune URL nouvelle, on sort
+                if (!urlArray || urlArray.length === 0) return;
+
+                const imgFirstSeen = firstSeenUrl;
+                const items = document.querySelectorAll('.vvp-item-tile');
+
+                items.forEach(element => {
+                    //Récupère le lien produit
+                    const linkElement = element.querySelector('.vvp-item-product-title-container > a.a-link-normal');
+                    const productUrl = linkElement ? linkElement.href : null;
+                    //Si c'est une URL "first seen"
+                    if (productUrl && urlArray.includes(productUrl)) {
+                        const asin = linkElement.href.split('/dp/')[1].split('/')[0];
+                        storedProducts[asin].firstSeen = true;
+                        if (apiOk && firstSeenEnabled) {
+                            element.classList.add('firstproduct');
+                            const imgElement = element.querySelector('img');
+                            if (!imgElement) return;
+                            const wrapper = imgElement.parentElement;
+                            if (getComputedStyle(wrapper).position === 'static') {
+                                wrapper.style.position = 'relative';
+                            }
+
+                            const overlay = document.createElement('img');
+                            overlay.src = imgFirstSeen;
+                            overlay.alt = "First seen";
+                            Object.assign(overlay.style, {
+                                position:'absolute',
+                                top: mobileEnabled ? firstSeenVerticalMobile : firstSeenVertical,
+                                left: mobileEnabled ? firstSeenHorizontalMobile : firstSeenHorizontal,
+                                width: mobileEnabled ? firstSeenWidthMobile : firstSeenWidth,
+                                height: mobileEnabled ? firstSeenHeightMobile : firstSeenHeight,
+                                zIndex:'4'
+                            });
+
+                            wrapper.appendChild(overlay);
+                        }
+                    }
+                });
+                GM_setValue("storedProducts", JSON.stringify(storedProducts));
+            })
+                .catch(err => {
+                console.error("Erreur API :", err);
+            });
+
             if (ordersInfos && ordersEnabled && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
                 ordersPost(listElementsOrder);
             }
@@ -5005,8 +5147,8 @@ ${isPlus && apiOk ? `
                 if (confirm("Êtes-vous sûr de vouloir restaurer les paramètres depuis la sauvegarde ?")) {
                     await restoreData("settings");
                     popup.remove();
-                    console.log("Restauration réussie");
-                    alert("Restauration réussie");
+                    console.log("Restauration des paramètres réussie");
+                    alert("Restauration des paramètres réussie");
                     window.location.reload();
                 }
             });
@@ -5015,8 +5157,8 @@ ${isPlus && apiOk ? `
                 if (confirm("Êtes-vous sûr de vouloir restaurer les produits depuis la sauvegarde ?")) {
                     await restoreData("products");
                     popup.remove();
-                    console.log("Restauration réussie");
-                    alert("Restauration réussie");
+                    console.log("Restauration des produits réussie");
+                    alert("Restauration des produits réussie");
                     window.location.reload();
                 }
             });
@@ -6050,6 +6192,192 @@ ${isPlus && apiOk ? `
                 optionsContainer.appendChild(separateur);
             }
 
+            function createSortMenu(key) {
+                const options = GM_getValue(key);
+                const containerId = 'sort_' + key;
+                let sortMenuContainer = optionsContainer.querySelector('#' + containerId);
+                if (!sortMenuContainer) {
+                    sortMenuContainer = document.createElement('div');
+                    sortMenuContainer.id = containerId;
+                    optionsContainer.appendChild(sortMenuContainer);
+                }
+
+                const labels = {
+                    firstproduct: 'Nouveaux produits + Première découverte',
+                    newproduct: 'Nouveaux produits',
+                    putproduct: 'Produits mis en avant par mot-clé',
+                    favproduct: 'Produits favoris',
+                    price: 'Prix',
+                    etv: 'ETV'
+                };
+
+                function getLabel(type) {
+                    return labels[type] || type;
+                }
+
+                if (!document.getElementById('sortMenuStyles')) {
+                    const style = document.createElement('style');
+                    style.id = 'sortMenuStyles';
+                    style.textContent = `
+.sort-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  margin: 6px 0;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  min-height: 32px;
+  cursor: move;
+  user-select: none;
+}
+.sort-item.over {
+  border-color: #007bff;
+  background: #e9f5ff;
+}
+.sort-item.dragging {
+  opacity: 0.5;
+}
+.sort-item > span {
+  line-height: 20px;
+}
+.orderToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  font-size: 1em;
+}
+`;
+                    document.head.appendChild(style);
+                }
+
+                // Handlers de drag & drop
+                let dragSrcEl = null;
+                function handleDragStart(e) {
+                    dragSrcEl = this;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', '');
+                    this.classList.add('dragging');
+                }
+                function handleDragOver(e) {
+                    e.preventDefault();
+                    return false;
+                }
+                function handleDragEnter() {
+                    this.classList.add('over');
+                }
+                function handleDragLeave() {
+                    this.classList.remove('over');
+                }
+                function handleDrop(e) {
+                    e.stopPropagation();
+                    if (dragSrcEl !== this) {
+                        const all = Array.from(sortMenuContainer.children);
+                        const srcIdx = all.indexOf(dragSrcEl);
+                        const tgtIdx = all.indexOf(this);
+                        if (srcIdx < tgtIdx) {
+                            sortMenuContainer.insertBefore(dragSrcEl, this.nextSibling);
+                        } else {
+                            sortMenuContainer.insertBefore(dragSrcEl, this);
+                        }
+                    }
+                    this.classList.remove('over');
+                    return false;
+                }
+                function handleDragEnd() {
+                    Array.from(sortMenuContainer.children).forEach(item => {
+                        item.classList.remove('over', 'dragging');
+                    });
+                }
+                function addDragHandlers(item) {
+                    item.addEventListener('dragstart', handleDragStart);
+                    item.addEventListener('dragenter', handleDragEnter);
+                    item.addEventListener('dragover', handleDragOver);
+                    item.addEventListener('dragleave', handleDragLeave);
+                    item.addEventListener('drop', handleDrop);
+                    item.addEventListener('dragend', handleDragEnd);
+                }
+
+                sortMenuContainer.innerHTML = '';
+                options.forEach(opt => {
+                    const item = document.createElement('div');
+                    item.className = 'advancedOption sort-item';
+                    item.draggable = true;
+                    item.dataset.type = opt.type;
+                    if (opt.order) {
+                        item.dataset.order = opt.order;
+                    }
+
+                    const label = document.createElement('span');
+                    label.textContent = getLabel(opt.type);
+                    item.appendChild(label);
+
+                    if (opt.type === 'price' || opt.type === 'etv') {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'orderToggle';
+                        const updateIcon = order => order === 'asc' ? '⬆' : '⬇';
+
+                        btn.innerHTML = updateIcon(opt.order);
+                        btn.style.fontSize = '1.5em';
+                        btn.style.fontWeight = 'bold';
+                        btn.addEventListener('click', () => {
+                            const current = item.dataset.order === 'asc' ? 'desc' : 'asc';
+                            item.dataset.order = current;
+                            btn.innerHTML = updateIcon(current);
+                        });
+                        item.appendChild(btn);
+                    }
+
+                    addDragHandlers(item);
+                    sortMenuContainer.appendChild(item);
+                });
+
+                //Ajout des types manquants en fin de liste
+                const presentTypes = new Set(options.map(o => o.type));
+                Object.keys(labels).forEach(type => {
+                    if (!presentTypes.has(type)) {
+                        const item = document.createElement('div');
+                        item.className = 'advancedOption sort-item';
+                        item.draggable = true;
+                        item.dataset.type = type;
+                        if (type === 'price' || type === 'etv') {
+                            item.dataset.order = 'asc';
+                        }
+
+                        const label = document.createElement('span');
+                        label.textContent = getLabel(type);
+                        item.appendChild(label);
+
+                        if (type === 'price' || type === 'etv') {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'orderToggle';
+                            const updateIcon = order => order === 'asc' ? '↑' : '↓';
+                            btn.textContent = updateIcon(item.dataset.order);
+                            btn.addEventListener('click', () => {
+                                const current = item.dataset.order === 'asc' ? 'desc' : 'asc';
+                                item.dataset.order = current;
+                                btn.textContent = updateIcon(current);
+                            });
+                            item.appendChild(btn);
+                        }
+
+                        addDragHandlers(item);
+                        sortMenuContainer.appendChild(item);
+                    }
+                });
+            }
+
             ajouterSousTitre('Thèmes');
             ajouterTexte('Le thème ne change que les valeurs esthétiques comme les images (ainsi que leurs emplacements) et les sons.\nCela exclu toutes les cases à cocher ou encore les Webhooks par exemple.\nL\'export et l\'import suivent également cette logique.\nEn revanche, si vous faites "Ajouter", cela sauvegarde les éléments personnels comme les Webhooks dans le thème (mais toujours pas les cases à cocher).');
             const presetDropdownDiv = document.createElement('div');
@@ -6112,6 +6440,12 @@ ${isPlus && apiOk ? `
             ajouterOptionCheckbox('hlHide', 'Mettre en surbrillance le mot exclu');
             ajouterOptionTexte('colorHlHide', 'Couleur de surbrillance du mot exclu', 'Brown', 'https://htmlcolorcodes.com/fr/noms-de-couleur/', 'Guide');
 
+            ajouterSousTitre('Tri personnalisé des produits');
+            ajouterTexte('L\'ordre du tri définit la priorité des critères.\nAttention, les produits dont le prix ou l\'ETV n\'est pas connu seront exclus du tri par ces critères. De même que si vous n\'affichez pas ces informations, le tri pour ces critères sera ignoré.');
+            ajouterOptionCheckbox('menuSorting', 'Afficher le menu pour trier sur les pages');
+            ajouterOptionCheckbox('customSortingEnabled', 'Utiliser le tri personnalisé');
+            createSortMenu('customSorting');
+
             ajouterSousTitre('Partage des recommandations');
             ajouterTexte('En un clic, copie la liste de vos recommandations dans le presse-papiers pour la coller sur discord.');
             ajouterSeparateur();
@@ -6120,6 +6454,9 @@ ${isPlus && apiOk ? `
             ajouterOptionCheckbox('shareOnlyShow', 'Ne pas partager les produits cachés, seulement les visibles');
 
             ajouterSousTitre('Auto-refresh');
+            ajouterOptionCheckbox('autoRefreshTimeSlot', 'Activer le refresh uniquement pendant la plage horaire (hors refresh horaire)');
+            ajouterOptionTexte('timeSlotStart', 'Heure début (format HH:mm)', '02:00');
+            ajouterOptionTexte('timeSlotEnd', 'Heure fin (format HH:mm)', '14:00');
             ajouterOptionCheckbox('refreshOnlyReco', 'Quand le prochain refresh est horaire, il ne fonctionne que si on est sur la page des recommandations');
             ajouterOptionCheckbox('refreshHideUI', 'Cacher l\'interface si on utilise uniquement le refresh horaire');
             ajouterOptionCheckbox('refreshFixed', 'Le timer ne défile pas avec la page, il est dans une position fixe');
@@ -6127,6 +6464,23 @@ ${isPlus && apiOk ? `
             ajouterOptionTexte('refreshHorizontal', 'Position horizontale', '50%');
             ajouterOptionTexte('refreshVertical', 'Position verticale', '135px');
             ajouterOptionTexte('refreshVerticalNoHeader', 'Position verticale quand on cache le header', '5px');
+
+            ajouterSousTitre('Première découverte des produits');
+            ajouterOptionCheckbox('firstSeenEnabled', 'Afficher une image quand vous êtes le premier utilisateur à voir un produit');
+            ajouterOptionCheckbox('firstSeenAllTime', 'Afficher l\'image tout le temps et pas uniquement la première fois que vous avez vu le produit');
+            ajouterOptionCheckbox('firstSeenOver', 'Afficher l\'image par dessus le temps d\'ancienneté et le prix');
+            ajouterSeparateur();
+            ajouterOptionTexte('firstSeenUrl', 'URL de l\'image de découverte', "https://pickme.alwaysdata.net/img/firstseen.png");
+            ajouterSeparateur();
+            ajouterOptionTexte('firstSeenWidth', 'Largeur de l\'image', '120px');
+            ajouterOptionTexte('firstSeenHeight', 'Hauteur de l\'image', '120px');
+            ajouterOptionTexte('firstSeenHorizontal', 'Position horizontale', '0px');
+            ajouterOptionTexte('firstSeenVertical', 'Position verticale', '0px');
+            ajouterSeparateur();
+            ajouterOptionTexte('firstSeenWidthMobile', '(Mobile) Largeur de l\'image', '70px');
+            ajouterOptionTexte('firstSeenHeightMobile', '(Mobile) Hauteur de l\'image', '70px');
+            ajouterOptionTexte('firstSeenHorizontalMobile', '(Mobile) Position horizontale', '0px');
+            ajouterOptionTexte('firstSeenVerticalMobile', '(Mobile) Position verticale', '0px');
 
             ajouterSousTitre('Ronde');
             ajouterTexte('La ronde consiste à parcourir toutes les pages dans "Autres articles", afin de mettre à jour tous les produits localement mais aussi sur le serveur.');
@@ -6184,6 +6538,7 @@ ${isPlus && apiOk ? `
             ajouterOptionCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée (et des variantes sur mobile)');
             ajouterOptionCheckbox('isParentEnabled', 'Distinguer les produits ayant des variantes. Si c\'est le cas, cela ajoute l\'icone 🛍️ dans le texte du bouton des détails');
             ajouterOptionCheckbox('notepadEnabled', 'Activer le Bloc-notes');
+            ajouterOptionTexte('sizeMobileCat', 'Tailles des boutons de catégories (RFY, AFA, AI) en affichage mobile', '54px');
             ajouterSeparateur();
             ajouterOptionCheckbox('columnEnabled', 'Rendre fixe le nombre de colonnes des produits');
             ajouterOptionTexte('nbColumn', 'Nombre de colonnes', '5');
@@ -6412,6 +6767,19 @@ ${isPlus && apiOk ? `
                     } else if (opt.type === 'select') {
                         GM_setValue(opt.key, opt.element.value);
                     }
+                });
+                optionsContainer
+                    .querySelectorAll('[id^="sort_"]')
+                    .forEach(sortMenuContainer => {
+                    const key = sortMenuContainer.id.slice(5); // enlève le "sort_"
+                    const customSorting = Array.from(sortMenuContainer.children).map(item => {
+                        const entry = { type: item.dataset.type };
+                        if (item.dataset.order) {
+                            entry.order = item.dataset.order;
+                        }
+                        return entry;
+                    });
+                    GM_setValue(key, customSorting);
                 });
                 popup.remove();
             });
@@ -7523,9 +7891,14 @@ ${isPlus && apiOk ? `
                 },
                 body: formData.toString()
             })
-                .then(response => response.text().then(text => {
-                return {status: response.status, statusText: response.statusText, responseText: text};
-            }))
+                .then(response => {
+                if (!response.ok) {
+                    // en cas d’erreur HTTP on récupère quand même le corps pour debug
+                    return response.text().then(txt => Promise.reject(new Error(txt)));
+                }
+                // ici on s’attend à de l’JSON : le tableau des URL insérées
+                return response.json();
+            })
                 .catch(error => {
                 throw error;
             });
@@ -7786,6 +8159,12 @@ ${isPlus && apiOk ? `
                 .catch(error => {
                 //console.error(error);
                 throw error;
+            })
+                .finally(() => {
+                //On signifie que le script a fini son action la plus "longue" pour les actions de fin
+                if (!autohideEnabled) {
+                    allFinish = true;
+                }
             });
         }
 
@@ -7971,172 +8350,71 @@ ${isPlus && apiOk ? `
                         verticalTime = etvVerticalMobile;
                     }
 
-                    const etvReal = document.createElement('div');
+                    const etvRealDiv = document.createElement('div');
                     let displayHTML = "";
+                    //On extrait en début de bloc pour alléger les appels
+                    const { etv_real: etvReal, price } = orderData;
+
+                    //On prépare les attributs data-* du wrapper
+                    const wrapperAttrs = `class="order-item" data-price=${price !== null ? price : ''} data-etv=${etvReal !== null ? etvReal : ''}`;
+
                     if (mobileEnabled || cssEnabled) {
                         if (showPrice) {
-                            if (orderData.etv_real !== null) {
-                                if (orderData.etv_real === "0.00") {
-                                    if (orderData.price !== null) {
-                                        if (showPriceIcon) {
-                                            displayHTML = `
-                                <span>${iconPrice}</span><span>${orderData.price}€</span><br>
-                                <span>${iconETV}</span><span style="color: red;">${orderData.etv_real}€</span>
-                            `;
-                                        } else {
-                                            displayHTML = `
-                                <span>${orderData.price}€</span><br>
-                                <span style="color: red;">${orderData.etv_real}€</span>
-                            `;
-                                        }
+                            if (etvReal !== null) {
+                                if (etvReal === "0.00") {
+                                    if (price !== null) {
+                                        displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconPrice}</span>` : ''}<span>${price}€</span><br><span>${iconETV}</span><span style="color: red;">${etvReal}€</span></div>`;
                                     } else {
-                                        if (showPriceIcon) {
-                                            displayHTML = `
-                                <span>${iconETV}</span><br>
-                                <span style="color: red;">${orderData.etv_real}€</span>
-                            `;
-                                        } else {
-                                            displayHTML = `<span style="color: red;">${orderData.etv_real}€</span>`;
-                                        }
+                                        displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconETV}</span><br>` : ''}<span style="color: red;">${etvReal}€</span></div>`;
                                     }
                                 } else {
-                                    if (orderData.price !== null) {
-                                        if (showPriceIcon) {
-                                            displayHTML = `
-                                <span>${iconPrice}${iconETV}</span><br>
-                                <span>${orderData.etv_real}€</span>
-                            `;
-                                        } else {
-                                            displayHTML = `<span>${orderData.etv_real}€</span>`;
-                                        }
+                                    if (price !== null) {
+                                        displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconPrice}${iconETV}</span><br>` : ''}<span>${etvReal}€</span></div>`;
                                     } else {
-                                        if (showPriceIcon) {
-                                            displayHTML = `
-                                <span>${iconETV}</span><br>
-                                <span>${orderData.etv_real}€</span>
-                            `;
-                                        } else {
-                                            displayHTML = `<span>${orderData.etv_real}€</span>`;
-                                        }
+                                        displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconETV}</span><br>` : ''}<span>${etvReal}€</span></div>`;
                                     }
                                 }
                             } else {
-                                if (orderData.price !== null) {
-                                    if (showPriceIcon) {
-                                        displayHTML = `
-                            <span>${iconPrice}</span><br>
-                            <span>${orderData.price}€</span>
-                        `;
-                                    } else {
-                                        displayHTML = `
-                            <span>${orderData.price}€</span><br>
-                            <span>N/A</span>
-                        `;
-                                    }
+                                if (price !== null) {
+                                    displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconPrice}</span><br>` : ''}<span>${price}€</span></div>`;
                                 }
                             }
                         } else {
-                            if (orderData.etv_real !== null) {
-                                if (orderData.etv_real === "0.00") {
-                                    if (showPriceIcon) {
-                                        displayHTML = `
-                            <span>${iconETV}</span><br>
-                            <span style="color: red;">${orderData.etv_real}€</span>
-                        `;
-                                    } else {
-                                        displayHTML = `<span style="color: red;">${orderData.etv_real}€</span>`;
-                                    }
-                                } else {
-                                    if (showPriceIcon) {
-                                        displayHTML = `
-                            <span>${iconETV}</span><br>
-                            <span>${orderData.etv_real}€</span>
-                        `;
-                                    } else {
-                                        displayHTML = `<span>${orderData.etv_real}€</span>`;
-                                    }
-                                }
+                            if (etvReal !== null) {
+                                displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconETV}</span><br>` : ''}<span${etvReal === "0.00" ? ' style="color: red;"' : ''}>${etvReal}€</span></div>`;
                             }
                         }
                     } else {
+                        //Version “desktop”
                         if (showPrice) {
-                            if (orderData.etv_real !== null) {
-                                if (orderData.etv_real === "0.00") {
-                                    if (orderData.price !== null) {
-                                        if (showPriceIcon) {
-                                            displayHTML = `
-                                <span>${iconPrice}</span> <span>${orderData.price}€</span>
-                                / <span>${iconETV}</span> <span style="color: red;">${orderData.etv_real}€</span>
-                            `;
-                                        } else {
-                                            displayHTML = `
-                                <span>${orderData.price}€</span> /
-                                <span style="color: red;">${orderData.etv_real}€</span>
-                            `;
-                                        }
+                            if (etvReal !== null) {
+                                if (etvReal === "0.00") {
+                                    if (price !== null) {
+                                        displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconPrice}</span>` : ''}<span>${price}€</span> / <span>${iconETV}</span><span style="color: red;">${etvReal}€</span></div>`;
                                     } else {
-                                        if (showPriceIcon) {
-                                            displayHTML = `
-                                <span>${iconETV}</span>
-                                <span style="color: red;">${orderData.etv_real}€</span>
-                            `;
-                                        } else {
-                                            displayHTML = `<span style="color: red;">${orderData.etv_real}€</span>`;
-                                        }
+                                        displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconETV}</span>` : ''}<span style="color: red;">${etvReal}€</span></div>`;
                                     }
                                 } else {
-                                    if (showPriceIcon) {
-                                        displayHTML = `
-                            <span>${iconPrice}${iconETV}</span>
-                            <span>${orderData.etv_real}€</span>
-                        `;
-                                    } else {
-                                        displayHTML = `<span>${orderData.etv_real}€</span>`;
-                                    }
+                                    displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconPrice}${iconETV}</span>` : ''}<span>${etvReal}€</span></div>`;
                                 }
                             } else {
-                                if (showPriceIcon) {
-                                    displayHTML = `
-                        <span>${iconPrice}</span> <span>${orderData.price}€</span>
-                    `;
-                                } else {
-                                    displayHTML = `
-                        <span>${orderData.price}€ / N/A</span>
-                    `;
-                                }
+                                displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconPrice}</span> <span>${price}€</span>` : `<span>${price}€ / N/A</span>`}</div>`;
                             }
                         } else {
-                            if (orderData.etv_real === "0.00") {
-                                if (showPriceIcon) {
-                                    displayHTML = `
-                        <span>${iconETV}</span>
-                        <span style="color: red;">${orderData.etv_real}€</span>
-                    `;
-                                } else {
-                                    displayHTML = `<span style="color: red;">${orderData.etv_real}€</span>`;
-                                }
-                            } else {
-                                if (showPriceIcon) {
-                                    displayHTML = `
-                        <span>${iconETV}</span>
-                        <span>${orderData.etv_real}€</span>
-                    `;
-                                } else {
-                                    displayHTML = `<span>${orderData.etv_real}€</span>`;
-                                }
-                            }
+                            displayHTML = `<div ${wrapperAttrs}>${showPriceIcon ? `<span>${iconETV}</span>` : ''}<span${etvReal === "0.00" ? ' style="color: red;"' : ''}>${etvReal}€</span></div>`;
                         }
                     }
 
-                    // Ajouter le drapeau si flagEnabled et flagETV, et que flagCountry est renseigné
+
+                    //Ajouter le drapeau si flagEnabled et flagETV, et que flagCountry est renseigné
                     if (flagEnabled && flagETV && flagCountry) {
                         displayHTML = flagCountry + displayHTML;
                     }
 
-                    etvReal.innerHTML = displayHTML;
+                    etvRealDiv.innerHTML = displayHTML;
 
                     if (mobileEnabled || cssEnabled) {
-                        etvReal.style.cssText = `
+                        etvRealDiv.style.cssText = `
             position: absolute;
             bottom: ${verticalTime};
             left: ${horizontalTime};
@@ -8147,12 +8425,12 @@ ${isPlus && apiOk ? `
             border-radius: 5px;
             font-size: ${fontSizeTime};
             white-space: nowrap;
-            z-index: 20;
+            z-index: 5;
             line-height: 1.2;
             text-align: center;
         `;
                     } else {
-                        etvReal.style.cssText = `
+                        etvRealDiv.style.cssText = `
             position: absolute;
             bottom: ${verticalTime};
             left: ${horizontalTime};
@@ -8163,11 +8441,11 @@ ${isPlus && apiOk ? `
             border-radius: 5px;
             font-size: ${fontSizeTime};
             white-space: nowrap;
-            z-index: 20;
+            z-index: 5;
             text-align: center;
         `;
                     }
-                    wrapper.appendChild(etvReal);
+                    wrapper.appendChild(etvRealDiv);
                 }
             });
         }
@@ -9333,40 +9611,135 @@ ${isPlus && apiOk ? `
             }
         }
 
-        async function restoreData(type) {
-            try {
-                const formData = new URLSearchParams({
-                    version: version,
-                    token: API_TOKEN,
-                });
+        //Création / injection de l’overlay + barre de progression
+        function createProgressUI() {
+            const overlay = document.createElement("div");
+            overlay.id = "restore-overlay";
+            Object.assign(overlay.style, {
+                position: "fixed",
+                top: 0, left: 0, right: 0, bottom: 0,
+                background: "rgba(0,0,0,0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 99999,
+                flexDirection: "column",
+                color: "#fff",
+                fontFamily: "sans-serif"
+            });
 
+            const barContainer = document.createElement("div");
+            barContainer.style.width = "80%";
+            barContainer.style.background = "#333";
+            barContainer.style.borderRadius = "4px";
+            barContainer.style.overflow = "hidden";
+            barContainer.style.marginTop = "10px";
+
+            const bar = document.createElement("div");
+            bar.id = "restore-progress-bar";
+            bar.style.width = "0%";
+            bar.style.height = "20px";
+            bar.style.background = "#007bff";
+
+            const text = document.createElement("div");
+            text.id = "restore-progress-text";
+            text.textContent = "0%";
+            text.style.marginTop = "5px";
+
+            barContainer.appendChild(bar);
+            overlay.appendChild(document.createTextNode("Restauration en cours..."));
+            overlay.appendChild(barContainer);
+            overlay.appendChild(text);
+            document.body.appendChild(overlay);
+        }
+
+        //Mise à jour de la barre
+        function updateProgressUI(percent) {
+            const bar = document.getElementById("restore-progress-bar");
+            const text = document.getElementById("restore-progress-text");
+            if (bar && text) {
+                bar.style.width = `${percent}%`;
+                text.textContent = `${Math.floor(percent)}%`;
+            }
+        }
+
+        //Nettoyage UI + handler
+        function removeProgressUI() {
+            const overlay = document.getElementById("restore-overlay");
+            if (overlay) document.body.removeChild(overlay);
+            window.onbeforeunload = null;
+        }
+
+        //Intégration dans restoreData
+        async function restoreData(type) {
+            //Empêche le rechargement / fermeture
+            window.onbeforeunload = (e) => {
+                e.preventDefault();
+                e.returnValue = "";
+            };
+            createProgressUI();
+
+            try {
+                const formData = new URLSearchParams({ version, token: API_TOKEN });
                 const response = await fetch("https://pickme.alwaysdata.net/shyrka/restore", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
                     body: formData.toString()
                 });
-
                 if (!response.ok) {
                     throw new Error(`Erreur lors de la restauration : ${response.status} ${response.statusText}`);
                 }
 
                 const data = await response.json();
+                const entries = Object.entries(data).filter(([k]) => k !== "storedProducts");
+                const totalOps = (
+                    (type === "products" && data.storedProducts !== undefined ? 1 : 0)
+                    + (type === "products"
+                       ? entries.filter(([k]) => k.endsWith("_c") || k.endsWith("_f")).length
+                       : type === "settings"
+                       ? entries.length
+                       : 0
+                      )
+                );
+                let done = 0;
 
-                for (const key in data) {
-                    if (key.endsWith('_c') || key.endsWith('_f')) {
-                        if (type == "products") {
-                            localStorage.setItem(key, data[key]);
-                        }
-                    } else {
-                        if (type == "settings") {
-                            GM_setValue(key, data[key]);
-                        }
+                //Cas produits → storedProducts
+                if (type === "products" && data.storedProducts !== undefined) {
+                    await GM.setValue("storedProducts", data.storedProducts);
+                    done++;
+                    updateProgressUI(done/totalOps*100);
+                }
+
+                //Cas settings → batch + chunk
+                if (type === "settings") {
+                    const chunkSize = 20;
+                    for (let i = 0; i < entries.length; i += chunkSize) {
+                        const batch = entries.slice(i, i + chunkSize);
+                        await Promise.all(batch.map(async ([key, value]) => {
+                            await GM.setValue(key, value);
+                            done++;
+                            updateProgressUI(done/totalOps*100);
+                        }));
+                        // yield pour ne pas bloquer
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+                    return;
+                }
+
+                //Cas produits (suite) → clés _c et _f
+                for (const [key, val] of entries) {
+                    if (type === "products" && (key.endsWith("_c") || key.endsWith("_f"))) {
+                        localStorage.setItem(key, val);
+                        done++;
+                        updateProgressUI(done/totalOps*100);
+                        //yield pour ne pas bloquer
+                        await new Promise(r => setTimeout(r, 0));
                     }
                 }
-            } catch (error) {
-                console.error("Erreur lors de la restauration :", error);
+            } catch (err) {
+                console.error("Erreur lors de la restauration :", err);
+            } finally {
+                removeProgressUI();
             }
         }
 
@@ -9399,6 +9772,100 @@ ${isPlus && apiOk ? `
             }
         }
         //End sauvegarde
+
+        //Bouton de tri
+        function insertSortMenu() {
+            //Création du wrapper sans marges verticales, et position à droite
+            const wrapper = document.createElement('div');
+            wrapper.className = 'tri-container';
+            wrapper.style.margin = '0';
+            wrapper.style.marginLeft = 'auto';
+
+            //Label "Tri :"
+            const label = document.createElement('span');
+            label.textContent = 'Tri : ';
+            wrapper.appendChild(label);
+
+            //Le <select> et ses options (vide + 4 prédéfinis + Personnalisé)
+            const select = document.createElement('select');
+            select.className = 'tri-select';
+            if (mobileEnabled) {
+                select.style.boxSizing = 'border-box';
+                select.style.maxWidth = '60%';
+                wrapper.style.overflowY = 'hidden';
+            }
+
+            //Option vide
+            select.appendChild(Object.assign(document.createElement('option'), { value: '', textContent: '' }));
+
+            //Tris prédéfinis
+            [
+                { text: 'Prix décroissant', payload: [{ type: 'price', order: 'desc'}] },
+                { text: 'ETV croissant', payload: [{ type: 'etv', order: 'asc'}] },
+                { text: 'Prix croissant', payload: [{ type: 'price', order: 'asc' }] },
+                { text: 'ETV décroissant', payload: [{ type: 'etv', order: 'desc'}] }
+            ].forEach(opt => {
+                const o = document.createElement('option');
+                o.textContent = opt.text;
+                o.value = JSON.stringify(opt.payload);
+                select.appendChild(o);
+            });
+
+            //Option personnalisé
+            const oCustom = document.createElement('option');
+            oCustom.value = '__custom__';
+            oCustom.textContent = 'Personnalisé';
+            select.appendChild(oCustom);
+
+            //Si on a activé déja le tri personnalisé, on présélectionne dans le menu
+            if (customSortingEnabled) {
+                oCustom.selected = true;
+                select.remove(0);
+            }
+
+            //Événement de changement
+            select.addEventListener('change', e => {
+                const v = e.target.value;
+                if (v === '') return;
+                if (v === '__custom__') {
+                    sortItems(customSorting);
+                } else {
+                    sortItems(JSON.parse(v));
+                }
+                //Ne supprimer l'option vide que si elle existe encore en position 0
+                if (select.options.length > 0 && select.options[0].value === '') {
+                    select.remove(0);
+                }
+                //Retire le focus
+                select.blur();
+            });
+
+            wrapper.appendChild(select);
+
+            //Insertion seulement si hideEnabled
+            if (hideEnabled) {
+                (function waitForContainer() {
+                    const container = document.getElementById('divCacherHaut');
+                    if (container) {
+                        container.style.display = 'flex';
+                        container.style.alignItems = 'center';
+                        container.appendChild(wrapper);
+                    } else {
+                        setTimeout(waitForContainer, 50);
+                    }
+                })();
+            } else {
+                const resultats = document.querySelector('#vvp-items-grid-container > p');
+                if (resultats) {
+                    wrapper.style.marginBottom = '10px';
+                    resultats.after(wrapper);
+                }
+            }
+        }
+
+        if (apiOk && menuSorting) {
+            insertSortMenu();
+        }
 
         //Partage de reco
         function insertButton() {
@@ -9600,12 +10067,39 @@ ${isPlus && apiOk ? `
 
         if (shareReco && apiOk && valeurQueue == "potluck") {
             insertButton();
+            if (!hideEnabled) {
+                //Ajout du style pour les boutons
+                const style = document.createElement('style');
+
+                style.textContent = `
+		 .bouton-action {
+			background-color: #f7ca00;
+			color: black;
+			font-weight: bold;
+			text-decoration: none;
+			display: inline-block;
+			border: 1px solid #dcdcdc;
+			border-radius: 20px;
+			padding: 5px 15px;
+			margin-right: 5px;
+			cursor: pointer;
+			outline: none;
+		}
+		`;
+                document.head.appendChild(style);
+            }
         }
 
-        //Reload pour reco horaire
+        //AutoRefresh
         function reloadAtNextFullHour() {
             let refreshInterval;
             let countdownDiv;
+
+            //Nouvelles variables pour la plage horaire
+            let autoRefreshTimeSlot = GM_getValue("autoRefreshTimeSlot", true);
+            let timeSlotStart = GM_getValue("timeSlotStart", "02:00");
+            let timeSlotEnd = GM_getValue("timeSlotEnd", "14:00");
+
             //Fonction pour générer un entier aléatoire
             function getRandomInteger(min, max) {
                 min = Math.ceil(min);
@@ -9613,7 +10107,61 @@ ${isPlus && apiOk ? `
                 return Math.floor(Math.random() * (max - min + 1)) + min;
             }
 
-            //Fonction pour ajouter les options de refresh dans la page, à côté du logo
+            //Calcul du prochain délai de refresh
+            function calculateRefreshDelay() {
+                //Détermination si on est dans la plage horaire
+                let now = new Date();
+                let inSlot = true;
+                if (autoRefreshTimeSlot) {
+                    const [startH, startM] = timeSlotStart.split(':').map(Number);
+                    const [endH, endM] = timeSlotEnd.split(':').map(Number);
+                    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+                    const startMinutes = startH * 60 + startM;
+                    const endMinutes = endH * 60 + endM;
+                    if (startMinutes <= endMinutes) {
+                        inSlot = (nowMinutes >= startMinutes && nowMinutes <= endMinutes);
+                    } else {
+                        //Plage qui passe par minuit
+                        inSlot = (nowMinutes >= startMinutes || nowMinutes <= endMinutes);
+                    }
+                }
+
+                // Autorise le refresh dynamique seulement si on est dans la plage (ou si autoRefreshTimeSlot désactivé)
+                const allowDynamic = (!autoRefreshTimeSlot || inSlot) && enableRefresh;
+                // Si ni dynamique ni horaire fixé, on ne schedule rien
+                if (!allowDynamic && !useFixedHour) return;
+
+                //Calcul du délai dynamique
+                const randomSec = getRandomInteger(0, randomDelay);
+                const totalDelaySec = (refreshDelay * 60) + randomSec;
+                let nextRefreshTime = Date.now() + (totalDelaySec * 1000);
+                let useHoraire = false;
+
+                //Calcul du prochain rafraîchissement horaire
+                const nowDate = new Date();
+                const nextHour = new Date(nowDate);
+                nextHour.setMinutes(0, 0, 0);
+                nextHour.setHours(nowDate.getHours() + 1);
+                const candidateFixed = nextHour.getTime() + (randomSec * 1000);
+
+                if (useFixedHour) {
+                    if (allowDynamic) {
+                        //choix entre dynamique et horaire
+                        if (candidateFixed < nextRefreshTime) {
+                            nextRefreshTime = candidateFixed;
+                            useHoraire = true;
+                        }
+                    } else {
+                        //en dehors de la plage dynamiques, mais horaire activé
+                        nextRefreshTime = candidateFixed;
+                        useHoraire = true;
+                    }
+                }
+
+                return { nextRefreshTime, useHoraire };
+            }
+
+            //Ajout de l'UI pour activer le refresh, choisir page, délais, etc.
             function addAutoRefreshUI() {
                 const container = document.createElement('div');
                 container.classList.add('refresh');
@@ -9621,9 +10169,8 @@ ${isPlus && apiOk ? `
                 container.style.alignItems = 'center';
                 container.style.position = 'relative';
                 container.style.top = '0px';
-                container.style.left = '20px'; //Collez le formulaire directement à côté du logo
+                container.style.left = '20px';
 
-                //Container pour les options
                 const optionsContainer = document.createElement('div');
                 optionsContainer.classList.add('options-refresh');
                 optionsContainer.style.marginLeft = '10px';
@@ -9637,62 +10184,37 @@ ${isPlus && apiOk ? `
                 optionsContainer.style.width = 'auto';
                 optionsContainer.style.maxWidth = '800px';
 
-                //Case à cocher pour activer le refresh
+                //Checkbox Activer
                 const enableRefreshLabel = document.createElement('label');
                 const enableRefreshCheckbox = document.createElement('input');
                 enableRefreshCheckbox.type = 'checkbox';
                 enableRefreshCheckbox.style.marginRight = '5px';
-
-                //Ajouter la checkbox avant le texte
                 enableRefreshLabel.appendChild(enableRefreshCheckbox);
                 enableRefreshLabel.appendChild(document.createTextNode('Activer'));
-
-                enableRefreshCheckbox.addEventListener('click', function(event) {
-                    enableRefresh = enableRefreshCheckbox.checked
-                    if (enableRefreshCheckbox.checked) {
-                        GM_setValue('enableRefresh', enableRefreshCheckbox.checked);
-                        scheduleRefresh();
-                    } else {
-                        GM_setValue('enableRefresh', enableRefreshCheckbox.checked);
-                        if (fixedHourCheckbox) {
-                            scheduleRefresh();
-                        } else {
-                            if (refreshInterval) {
-                                clearInterval(refreshInterval);
-                                refreshInterval = null;
-                            }
-                            if (countdownDiv) {
-                                countdownDiv.remove();
-                                countdownDiv = null;
-                            }
-                        }
-                    }
-                });
-
-                //Appliquer le style pour afficher les éléments sur la même ligne avec un espace entre la checkbox et le texte
                 enableRefreshLabel.style.alignItems = 'center';
                 enableRefreshLabel.style.gap = '5px';
                 enableRefreshLabel.style.marginRight = '20px';
-
                 optionsContainer.appendChild(enableRefreshLabel);
 
-                //Conteneur pour la sélection de la page
+                enableRefreshCheckbox.addEventListener('click', function() {
+                    enableRefresh = enableRefreshCheckbox.checked;
+                    GM_setValue('enableRefresh', enableRefresh);
+                    scheduleRefresh();
+                });
+
+                //Sélection de la page
                 const pageContainer = document.createElement('div');
                 pageContainer.style.display = 'flex';
                 pageContainer.style.flexDirection = 'column';
                 pageContainer.style.marginRight = '15px';
                 pageContainer.style.alignItems = 'center';
 
-                //Label pour la liste déroulante
                 const pageLabel = document.createElement('label');
                 pageLabel.innerText = 'Page';
                 pageLabel.style.marginBottom = '4px';
                 pageLabel.style.textAlign = 'center';
-
-                //Ajouter le label au conteneur
                 pageContainer.appendChild(pageLabel);
 
-                //Menu déroulant pour choisir la page à rafraîchir
                 const pageSelect = document.createElement('select');
                 const pages = [
                     { label: 'Page actuelle', value: 'current' },
@@ -9707,27 +10229,20 @@ ${isPlus && apiOk ? `
                     pageSelect.appendChild(option);
                 });
                 pageSelect.style.marginBottom = '5px';
-
-                //Ajouter le menu déroulant au conteneur
                 pageContainer.appendChild(pageSelect);
-
-                //Ajouter le conteneur de la page à l'optionsContainer
                 optionsContainer.appendChild(pageContainer);
 
-                //Ajout de l'écouteur sur l'événement 'change'
-                pageSelect.addEventListener('change', function(event) {
+                pageSelect.addEventListener('change', function() {
                     GM_setValue('pageToRefresh', pageSelect.value);
                     pageToRefresh = pageSelect.value;
                 });
 
-                //Zone pour entrer le délai en minutes
+                //Délai (min)
                 const delayContainer = document.createElement('div');
                 delayContainer.style.marginRight = '0px';
                 delayContainer.style.display = 'flex';
                 delayContainer.style.flexDirection = 'column';
-                delayContainer.style.alignItems = 'flex-start';
                 delayContainer.style.alignItems = 'center';
-
 
                 const delayLabel = document.createElement('label');
                 delayLabel.innerText = 'Délai (min)';
@@ -9741,16 +10256,13 @@ ${isPlus && apiOk ? `
                 delayContainer.appendChild(delayInput);
                 optionsContainer.appendChild(delayContainer);
 
-                delayInput.addEventListener('change', function(event) {
-                    if (delayInput.value == "" || delayInput.value == "0") {
-                        delayInput.value = 5;
-                    }
+                delayInput.addEventListener('change', function() {
+                    if (!delayInput.value || delayInput.value === "0") delayInput.value = 5;
                     GM_setValue('refreshDelay', delayInput.value);
-                    refreshDelay = delayInput.value;
+                    refreshDelay = Number(delayInput.value);
                     scheduleRefresh();
                 });
 
-                //Création et insertion du texte "+"
                 const plusText = document.createElement('span');
                 plusText.innerText = '+';
                 plusText.style.margin = 'auto 15px';
@@ -9759,14 +10271,12 @@ ${isPlus && apiOk ? `
                 plusText.style.alignItems = 'center';
                 optionsContainer.appendChild(plusText);
 
-                //Zone pour ajouter un délai aléatoire
+                //Aléatoire max (sec)
                 const randomDelayContainer = document.createElement('div');
                 randomDelayContainer.style.marginRight = '15px';
                 randomDelayContainer.style.display = 'flex';
                 randomDelayContainer.style.flexDirection = 'column';
-                randomDelayContainer.style.alignItems = 'flex-start';
                 randomDelayContainer.style.alignItems = 'center';
-
 
                 const randomDelayLabel = document.createElement('label');
                 randomDelayLabel.innerText = 'Aléatoire max (sec)';
@@ -9780,38 +10290,30 @@ ${isPlus && apiOk ? `
                 randomDelayContainer.appendChild(randomDelayInput);
                 optionsContainer.appendChild(randomDelayContainer);
 
-                randomDelayInput.addEventListener('change', function(event) {
-                    if (randomDelayInput.value == "") {
-                        randomDelayInput.value = 15;
-                    }
+                randomDelayInput.addEventListener('change', function() {
+                    if (!randomDelayInput.value) randomDelayInput.value = 15;
                     GM_setValue('randomDelay', randomDelayInput.value);
-                    randomDelay = randomDelayInput.value;
+                    randomDelay = Number(randomDelayInput.value);
                     scheduleRefresh();
                 });
 
-                //Case à cocher pour activer un refresh horaire fixe
+                //Checkbox Horaire
                 const fixedHourLabel = document.createElement('label');
                 const fixedHourCheckbox = document.createElement('input');
                 fixedHourCheckbox.type = 'checkbox';
                 fixedHourCheckbox.style.marginRight = '5px';
-
-                //Ajouter la checkbox avant le texte
                 fixedHourLabel.appendChild(fixedHourCheckbox);
                 fixedHourLabel.appendChild(document.createTextNode('Horaire'));
-
-                //Ajout d'une bordure verticale pour dissocier visuellement
                 fixedHourLabel.classList.add('fixed-hour-label');
                 fixedHourLabel.style.borderLeft = '1px solid #0f1111';
                 fixedHourLabel.style.paddingLeft = '10px';
                 fixedHourLabel.style.marginLeft = '10px';
-
                 fixedHourLabel.style.alignItems = 'center';
-
                 optionsContainer.appendChild(fixedHourLabel);
 
-                fixedHourCheckbox.addEventListener('click', function(event) {
+                fixedHourCheckbox.addEventListener('click', function() {
                     useFixedHour = fixedHourCheckbox.checked;
-                    GM_setValue('useFixedHour', fixedHourCheckbox.checked);
+                    GM_setValue('useFixedHour', useFixedHour);
                     scheduleRefresh();
                 });
 
@@ -9819,7 +10321,7 @@ ${isPlus && apiOk ? `
                 const headerLinksContainer = document.querySelector('.vvp-header-links-container');
                 logoLink.parentNode.insertBefore(optionsContainer, headerLinksContainer);
 
-                //Récupérer les valeurs sauvegardées et les appliquer
+                //Appliquer les valeurs stockées
                 pageSelect.value = pageToRefresh;
                 delayInput.value = refreshDelay;
                 randomDelayInput.value = randomDelay;
@@ -9827,42 +10329,7 @@ ${isPlus && apiOk ? `
                 enableRefreshCheckbox.checked = enableRefresh;
             }
 
-            //Fonction pour calculer le délai de refresh
-            function calculateRefreshDelay() {
-                if (!enableRefresh && !useFixedHour) return;
-
-                const randomSec = getRandomInteger(0, randomDelay);
-                const totalDelaySec = (refreshDelay * 60) + randomSec;
-                //Temps calculé en mode "délai dynamique"
-                let nextRefreshTime = Date.now() + (totalDelaySec * 1000);
-                //Pour savoir si le prochain refresh est horaire ou pas
-                let useHoraire = false;
-                if (useFixedHour) {
-                    const now = new Date();
-                    const nextHour = new Date();
-                    nextHour.setMinutes(0);
-                    nextHour.setSeconds(0);
-                    nextHour.setMilliseconds(0);
-                    nextHour.setHours(now.getHours() + 1);
-                    //On ajoute randomSec (converti en millisecondes) à l'heure fixe
-                    const candidateFixed = nextHour.getTime() + (randomSec * 1000);
-                    if (enableRefresh) {
-                        //On choisit le prochain rafraîchissement le plus proche entre les deux méthodes
-                        nextRefreshTime = Math.min(nextRefreshTime, candidateFixed);
-                        if (nextRefreshTime == candidateFixed) {
-                            useHoraire = true;
-                        }
-                    } else {
-                        //Si c'est que horaire, alors on le renvoi directement
-                        nextRefreshTime = candidateFixed;
-                        useHoraire = true;
-                    }
-                }
-
-                return { nextRefreshTime, useHoraire };
-            }
-
-            //Fonction pour rafraîchir la page après le délai
+            //Schedule le refresh et affiche le compte à rebours
             function scheduleRefresh() {
                 if (refreshInterval) {
                     clearInterval(refreshInterval);
@@ -9872,26 +10339,15 @@ ${isPlus && apiOk ? `
                     countdownDiv.remove();
                     countdownDiv = null;
                 }
-                if (!enableRefresh && !useFixedHour) return; //Ne pas rafraîchir la page si le refresh est désactivé ainsi que l'horaire
+                const next = calculateRefreshDelay();
+                if (!next) return;
 
-                const nextRefreshTime = calculateRefreshDelay();
-                if (nextRefreshTime.useHoraire && refreshOnlyReco && valeurQueue != "potluck") {
-                    return;
-                }
-                const now = new Date().getTime();
-                const delay = nextRefreshTime.nextRefreshTime - now;
+                const now = Date.now();
+                const delay = next.nextRefreshTime - now;
 
                 countdownDiv = document.createElement('div');
-                if (refreshFixed) {
-                    countdownDiv.style.position = 'absolute';
-                } else {
-                    countdownDiv.style.position = 'fixed';
-                }
-                if (headerEnabled) {
-                    countdownDiv.style.top = refreshVerticalNoHeader;
-                } else {
-                    countdownDiv.style.top = refreshVertical;
-                }
+                countdownDiv.style.position = refreshFixed ? 'absolute' : 'fixed';
+                countdownDiv.style.top = headerEnabled ? refreshVerticalNoHeader : refreshVertical;
                 countdownDiv.style.left = refreshHorizontal;
                 countdownDiv.style.transform = 'translateX(-50%)';
                 countdownDiv.style.backgroundColor = '#191919';
@@ -9903,11 +10359,10 @@ ${isPlus && apiOk ? `
                 document.body.appendChild(countdownDiv);
 
                 function updateCountdown() {
-                    const timeLeft = nextRefreshTime.nextRefreshTime - new Date().getTime();
+                    const timeLeft = next.nextRefreshTime - Date.now();
                     if (timeLeft <= 0) {
                         countdownDiv.textContent = 'Actualisation...';
                         let targetUrl = 'https://www.amazon.fr/vine/vine-items?queue=';
-
                         if (pageToRefresh === 'current') {
                             targetUrl = window.location.href;
                         } else if (pageToRefresh === 'potluck') {
@@ -9922,7 +10377,7 @@ ${isPlus && apiOk ? `
                         const minutes = Math.floor(timeLeft / 1000 / 60);
                         const seconds = Math.floor((timeLeft / 1000) % 60);
                         countdownDiv.textContent = '';
-                        if (nextRefreshTime.useHoraire) {
+                        if (next.useHoraire) {
                             countdownDiv.textContent += '(Horaire) ';
                         }
                         countdownDiv.textContent += `Prochaine actualisation : ${minutes} min. ${seconds} sec.`;
@@ -9934,13 +10389,57 @@ ${isPlus && apiOk ? `
             }
 
             const nextRefreshTime = calculateRefreshDelay();
-            //Ajouter l'interface utilisateur
             if (!(useFixedHour && refreshHideUI)) {
                 addAutoRefreshUI();
             }
-
-            //Planifier le premier refresh
             scheduleRefresh();
+        }
+
+        //Pour trier les produits selon un ordre défini => type ['firstproduct', 'newproduct','favproduct', 'putproduct', 'price','etv'] / order ['asc','desc'] (uniquement pour price et etv)
+        function sortItems(criteria = []) {
+            const container = document.getElementById('vvp-items-grid');
+            if (!container || criteria.length === 0) return;
+
+            // Récupère tous les éléments dans le container
+            const items = Array.from(container.children);
+
+            // Types traités comme booléens (1 si la classe est présente, 0 sinon)
+            const booleanTypes = ['newproduct', 'favproduct', 'putproduct', 'firstproduct'];
+
+            function getValue(item, type) {
+                if (booleanTypes.includes(type)) {
+                    return item.classList.contains(type) ? 1 : 0;
+                }
+                // Pour price et etv : on lit les data-attributes et on parse en nombre
+                const orderDiv = item.querySelector('.order-item');
+                if (!orderDiv) return Infinity;
+                const raw = (type === 'price')
+                ? orderDiv.dataset.price
+                : orderDiv.dataset.etv;
+                const num = parseFloat(raw);
+                return isNaN(num) ? Infinity : num;
+            }
+
+            items.sort((a, b) => {
+                for (const { type, order = 'desc' } of criteria) {
+                    const va = getValue(a, type);
+                    const vb = getValue(b, type);
+
+                    // Tri booléen pour newproduct / favproduct / putproduct (toujours desc)
+                    if (booleanTypes.includes(type) && va !== vb) {
+                        return vb - va;
+                    }
+
+                    // Tri numérique pour price / etv
+                    if ((type === 'price' || type === 'etv') && va !== vb) {
+                        return (order === 'asc') ? va - vb : vb - va;
+                    }
+                }
+                return 0;
+            });
+
+            // On réinsère les éléments dans l'ordre trié
+            items.forEach(item => container.appendChild(item));
         }
 
         //Appeler la fonction immédiatement au chargement de la page
@@ -9949,9 +10448,35 @@ ${isPlus && apiOk ? `
         }
 
         if (autohideEnabled) {
-            setTimeout(displayContent, 600);
+            const intervalId = setInterval(() => {
+                if (allFinish) {
+                    clearInterval(intervalId);
+                    if (customSortingEnabled) {
+                        sortItems(customSorting);
+                    }
+                    displayContent();
+                }
+            }, 50);
+            //setTimeout(displayContent, 600);
         } else {
-            displayContent();
+            if (ordersInfos && ordersEnabled) {
+                const intervalId = setInterval(() => {
+                    if (allFinish) {
+                        clearInterval(intervalId);
+                        if (customSortingEnabled) {
+                            sortItems(customSorting);
+                        }
+                        displayContent();
+                    }
+                }, 50);
+            } else {
+                if (customSortingEnabled) {
+                    sortItems(customSorting);
+                }
+                displayContent();
+            }
+            //setTimeout(() => sortItems(customSorting), 300);
+            //displayContent();
         }
 
         //Ronde
