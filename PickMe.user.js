@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.6.0
+// @version      2.6.1
 // @description  PLugin d'aide à la navigation pour les membres du discord Amazon Vine FR
 // @author       Créateur/Codeur : MegaMan / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -10447,19 +10447,9 @@ ${isPlus && apiOk ? `
             reloadAtNextFullHour();
         }
 
-        if (autohideEnabled) {
-            const intervalId = setInterval(() => {
-                if (allFinish) {
-                    clearInterval(intervalId);
-                    if (customSortingEnabled) {
-                        sortItems(customSorting);
-                    }
-                    displayContent();
-                }
-            }, 50);
-            //setTimeout(displayContent, 600);
-        } else {
-            if (ordersInfos && ordersEnabled) {
+        //Seulement si c'est une page de produit, sinon on retire de suite
+        if (window.location.href.includes("queue=")) {
+            if (autohideEnabled) {
                 const intervalId = setInterval(() => {
                     if (allFinish) {
                         clearInterval(intervalId);
@@ -10469,14 +10459,27 @@ ${isPlus && apiOk ? `
                         displayContent();
                     }
                 }, 50);
+                //setTimeout(displayContent, 600);
             } else {
-                if (customSortingEnabled) {
-                    sortItems(customSorting);
+                if (ordersInfos && ordersEnabled) {
+                    const intervalId = setInterval(() => {
+                        if (allFinish) {
+                            clearInterval(intervalId);
+                            if (customSortingEnabled) {
+                                sortItems(customSorting);
+                            }
+                            displayContent();
+                        }
+                    }, 50);
+                } else {
+                    if (customSortingEnabled) {
+                        sortItems(customSorting);
+                    }
+                    displayContent();
                 }
-                displayContent();
             }
-            //setTimeout(() => sortItems(customSorting), 300);
-            //displayContent();
+        } else {
+            displayContent();
         }
 
         //Ronde
