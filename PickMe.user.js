@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.6.1
-// @description  PLugin d'aide à la navigation pour les membres du discord Amazon Vine FR
+// @version      2.6.2
+// @description  Plugin d'aide à la navigation pour les membres du discord Amazon Vine FR
 // @author       Créateur/Codeur : MegaMan / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
 // @match        https://www.amazon.fr/vine/vine-items?queue=*
@@ -4740,6 +4740,22 @@ body.modal-open {
   background-color: #007bff;
   color: white;
 }
+
+.button-container.action-buttons > button,
+.button-container.action-buttons > select.btn-like {
+  flex-basis: 48%;
+  margin-right: 1%;
+  margin-left: 1%;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+/* select de restauration */
+select.btn-like {
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: left;
+}
 `;
         document.head.appendChild(styleMenu);
         //Assurez-vous que les boutons sont toujours accessibles
@@ -5143,22 +5159,22 @@ ${isPlus && apiOk ? `
                     saveData();
                 }
             });
-            document.getElementById('restoreData').addEventListener('click', async () => {
-                if (confirm("Êtes-vous sûr de vouloir restaurer les paramètres depuis la sauvegarde ?")) {
-                    await restoreData("settings");
-                    popup.remove();
-                    console.log("Restauration des paramètres réussie");
-                    alert("Restauration des paramètres réussie");
-                    window.location.reload();
-                }
-            });
 
-            document.getElementById('restoreDataProducts').addEventListener('click', async () => {
-                if (confirm("Êtes-vous sûr de vouloir restaurer les produits depuis la sauvegarde ?")) {
-                    await restoreData("products");
+            document.getElementById('restoreData').addEventListener('click', async () => {
+                const type = document.getElementById('restoreDataSelect').value; // all|settings|favhide|products
+                const labels = {
+                    all: "toutes les données",
+                    settings: "les paramètres",
+                    favhide: "les produits favoris/cachés",
+                    products: "les temps/découverte produits"
+                };
+
+                if (confirm(`Êtes-vous sûr de vouloir restaurer ${labels[type]} ?`)) {
+                    await restoreData(type);
                     popup.remove();
-                    console.log("Restauration des produits réussie");
-                    alert("Restauration des produits réussie");
+                    const cleanedLabel = labels[type].replace(/^\s*les\s+/i, '');
+                    console.log(`Restauration réussie (${cleanedLabel})`);
+                    alert(`Restauration réussie (${cleanedLabel})`);
                     window.location.reload();
                 }
             });
@@ -5328,6 +5344,7 @@ ${isPlus && apiOk ? `
 
         //Ajoute les boutons pour les actions spécifiques qui ne sont pas juste des toggles on/off
         function addActionButtons(isPremium, isPremiumPlus, dateLastSave) {
+            const noBackup = dateLastSave === "Aucune sauvegarde";
             return `
 <div class="button-container action-buttons">
 
@@ -5339,8 +5356,19 @@ ${isPlus && apiOk ? `
   <button id="configurerTouches">(PC) Configurer les raccourcis clavier</button>
   <button id="configurerNotif" ${isPremium || !notifEnabled ? 'disabled' : ''}>(Premium) Configurer les notifications</button>
   <button id="saveData" ${isPremium ? 'disabled' : ''}>(Premium) Sauvegarder les paramètres/produits${dateLastSave ? ' (' + dateLastSave + ')' : ''}</button>
-  <button id="restoreData" ${isPremium || dateLastSave === "Aucune sauvegarde" ? 'disabled' : ''}>(Premium) Restaurer les paramètres</button>
-  <button id="restoreDataProducts" ${isPremium || dateLastSave === "Aucune sauvegarde" ? 'disabled' : ''}>(Premium) Restaurer les produits</button>
+  <button id="restoreData"
+          ${isPremium || noBackup ? 'disabled' : ''}>
+      (Premium) Restaurer :
+  </button>
+
+  <select id="restoreDataSelect"
+          class="btn-like"
+          ${isPremium || noBackup ? 'disabled' : ''}>
+      <option value="all">Tout</option>
+      <option value="settings">Paramètres</option>
+      <option value="favhide">(Produits) Favoris/Cachés</option>
+      <option value="products">(Produits) Temps/Bandeau découverte</option>
+  </select>
   <button id="purgeStoredProducts">Supprimer les produits enregistrés pour la surbrillance</button>
   <button id="purgeHiddenObjects">Supprimer les produits cachés et/ou les favoris</button>
   <button style="flex-basis: 100%;" id="purgeAllItems">Purger la mémoire ${afficherMemoireLocalStorage()}</button>
@@ -6397,7 +6425,7 @@ ${isPlus && apiOk ? `
 
             ajouterOptionTexte('logoPM', 'URL du logo', "https://pickme.alwaysdata.net/img/PM.png");
 
-            ajouterSousTitre('Icônes favori et cacher');
+            ajouterSousTitre('Icônes Favori/Cacher');
             ajouterOptionCheckbox('hideBas', 'Ajouter des boutons en bas de page pour rendre visibles ou cacher les produits (en plus de ceux en haut de page)');
             ajouterSeparateur();
             ajouterOptionTexte('favUrlOn', 'URL de l\'image du favori', "https://pickme.alwaysdata.net/img/coeurrouge2.png");
@@ -9600,9 +9628,9 @@ ${isPlus && apiOk ? `
                     const saveButton = document.getElementById('saveData');
                     saveButton.textContent = `(Premium) Sauvegarder les paramètres/produits (${convertToEuropeanDate(responseData.lastSaveDate)})`;
                     const restoreData = document.getElementById('restoreData');
-                    const restoreDataProducts = document.getElementById('restoreDataProducts');
                     restoreData.removeAttribute('disabled');
-                    restoreDataProducts.removeAttribute('disabled');
+                    const restoreDataSelect = document.getElementById('restoreDataSelect');
+                    restoreDataSelect.removeAttribute('disabled');
                 } else {
                     console.error("La date de la dernière sauvegarde n'a pas été retournée.");
                 }
@@ -9673,11 +9701,15 @@ ${isPlus && apiOk ? `
         //Intégration dans restoreData
         async function restoreData(type) {
             //Empêche le rechargement / fermeture
-            window.onbeforeunload = (e) => {
-                e.preventDefault();
-                e.returnValue = "";
-            };
-            createProgressUI();
+            const needBlockUnload = (type === "all" || type === "settings");
+            if (needBlockUnload) {
+                window.onbeforeunload = (e) => { e.preventDefault(); e.returnValue = ""; };
+            }
+
+            const needProgressBar = (type === "all" || type === "settings");
+            if (needProgressBar) createProgressUI();
+
+            const update = pct => { if (needProgressBar) updateProgressUI(pct); };
 
             try {
                 const formData = new URLSearchParams({ version, token: API_TOKEN });
@@ -9686,60 +9718,61 @@ ${isPlus && apiOk ? `
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
                     body: formData.toString()
                 });
-                if (!response.ok) {
-                    throw new Error(`Erreur lors de la restauration : ${response.status} ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`Erreur restauration : ${response.status} ${response.statusText}`);
 
                 const data = await response.json();
                 const entries = Object.entries(data).filter(([k]) => k !== "storedProducts");
-                const totalOps = (
-                    (type === "products" && data.storedProducts !== undefined ? 1 : 0)
-                    + (type === "products"
-                       ? entries.filter(([k]) => k.endsWith("_c") || k.endsWith("_f")).length
-                       : type === "settings"
-                       ? entries.length
-                       : 0
-                      )
-                );
+
+                const favHideKeys = entries.filter(([k]) => k.endsWith("_c") || k.endsWith("_f"));
+                const settingsKeys = entries.filter(([k]) => !(k.endsWith("_c") || k.endsWith("_f")));
+                const hasStoredProd = data.storedProducts !== undefined;
+
+                const doSettings = (type === "all" || type === "settings");
+                const doStoredProd = (type === "all" || type === "products");
+                const doFavHide = (type === "all" || type === "favhide");
+
+                let totalOps = 0;
+                if (doStoredProd && hasStoredProd) totalOps += 1;
+                if (doFavHide) totalOps += favHideKeys.length;
+                if (doSettings) totalOps += settingsKeys.length;
                 let done = 0;
 
-                //Cas produits → storedProducts
-                if (type === "products" && data.storedProducts !== undefined) {
+                if (doStoredProd && hasStoredProd) {
                     await GM.setValue("storedProducts", data.storedProducts);
-                    done++;
-                    updateProgressUI(done/totalOps*100);
+                    update(++done / totalOps * 100);
                 }
 
-                //Cas settings → batch + chunk
-                if (type === "settings") {
-                    const chunkSize = 20;
-                    for (let i = 0; i < entries.length; i += chunkSize) {
-                        const batch = entries.slice(i, i + chunkSize);
-                        await Promise.all(batch.map(async ([key, value]) => {
-                            await GM.setValue(key, value);
-                            done++;
-                            updateProgressUI(done/totalOps*100);
-                        }));
-                        // yield pour ne pas bloquer
-                        await new Promise(r => setTimeout(r, 0));
-                    }
-                    return;
-                }
-
-                //Cas produits (suite) → clés _c et _f
-                for (const [key, val] of entries) {
-                    if (type === "products" && (key.endsWith("_c") || key.endsWith("_f"))) {
-                        localStorage.setItem(key, val);
-                        done++;
-                        updateProgressUI(done/totalOps*100);
-                        //yield pour ne pas bloquer
+                if (doSettings) {
+                    const chunkSize = 100;
+                    for (let i = 0; i < settingsKeys.length; i += chunkSize) {
+                        const batch = settingsKeys.slice(i, i + chunkSize);
+                        await Promise.all(batch.map(([k, v]) => GM.setValue(k, v)));
+                        done += batch.length;
+                        update(done / totalOps * 100);
                         await new Promise(r => setTimeout(r, 0));
                     }
                 }
-            } catch (err) {
+
+                if (doFavHide) {
+                    const chunkSize = 500;
+                    for (let i = 0; i < favHideKeys.length; i += chunkSize) {
+                        const batch = favHideKeys.slice(i, i + chunkSize);
+
+                        for (const [k, v] of batch) {
+                            localStorage.setItem(k, v);
+                            ++done;
+                        }
+
+                        update(done / totalOps * 100);
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+                }
+            }
+            catch (err) {
                 console.error("Erreur lors de la restauration :", err);
-            } finally {
-                removeProgressUI();
+            }
+            finally {
+                if (needBlockUnload) window.onbeforeunload = null;
             }
         }
 
