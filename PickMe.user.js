@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.6.2
+// @version      2.6.3
 // @description  Plugin d'aide à la navigation pour les membres du discord Amazon Vine FR
 // @author       Créateur/Codeur : MegaMan / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -22,6 +22,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_listValues
 // @run-at       document-start
+// @noframes
 // @require      https://code.jquery.com/jquery-3.7.1.min.js
 //==/UserScript==
 
@@ -1212,6 +1213,11 @@ NOTES:
         let customSorting = GM_getValue('customSorting', [{ type: 'firstproduct' }, { type: 'newproduct' }, { type: 'putproduct' }, { type: 'favproduct' }, { type: 'price', order: 'desc' }, { type: 'etv', order: 'asc' }]);
         let menuSorting = GM_getValue('menuSorting', false);
 
+        let favNew = GM_getValue('favNew', '1');
+        let favOld = GM_getValue('favOld', '12');
+
+        let colorblindEnabled = GM_getValue('colorblindEnabled', false);
+
         //Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
         GM_setValue("firsthlEnabled", firsthlEnabled);
@@ -1371,6 +1377,11 @@ NOTES:
         GM_setValue("customSortingEnabled", customSortingEnabled);
         GM_setValue("customSorting", customSorting);
         GM_setValue("menuSorting", menuSorting);
+
+        GM_setValue("favNew", favNew);
+        GM_setValue("favOld", favOld);
+
+        GM_setValue("colorblindEnabled", colorblindEnabled);
 
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
@@ -2780,6 +2791,43 @@ NOTES:
         //Affichage mobile
         if (mobileEnabled && apiOk)
         {
+            //Pour ajouter une classe sur "Catégorie" et gérer l'ouverture/fermeture
+            function initToggle() {
+                const container = document.getElementById('vvp-browse-nodes-container');
+                if (!container) return;
+
+                //Ajouter le bandeau cliquable
+                const header = document.createElement('div');
+                header.id = 'vvp-toggle-header';
+                header.textContent = 'Catégories';
+                container.prepend(header);
+
+                //État initial : fermé
+                container.classList.add('closed');
+
+                header.addEventListener('click', function (e) {
+                    container.classList.toggle('closed');
+                    if (container.classList.contains('closed')) {
+                        header.textContent = 'Catégories';
+                    } else {
+                        header.textContent = 'Catégories';
+                    }
+                    e.stopPropagation();
+                });
+            }
+
+            function waitForContainer() {
+                const container = document.getElementById('vvp-browse-nodes-container');
+                if (container) {
+                    initToggle();
+                } else {
+                    //Réessaie jusqu'à ce que le DOM soit prêt
+                    setTimeout(waitForContainer, 100);
+                }
+            }
+
+            waitForContainer();
+
             var mobileCss = document.createElement('style');
             //On calcule si on doit appliquer la hauteur ou non
             var applyHeight = !(extendedEnabled && mobileEnabled);
@@ -2969,25 +3017,24 @@ body {
 }
 
 #vvp-browse-nodes-container {
-  margin: 1rem 0rem !important;
+  position: relative;
+  border: 1px solid #333;
+  margin-bottom: 1rem;
+  margin-top: 1rem;
 }
 
-#vvp-browse-nodes-container:not(:hover) p,
-#vvp-browse-nodes-container:not(:hover) .parent-node,
-#vvp-browse-nodes-container:not(:hover) .child-node,
-#vvp-browse-nodes-container:not(:hover) #info-container {
+#vvp-toggle-header {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: bold;
+  user-select: none;
+}
+
+#vvp-browse-nodes-container.closed p,
+#vvp-browse-nodes-container.closed .parent-node,
+#vvp-browse-nodes-container.closed .child-node,
+#vvp-browse-nodes-container.closed #info-container {
   display: none !important;
-}
-
-#vvp-browse-nodes-container:not(:hover):before {
-  content: "Catégories";
-  padding: 0.5rem;
-  line-height: 3rem;
-  color: #fff;
-}
-
-#vvp-browse-nodes-container:not(:hover) {
-  background-color: #303333;
 }
 
 #vvp-items-button-container .a-button-toggle.a-button {
@@ -4067,68 +4114,63 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 
         //Fleche pour cacher le menu
         if (!mobileEnabled && apiOk) {
-
             const styles = `
-				.hidden {
-					display: none;
-				}
-				.arrow {
-					cursor: pointer;
-					transition: transform 0.3s ease;
-					width: 20px;
-					height: 20px;
-					vertical-align: middle;
-                    margin-right:2px;
-				}
-				.rotate-180 {
-					transform: rotate(180deg);
-				}
-			`;
+        .hidden {
+            display: none;
+        }
+        .arrow {
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
+    `;
 
-            //Ajouter les styles à la page
             const styleSheet = document.createElement("style");
             styleSheet.type = "text/css";
             styleSheet.innerText = styles;
             document.head.appendChild(styleSheet);
 
-            //Ajouter la flèche à la page
-            var imageUrl = "https://pickme.alwaysdata.net/img/arrowyellowleft.png";
-            if (savedButtonColor == "blue") {
+            let imageUrl = "https://pickme.alwaysdata.net/img/arrowyellowleft.png";
+            if (savedButtonColor === "blue") {
                 imageUrl = "https://pickme.alwaysdata.net/img/arrowleft.png";
-            } else if (savedButtonColor == "black") {
+            } else if (savedButtonColor === "black") {
                 imageUrl = "https://pickme.alwaysdata.net/img/arrowdarkleft.png";
-            } else if (savedButtonColor == "pink") {
+            } else if (savedButtonColor === "pink") {
                 imageUrl = "https://pickme.alwaysdata.net/img/arrowpinkleft.png";
-            } else if (savedButtonColor == "purple") {
+            } else if (savedButtonColor === "purple") {
                 imageUrl = "https://pickme.alwaysdata.net/img/arrowpurpleleft.png";
-            } else if (savedButtonColor == "red") {
+            } else if (savedButtonColor === "red") {
                 imageUrl = "https://pickme.alwaysdata.net/img/arrowredleft.png";
-            } else if (savedButtonColor == "green") {
+            } else if (savedButtonColor === "green") {
                 imageUrl = "https://pickme.alwaysdata.net/img/arrowgreenleft.png";
-            } else if (savedButtonColor == "orange") {
+            } else if (savedButtonColor === "orange") {
                 imageUrl = "https://pickme.alwaysdata.net/img/arroworangeleft.png";
             }
+
             const arrow = $('<img src="' + imageUrl + '" alt="Toggle Menu" id="toggle-arrow" class="arrow">');
 
-            $('#vvp-browse-nodes-container').after(arrow);
+            // Insérer l'icône devant le texte "Affichage de..."
+            const targetParagraph = $('#vvp-items-grid-container p').first();
+            targetParagraph.prepend(arrow);
 
-            //Sélectionner le menu
             const $menu = $('#vvp-browse-nodes-container');
             const $arrow = $('#toggle-arrow');
 
-            //Charger l'état initial du menu
             const isMenuHidden = GM_getValue('isMenuHidden', false);
             if (isMenuHidden) {
                 $menu.addClass('hidden');
                 $arrow.addClass('rotate-180');
             }
 
-            //Gérer le clic sur la flèche
-            $arrow.on('click', function() {
+            $arrow.on('click', function () {
                 $menu.toggleClass('hidden');
                 $arrow.toggleClass('rotate-180');
-
-                //Enregistrer l'état actuel du menu
                 GM_setValue('isMenuHidden', $menu.hasClass('hidden'));
             });
         }
@@ -4841,15 +4883,26 @@ select.btn-like {
             }
 
             let couleur;
-            //Moins de 50% utilisé, affichage en vert
-            if (utilisation < 50) {
-                couleur = '#008000';
-                //Entre 50% et 90%, affichage en bleu
-            } else if (utilisation >= 50 && utilisation <= 90) {
-                couleur = '#007FFF';
-                //Plus de 90%, affichage en rouge
+            if (colorblindEnabled) {
+                //Palette accessible pour daltoniens
+                if (utilisation < 50) {
+                    couleur = '#A6D854'; //Vert clair/turquoise (facilement distinguable)
+                } else if (utilisation <= 90) {
+                    couleur = '#FFD92F'; //Jaune vif
+                } else {
+                    couleur = '#E78AC3'; //Rose/magenta (très visible même en daltonisme rouge-vert)
+                }
             } else {
-                couleur = '#FF0000';
+                //Moins de 50% utilisé, affichage en vert
+                if (utilisation < 50) {
+                    couleur = '#008000'; //Vert
+                    //Entre 50% et 90%, affichage en bleu
+                } else if (utilisation <= 90) {
+                    couleur = '#007FFF'; //Bleu
+                    //Plus de 90%, affichage en rouge
+                } else {
+                    couleur = '#FF0000'; //Rouge
+                }
             }
 
             //Chaîne avec la taille utilisée et la taille maximale
@@ -6568,8 +6621,13 @@ ${isPlus && apiOk ? `
             ajouterOptionCheckbox('notepadEnabled', 'Activer le Bloc-notes');
             ajouterOptionTexte('sizeMobileCat', 'Tailles des boutons de catégories (RFY, AFA, AI) en affichage mobile', '54px');
             ajouterSeparateur();
+            ajouterOptionTexte('favNew', 'Durée (en minutes) pendant laquelle un favori est marqué comme étant récent dans l\'onglet des favoris', '1');
+            ajouterOptionTexte('favOld', 'Durée (en heures) au delà de laquelle un favori est marqué comme étant obsolète dans l\'onglet des favoris', '12');
+            ajouterSeparateur();
             ajouterOptionCheckbox('columnEnabled', 'Rendre fixe le nombre de colonnes des produits');
             ajouterOptionTexte('nbColumn', 'Nombre de colonnes', '5');
+            ajouterSeparateur();
+            ajouterOptionCheckbox('colorblindEnabled', 'Mode daltonien');
 
             ajouterSousTitre('(Premium) ETV / Prix');
             ajouterOptionCheckbox('showPrice', 'Afficher le prix en plus de l\'ETV (le format d\'affichage sera toujours le suivant : Prix / ETV). Si le prix n\'est pas connu, seul l\'ETV est visible');
@@ -7802,10 +7860,18 @@ ${isPlus && apiOk ? `
                             const hoursDiff = timeDiff / (1000 * 60 * 60);
                             const minutesDiff = timeDiff / (1000 * 60);
 
-                            if (hoursDiff > 12) {
-                                dateColor = 'color: #FF0000;';
-                            } else if (minutesDiff < 1) {
-                                dateColor = 'color: #007FFF;';
+                            if (hoursDiff > parseFloat(favOld)) {
+                                if (colorblindEnabled) {
+                                    dateColor = 'color: #E78AC3;'; //Rose magenta (alerte)
+                                } else {
+                                    dateColor = 'color: #FF0000;'; //Rouge (alerte)
+                                }
+                            } else if (minutesDiff < parseFloat(favNew)) {
+                                if (colorblindEnabled) {
+                                    dateColor = 'color: #A6D854;'; //Vert clair/jaune-vert (activité récente)
+                                } else {
+                                    dateColor = 'color: #007FFF;'; //Bleu (activité récente)
+                                }
                             }
                             tr.innerHTML = `
                         <td class="vvp-orders-table--image-col"><img alt="${productInfo.title}" src="${productInfo.main_image}"></td>
