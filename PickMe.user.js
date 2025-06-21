@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.6.3
+// @version      2.6.4
 // @description  Plugin d'aide à la navigation pour les membres du discord Amazon Vine FR
 // @author       Créateur/Codeur : MegaMan / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -4556,7 +4556,12 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         askPage();
                     });
                     //On insère Page X en début de page
-                    newDiv.querySelector('.a-pagination').insertBefore(gotoButtonUp, newDiv.querySelector('.a-last'));
+                    const pagination = newDiv.querySelector('.a-pagination');
+                    const aLast = pagination?.querySelector('.a-last');
+
+                    if (pagination && aLast) {
+                        pagination.insertBefore(gotoButtonUp, aLast);
+                    }
                     //On insère en bas de page
                     paginationContainer.insertBefore(gotoButton, paginationContainer.querySelector('.a-last'));
                 }
@@ -7839,16 +7844,17 @@ ${isPlus && apiOk ? `
                         const tr = document.createElement('tr');
                         tr.className = 'vvp-orders-table--row';
                         const urlProduct = "https://www.amazon.fr/dp/" + asin;
+                        const fallbackImage = 'https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png';
                         if (productInfo == "ASIN absent") {
                             tr.innerHTML = `
-                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png"></td>
+                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="${fallbackImage}"></td>
                         <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Recommandation ou produit inconnu : ${asin}</a></td>
                         <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
                         <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
                     `;
                         } else if (!productInfo.main_image && productInfo.title) {
                             tr.innerHTML = `
-                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="https://pickme.alwaysdata.net/img/Pas-d-image-disponible-svg.png"></td>
+                        <td class="vvp-orders-table--image-col"><img alt="${asin}" src="${fallbackImage}"></td>
                         <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">Produit indisponible : ${productInfo.title}</a></td>
                         <td class="vvp-orders-table--text-col"><strong>N/A</strong></td>
                         <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
@@ -7874,11 +7880,32 @@ ${isPlus && apiOk ? `
                                 }
                             }
                             tr.innerHTML = `
-                        <td class="vvp-orders-table--image-col"><img alt="${productInfo.title}" src="${productInfo.main_image}"></td>
-                        <td class="vvp-orders-table--text-col"><a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">${productInfo.title}</a></td>
-                        <td class="vvp-orders-table--text-col" style="${dateColor}"><strong>${productInfo.date_last_eu}</strong><br><a class="a-link-normal" target="_blank" rel="noopener" href="${productInfo.linkUrl}">${productInfo.linkText}</a></td>
-                        <td class="vvp-orders-table--actions-col"><span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;"><span class="a-button-inner"><button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button><span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span></span></span></td>
-                    `;
+    <td class="vvp-orders-table--image-col">
+        <img
+            alt="${productInfo.title}"
+            src="${productInfo.main_image}"
+            onerror="this.onerror=null;this.src='${fallbackImage}'">
+    </td>
+    <td class="vvp-orders-table--text-col">
+        <a class="a-link-normal" target="_blank" rel="noopener" href="${urlProduct}">
+            ${productInfo.title}
+        </a>
+    </td>
+    <td class="vvp-orders-table--text-col" style="${dateColor}">
+        <strong>${productInfo.date_last_eu}</strong><br>
+        <a class="a-link-normal" target="_blank" rel="noopener" href="${productInfo.linkUrl}">
+            ${productInfo.linkText}
+        </a>
+    </td>
+    <td class="vvp-orders-table--actions-col">
+        <span class="a-button a-button-primary vvp-orders-table--action-btn" style="margin-left: 10px; margin-right: 10px;">
+            <span class="a-button-inner">
+                <button data-key="${key}" class="a-button-input supprimerFavori" aria-labelledby="supprimer-${key}">Supprimer</button>
+                <span class="a-button-text" aria-hidden="true" id="supprimer-${key}">Supprimer</span>
+            </span>
+        </span>
+    </td>
+`;
                         }
                         favorisList.appendChild(tr);
                     });
