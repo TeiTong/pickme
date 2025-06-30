@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.6.4
+// @version      2.6.5
 // @description  Plugin d'aide à la navigation pour les membres du discord Amazon Vine FR
 // @author       Créateur/Codeur : MegaMan / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -10,6 +10,8 @@
 // @match        https://www.amazon.fr/vine/orders*
 // @match        https://www.amazon.fr/vine/account
 // @match        https://www.amazon.fr/vine/resources
+// @match        https://www.amazon.fr/gp/buy/thankyou*
+// @match        https://www.amazon.fr/checkout*
 // @match        https://www.amazon.fr/*
 // @match        https://pickme.alwaysdata.net/*
 // @exclude      https://www.amazon.fr/vine/vine-items?search=*
@@ -33,6 +35,168 @@ NOTES:
 
 (function() {
     'use strict';
+
+    //On exclu les pages que gère RR, on laisse juste pour les pages
+    if (!window.location.href.includes('orders') && !window.location.href.includes('vine-reviews'))
+    {
+        var apiOk = GM_getValue("apiToken", false);
+    }
+
+    let defautTab = GM_getValue('defautTab', 'AFA');
+    let checkoutRedirect = GM_getValue('checkoutRedirect', true);
+    let checkoutButtonUp = GM_getValue('checkoutButtonUp', true);
+
+    let ordersEnabled = GM_getValue('ordersEnabled', true);
+
+    GM_setValue("defautTab", defautTab);
+    GM_setValue("checkoutRedirect", checkoutRedirect);
+    GM_setValue("checkoutButtonUp", checkoutButtonUp);
+
+    GM_setValue("ordersEnabled", ordersEnabled);
+
+    const lienVine = {
+        'RFY': 'https://www.amazon.fr/vine/vine-items?queue=potluck',
+        'AFA': 'https://www.amazon.fr/vine/vine-items?queue=last_chance',
+        'AI':  'https://www.amazon.fr/vine/vine-items?queue=encore',
+        'ALL': 'https://www.amazon.fr/vine/vine-items?queue=all_items',
+    };
+
+    //Page du passage de commande du nouveau checkout
+    //Pour tester si le checkout provient bien d'une page vine
+    const previousPage = document.referrer;
+    const url_checkout = window.location.href;
+
+    //Page de checkout
+    function checkOut(currentUrl) {
+        const match_checkout = currentUrl.match(/\/checkout\/p\/p-(\d{3}-\d{7}-\d{7})/);
+        if (apiOk && previousPage && ordersEnabled && match_checkout && previousPage.includes("vine-items")) {
+            //On purge les anciennes commandes
+            function purgeOldPurchaseData() {
+                const now = Date.now();
+                const maxAge = 24 * 60 * 60 * 1000; //24 heures en millisecondes
+                const stored = GM_getValue("purchaseData", {});
+                let modified = false;
+
+                for (const purchaseId in stored) {
+                    const entry = stored[purchaseId];
+                    if (!entry.timestamp || now - entry.timestamp > maxAge) {
+                        delete stored[purchaseId];
+                        modified = true;
+                    }
+                }
+
+                if (modified) {
+                    GM_setValue("purchaseData", stored);
+                }
+            }
+            purgeOldPurchaseData();
+            const purchaseId = match_checkout[1];
+            const asinCheckout = GM_getValue("asinCheckout", null);
+            const asinParentCheckout = GM_getValue("asinParentCheckout", null);
+            const queueCheckout = GM_getValue("queueCheckout", null);
+            let stored = GM_getValue("purchaseData", {});
+            const now = Date.now(); //Timestamp
+            stored[purchaseId] = {
+                asin: asinCheckout,
+                parent: asinParentCheckout,
+                queue: queueCheckout,
+                timestamp: now
+            };
+            GM_setValue("purchaseData", stored);
+            GM_deleteValue("asinCheckout");
+            GM_deleteValue("asinParentCheckout");
+            GM_deleteValue("queueCheckout");
+        }
+    }
+
+    //Pour surveiller la page checkout contenant l'id de commande car c'est une redirection
+    const targetPattern = /^https:\/\/www\.amazon\.fr\/checkout\/entry\/buynow\?pipelineType=Chewbacca$/;
+    let previousUrl = location.href;
+
+    if (previousPage.includes("vine-items") && targetPattern.test(previousUrl) && ordersEnabled) {
+        const interval = setInterval(() => {
+            const currentUrl = location.href;
+
+            if (currentUrl !== previousUrl) {
+                clearInterval(interval); //On arrête la surveillance
+                console.log("Changement d’URL détecté :", currentUrl);
+                checkOut(currentUrl);
+            }
+        }, 100); //Vérifie toutes les 100 ms
+    }
+
+    //Page de commande validée
+    if (apiOk && window.location.href.includes("/gp/buy/thankyou/handlers")) {
+        if (ordersEnabled) {
+            const purchaseId = new URLSearchParams(location.search).get('purchaseId');
+            let stored = GM_getValue("purchaseData", {});
+            const data = stored[purchaseId];
+            if (data) {
+                delete stored[purchaseId];
+                GM_setValue("purchaseData", stored);
+                let data_order = {
+                    version: GM_info.script.version,
+                    token: apiOk,
+                    parent_asin: data.parent,
+                    asin: data.asin,
+                    queue: data.queue,
+                    success: "success"
+                };
+                const formData = new URLSearchParams(data_order);
+                fetch("https://pickme.alwaysdata.net/shyrka/order", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
+                });
+            }
+        }
+        function moveVineButton() {
+            if (checkoutRedirect) {
+                const bouton = document.querySelector('#widget-continueShoppingEgress a.a-button-text');
+
+                //Vérifie qu'on l'a trouvé et que le texte contient "Vine"
+                if (bouton && bouton.textContent.includes('Vine')) {
+                    const nouvelleURL = lienVine[defautTab];
+                    if (nouvelleURL) {
+                        bouton.href = nouvelleURL;
+                    }
+                }
+            }
+            if (checkoutButtonUp) {
+                //Récupère le bouton source
+                const sourceButtonContainer = document.querySelector('#widget-continueShoppingEgress');
+
+                //Vérifie si le bouton contient "Vine"
+                if (!sourceButtonContainer) return;
+                const text = sourceButtonContainer.textContent || '';
+                if (!text.includes('Vine')) return;
+
+                //Clone le bouton
+                const clone = sourceButtonContainer.cloneNode(true);
+
+                //Cible la zone de destination
+                const targetContainer = document.querySelector('#widget-accountLevelActions');
+
+                if (targetContainer && clone) {
+                    //Insère le clone juste après le conteneur cible
+                    targetContainer.insertAdjacentElement('afterend', clone);
+                }
+            }
+        }
+
+        //Attendre que le DOM soit prêt
+        //Fix iPhone
+        if (document.readyState !== 'loading') {
+            moveVineButton();
+        }
+        else {
+            document.addEventListener('DOMContentLoaded', function () {
+                moveVineButton();
+            });
+        }
+    }
 
     //URL Vine
     const urlPattern = /^https:\/\/www\.amazon\.fr\/vine/;
@@ -204,6 +368,7 @@ NOTES:
     let notifRFY = GM_getValue('notifRFY', false);
     let notifPartageAFA = GM_getValue('notifPartageAFA', true);
     let notifPartageAI = GM_getValue('notifPartageAI', false);
+    let notifPartageALL = GM_getValue('notifPartageALL', true);
     let notifAutres = GM_getValue('notifAutres', true);
     let notifSound = GM_getValue('notifSound', true);
     let notifFav = GM_getValue('notifFav', false);
@@ -235,6 +400,7 @@ NOTES:
     GM_setValue("notifRFY", notifRFY);
     GM_setValue("notifPartageAFA", notifPartageAFA);
     GM_setValue("notifPartageAI", notifPartageAI);
+    GM_setValue("notifPartageALL", notifPartageALL);
     GM_setValue("notifAutres", notifAutres);
     GM_setValue("notifSound", notifSound);
     GM_setValue("notifFav", notifFav);
@@ -311,7 +477,7 @@ NOTES:
     }
 
     //Fonction pour demander la permission et afficher la notification
-    function requestNotification(title, text, icon, queue = null, page = null) {
+    function requestNotification(title, text, icon, queue = null, page = null, pn = null, cn = null) {
         if (!("Notification" in window)) {
             console.log("Ce navigateur ne supporte pas les notifications de bureau.");
             return;
@@ -323,12 +489,12 @@ NOTES:
                         reg.showNotification(title, {
                             body: text || "",
                             icon: icon,
-                            data: { queue: queue, page : page }
+                            data: { queue: queue, page : page, cn : cn, pn : pn }
                         });
                     }
                 });
             } else {
-                showNotification(title, text, icon, queue, page);
+                showNotification(title, text, icon, queue, page, pn, cn);
             }
             soundNotif();
         } else if (Notification.permission !== "denied") {
@@ -340,12 +506,12 @@ NOTES:
                                 reg.showNotification(title, {
                                     body: text || "",
                                     icon: icon,
-                                    data: { queue: queue, page : page }
+                                    data: { queue: queue, page : page, cn : cn, pn : pn }
                                 });
                             }
                         });
                     } else {
-                        showNotification(title, text, icon, queue, page);
+                        showNotification(title, text, icon, queue, page, pn, cn);
                     }
                     soundNotif();
                 }
@@ -364,7 +530,7 @@ NOTES:
     }
 
     //Fonction pour afficher la notification sur PC
-    function showNotification(title, text, icon, queue = null, page = null) {
+    function showNotification(title, text, icon, queue = null, page = null, pn = null, cn = null) {
         var notification = new Notification(title, {
             body: text || "",
             icon: icon
@@ -374,12 +540,21 @@ NOTES:
             var baseUrl = "https://www.amazon.fr/vine/vine-items";
             var url = baseUrl; //Initialisation de l'URL de base
             //Déterminer l'URL en fonction de la queue
-            if (queue == "0") {
-                url = baseUrl + "?queue=last_chance" + (page ? "&pn=&cn=&page=" + page : "");
-            } else if (queue == "1") {
-                url = baseUrl + "?queue=encore" + (page ? "&pn=&cn=&page=" + page : "");
-            } else if (queue == "2") {
+            if (queue === "0") {
+                url = baseUrl + "?queue=last_chance";
+                if (page) url += "&page=" + encodeURIComponent(page);
+            } else if (queue === "1") {
+                url = baseUrl + "?queue=encore";
+                if (pn) url += "&pn=" + encodeURIComponent(pn);
+                if (cn) url += "&cn=" + encodeURIComponent(cn);
+                if (page) url += "&page=" + encodeURIComponent(page);
+            } else if (queue === "2") {
                 url = baseUrl + "?queue=potluck";
+            } else if (queue === "3") {
+                url = baseUrl + "?queue=all_items";
+                if (pn) url += "&pn=" + encodeURIComponent(pn);
+                if (cn) url += "&cn=" + encodeURIComponent(cn);
+                if (page) url += "&page=" + encodeURIComponent(page);
             } else {
                 url = baseUrl + "?queue=encore" + (queue ? "&pn=" + queue : "") + (page ? "&cn=&page=" + page : "");
             }
@@ -441,21 +616,22 @@ NOTES:
                     (event.data.info.toUpperCase() === "RECO" && notifRecos) ||
                     (event.data.info.toUpperCase() === "PRODUCT_AFA" && notifPartageAFA) ||
                     (event.data.info.toUpperCase() === "PRODUCT_AI" && notifPartageAI) ||
+                    (event.data.info.toUpperCase() === "PRODUCT_ALL" && notifPartageALL) ||
                     (event.data.info.toUpperCase() === "PRODUCT_RFY" && notifRFY) ||
                     (event.data.info.toUpperCase() === "AUTRES" && notifAutres)) {
-                    if (notifFav && event.data.info.toUpperCase() === "PRODUCT_AI") {
+                    if (notifFav && (event.data.info.toUpperCase() === "PRODUCT_AI" || event.data.info.toUpperCase() === "PRODUCT_ALL")) {
                         titleContentLower = event.data.description.toLowerCase().trim().replace(/\s+/g, '');
                         if (filterOption == "notifFavOnly") {
                             if (favArrayNotif.length > 0 && favArrayNotif.some(regex => regex.test(titleContentLower))) {
-                                requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
+                                requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page, event.data.pn, event.data.cn);
                             }
                         } else if (filterOption == "notifExcludeHidden") {
                             if (hiddenArrayNotif.length > 0 && !hiddenArrayNotif.some(regex => regex.test(titleContentLower))) {
-                                requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
+                                requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page, event.data.pn, event.data.cn);
                             }
                         }
                     } else {
-                        requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page);
+                        requestNotification(event.data.title, event.data.description, event.data.imageUrl, event.data.queue, event.data.page, event.data.pn, event.data.cn);
                     }
                 }
             }
@@ -1083,14 +1259,12 @@ NOTES:
 
         let savedButtonColor = GM_getValue('selectedButtonColor', 'default');
         let fastCmdEnabled = GM_getValue('fastCmdEnabled', false);
-        let ordersEnabled = GM_getValue('ordersEnabled', true);
         let ordersStatsEnabled = GM_getValue('ordersStatsEnabled', false);
         let ordersInfos = GM_getValue('ordersInfos', false);
         let ordersPercent = GM_getValue('ordersPercent', false);
         let fastCmd = GM_getValue('fastCmd', false);
         let hideBas = GM_getValue('hideBas', true);
         let statsInReviews = GM_getValue('statsInReviews', false);
-        let defautTab = GM_getValue('defautTab', 'AFA');
 
         let enableRefresh = GM_getValue('enableRefresh', true);
         let pageToRefresh = GM_getValue('pageToRefresh', 'current');
@@ -1218,6 +1392,10 @@ NOTES:
 
         let colorblindEnabled = GM_getValue('colorblindEnabled', false);
 
+        let oldCheckoutEnabled = GM_getValue('oldCheckoutEnabled', false);
+        let checkoutNewTab = GM_getValue('checkoutNewTab', true);
+        let showCheckout = GM_getValue('showCheckout', false);
+
         //Enregistrement des autres valeurs de configuration
         GM_setValue("highlightEnabled", highlightEnabled);
         GM_setValue("firsthlEnabled", firsthlEnabled);
@@ -1251,14 +1429,12 @@ NOTES:
         GM_setValue("autohideEnabled", autohideEnabled);
         GM_setValue("selectedButtonColor", savedButtonColor);
         GM_setValue("fastCmdEnabled", fastCmdEnabled);
-        GM_setValue("ordersEnabled", ordersEnabled);
         GM_setValue("ordersStatsEnabled", ordersStatsEnabled);
         GM_setValue("ordersInfos", ordersInfos);
         GM_setValue("ordersPercent", ordersPercent);
         GM_setValue("fastCmd", fastCmd);
         GM_setValue("hideBas", hideBas);
         GM_setValue("statsInReviews", statsInReviews);
-        GM_setValue("defautTab", defautTab);
 
         GM_setValue("enableRefresh", enableRefresh);
         GM_setValue("pageToRefresh", pageToRefresh);
@@ -1383,6 +1559,10 @@ NOTES:
 
         GM_setValue("colorblindEnabled", colorblindEnabled);
 
+        GM_setValue("oldCheckoutEnabled", oldCheckoutEnabled);
+        GM_setValue("checkoutNewTab", checkoutNewTab);
+        GM_setValue("showCheckout", showCheckout);
+
         //Modification du texte pour l'affichage mobile
         var pageX = "Page X";
         var produitsVisibles = "Produits visibles";
@@ -1408,6 +1588,8 @@ NOTES:
                 lien.href = "https://www.amazon.fr/vine/vine-items?queue=last_chance";
             } else if (defautTab === 'AI') {
                 lien.href = "https://www.amazon.fr/vine/vine-items?queue=encore";
+            } else if (defautTab === 'ALL') {
+                lien.href = "https://www.amazon.fr/vine/vine-items?queue=all_items";
             }
         }
 
@@ -1483,7 +1665,8 @@ NOTES:
                 const cn = urlObj.searchParams.get('cn') || '';
 
                 //Construit la nouvelle URL avec le numéro de page et la valeur de 'pn' existante
-                const newUrl = `https://www.amazon.fr/vine/vine-items?queue=encore&pn=${pn}&cn=${cn}&page=${pageNumber}`;
+
+                const newUrl = `https://www.amazon.fr/vine/vine-items?queue=${valeurQueue}&pn=${pn}&cn=${cn}&page=${pageNumber}`;
 
                 //Redirige vers la nouvelle URL
                 window.location.href = newUrl;
@@ -1533,12 +1716,6 @@ NOTES:
             } else {
                 alert("URL invalide. Veuillez entrer une URL valide.");
             }
-        }
-
-        //On exclu les pages que gère RR, on laisse juste pour les pages
-        if (!window.location.href.includes('orders') && !window.location.href.includes('vine-reviews'))
-        {
-            var apiOk = GM_getValue("apiToken", false);
         }
 
         function setHighlightColor() {
@@ -1839,7 +2016,11 @@ NOTES:
         });
 
         function naviguerQueue(direction) {
-            const queues = ['potluck', 'last_chance', 'encore'];
+            const links = document.querySelectorAll('#vvp-items-button-container a');
+            const queues = Array.from(links).map(link => {
+                const url = new URL(link.href, window.location.origin);
+                return url.searchParams.get('queue');
+            });
             const url = new URL(window.location);
             const params = url.searchParams;
             let currentQueue = params.get('queue') || 'potluck';
@@ -2796,25 +2977,37 @@ NOTES:
                 const container = document.getElementById('vvp-browse-nodes-container');
                 if (!container) return;
 
-                //Ajouter le bandeau cliquable
-                const header = document.createElement('div');
-                header.id = 'vvp-toggle-header';
-                header.textContent = 'Catégories';
-                container.prepend(header);
+                // Créer ou cibler le contenu repliable
+                let content = container.querySelector('.vvp-browse-nodes-content');
+                if (!content) {
+                    content = document.createElement('div');
+                    content.className = 'vvp-browse-nodes-content';
 
-                //État initial : fermé
+                    // Déplacer tous les enfants sauf le header dedans
+                    const children = Array.from(container.children).filter(child => child.id !== 'vvp-toggle-header');
+                    children.forEach(child => content.appendChild(child));
+
+                    container.appendChild(content);
+                }
+
+                // Ajouter le bandeau cliquable
+                let header = container.querySelector('#vvp-toggle-header');
+                if (!header) {
+                    header = document.createElement('div');
+                    header.id = 'vvp-toggle-header';
+                    header.textContent = 'Catégories';
+                    container.prepend(header);
+                }
+
+                // État initial : fermé
                 container.classList.add('closed');
 
                 header.addEventListener('click', function (e) {
                     container.classList.toggle('closed');
-                    if (container.classList.contains('closed')) {
-                        header.textContent = 'Catégories';
-                    } else {
-                        header.textContent = 'Catégories';
-                    }
                     e.stopPropagation();
                 });
             }
+
 
             function waitForContainer() {
                 const container = document.getElementById('vvp-browse-nodes-container');
@@ -3030,6 +3223,10 @@ body {
   user-select: none;
 }
 
+#vvp-browse-nodes-container.closed .vvp-browse-nodes-content {
+    display: none;
+}
+
 #vvp-browse-nodes-container.closed p,
 #vvp-browse-nodes-container.closed .parent-node,
 #vvp-browse-nodes-container.closed .child-node,
@@ -3150,30 +3347,25 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 /* RFY, AFA, AI */
 #vvp-items-button--recommended a,
 #vvp-items-button--all a,
-#vvp-items-button--seller a {
+#vvp-items-button--seller a,
+#vvp-all-items-button a {
   color: transparent;
 }
 
 #vvp-items-button--recommended a::before,
 #vvp-items-button--all a::before,
-#vvp-items-button--seller a::before {
+#vvp-items-button--seller a::before,
+#vvp-all-items-button a::before {
   color: black !important;
   position: absolute;
   font-size: 20px;
   font-weight: bold;
 }
 
-#vvp-items-button--recommended a::before {
-  content: "RFY" !important;
-}
-
-#vvp-items-button--all a::before {
-  content: "AFA" !important;
-}
-
-#vvp-items-button--seller a::before {
-  content: "AI" !important;
-}
+#vvp-items-button--recommended a::before { content: "RFY"; }
+#vvp-items-button--all         a::before { content: "AFA"; }
+#vvp-items-button--seller      a::before { content: "AI";  }
+#vvp-all-items-button          a::before { content: "ALL"; }
 
 /* Pour éviter le retour a la ligne des catégories */
 #vvp-items-button-container {
@@ -3184,8 +3376,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
 }
 
 #vvp-items-button-container .a-button-toggle.a-button {
-    flex: 1;
-    max-width: 33%;
+    flex: 1 1 0;
     min-width: 100px;
     text-align: center;
 }
@@ -3773,19 +3964,9 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
         const urlParams = new URLSearchParams(window.location.search);
 
         let valeurQueue = urlParams.get('queue');
-        const valeurPn = parseInt(urlParams.get('pn'), 10) || 0; //Utilisez 0 comme valeur par défaut si pn n'est pas défini
-        const valeurCn = parseInt(urlParams.get('cn'), 10) || 0; //Utilisez 0 comme valeur par défaut si cn n'est pas défini
+        let valeurPn = parseInt(urlParams.get('pn'), 10) || 0; //Utilisez 0 comme valeur par défaut si pn n'est pas défini
+        let valeurCn = parseInt(urlParams.get('cn'), 10) || 0; //Utilisez 0 comme valeur par défaut si cn n'est pas défini
         let valeurPage = urlParams.get('page') || '1'; //'1' est utilisé comme valeur par défaut
-        //Vérifiez et ajustez valeurQueue en fonction de valeurPn
-        if (valeurQueue === 'encore') {
-            if (valeurPn > 0) {
-                valeurQueue = valeurPn.toString();
-            }
-        }
-        //Ajustez valeurPage en fonction de valeurCn, si nécessaire
-        if (valeurCn > 0) {
-            valeurPage = valeurCn.toString();
-        }
 
         //Tester si le produit est NSFW
         function NSFWTest(productUrl) {
@@ -4223,7 +4404,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         containerTotal.appendChild(spanTotal);
                     }
                 }
-                if (imgNew && window.location.href.includes("queue=encore") && (!catManuelReset || forceReset)) {
+                if (imgNew && (window.location.href.includes("queue=encore") || window.location.href.includes("queue=all_items")) && (!catManuelReset || forceReset)) {
                     localStorage.setItem('nombreTotalRésultats', JSON.stringify(nouveauTotal));
                 }
             }
@@ -4252,7 +4433,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 });
 
                 //Mise à jour du stockage local avec les nouveaux nombres si on a vu un nouvel objet uniquement
-                if (imgNew && window.location.href.includes("queue=encore") && (!catManuelReset || forceReset)) {
+                if (imgNew && (window.location.href.includes("queue=encore") || window.location.href.includes("queue=all_items")) && (!catManuelReset || forceReset)) {
                     localStorage.setItem('nombresCatégories', JSON.stringify(nouveauxNombres));
                 }
                 if (!firstLoad) {
@@ -4270,7 +4451,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
         }
 
-        if (window.location.href.includes("queue=encore") && catEnabled && apiOk) {
+        if ((window.location.href.includes("queue=encore") || window.location.href.includes("queue=all_items")) && catEnabled && apiOk) {
             updateCat();
             //Création du bouton "Reset"
             const boutonReset = document.createElement('button');
@@ -4303,7 +4484,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             }
         }
 
-        const urlData = window.location.href.match(/(amazon\..+)\/vine\/vine-items(?:\?queue=)?(encore|last_chance|potluck)?.*?(?:&page=(\d+))?$/); //Country and queue type are extrapolated from this
+        const urlData = window.location.href.match(/(amazon\..+)\/vine\/vine-items(?:\?queue=)?(encore|last_chance|potluck|all_items)?.*?(?:&page=(\d+))?$/); //Country and queue type are extrapolated from this
         //End
         const MAX_COMMENT_LENGTH = 900;
         const ITEM_EXPIRY = 7776000000; //90 days in ms
@@ -4535,7 +4716,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
 
                 //Ajout du bouton "Aller à" en haut et en bas
-                if (window.location.href.includes("queue=encore")) {
+                if (window.location.href.includes("queue=encore") || window.location.href.includes("queue=all_items")) {
                     //Création du bouton "Aller à la page X"
                     const gotoButtonUp = document.createElement('li');
                     gotoButtonUp.className = 'a-last'; //Utiliser la même classe que le bouton "Suivant" pour le style
@@ -5043,6 +5224,7 @@ select.btn-like {
         <option value="RFY">Recommandé pour vous</option>
         <option value="AFA">Disponible pour tous</option>
         <option value="AI">Autres articles</option>
+        <option value="ALL">Tous les articles</option>
       </select>
     </div>
 ${isPlus && apiOk ? `
@@ -5523,7 +5705,7 @@ ${isPlus && apiOk ? `
     <h2>Configurer les notifications<span id="closeNotifPopup" style="float: right; cursor: pointer;">&times;</span></h2>
     <div class="checkbox-container">
     <u class="full-width"><b>Options :</u></b><br>
-    ${createCheckbox('notifFav', 'Filtrer "Autres articles"', 'Utilise les filtres (soit celui des favoris, soit celui pour exclure) pour ne remonter que les notifications favoris ou sans mots exclus et uniquement si c\'est un produit "Autres articles" (aucun filtre sur "Disponible pour tous"). La notification apparaitra tout de même dans le centre de notifications. Prend en compte le filtre, même si l\'option des filtres est désactivée')}
+    ${createCheckbox('notifFav', 'Filtrer "Autres articles"/"Tous les articles"', 'Utilise les filtres (soit celui des favoris, soit celui pour exclure) pour ne remonter que les notifications favoris ou sans mots exclus et uniquement si c\'est un produit "Autres articles" ou "Tous les articles" (aucun filtre sur "Disponible pour tous"). La notification apparaitra tout de même dans le centre de notifications. Prend en compte le filtre, même si l\'option des filtres est désactivée')}
     ${createCheckbox('notifSound', 'Jouer un son', 'Permet de jouer un son à réception d\'une notification. Astuce : pour personnaliser le son, il est possible d\'utiliser l\'option expérimentale pour saisir l\'URL du mp3 (uniquement) de votre choix')}
     <select id="filterOptions" ${notifFav ? '' : 'disabled'} style="margin-bottom: 10px;">
        <option value="notifFavOnly" ${filterOption === 'notifFavOnly' ? 'selected' : ''}>Ne voir que les produits avec mots-clés</option>
@@ -5537,6 +5719,7 @@ ${isPlus && apiOk ? `
     ${createCheckbox('notifRFY', 'Recommandé pour vous', "Recevoir une notification à chaque nouvelle recommandation personnelle. Ne fonctionne que si vous avez activé l'option '(Premium) À chaque nouvelle recommandation recevoir le produit en message privé sur discord'.")}
     ${createCheckbox('notifPartageAFA', 'Disponible pour tous', "Recevoir une notification à chaque partage d'un produit 'Disponible pour tous' via PickMe.")}
     ${createCheckbox('notifPartageAI', 'Autres articles', "Recevoir une notification à chaque partage d'un produit 'Autres articles' via PickMe.")}
+    ${createCheckbox('notifPartageALL', 'Tous les articles', "Recevoir une notification à chaque partage d'un produit 'Tous les articles' via PickMe.")}
     ${createCheckbox('notifAutres', 'Divers', "Cela peut être une annonce, une information, un test, etc...")}
     </div>
     <div class="button-container">
@@ -6567,6 +6750,13 @@ ${isPlus && apiOk ? `
             ajouterOptionTexte('firstSeenHeightMobile', '(Mobile) Hauteur de l\'image', '70px');
             ajouterOptionTexte('firstSeenHorizontalMobile', '(Mobile) Position horizontale', '0px');
             ajouterOptionTexte('firstSeenVerticalMobile', '(Mobile) Position verticale', '0px');
+
+            ajouterSousTitre('Processus de commande');
+            ajouterOptionCheckbox('showCheckout', 'Afficher si on a le nouveau processus de commande ou non (l\'affichage ne prend pas en compte si on force ou non l\'ancien)');
+            ajouterOptionCheckbox('oldCheckoutEnabled', 'Forcer l\'ancienne validation de commande (sans la page de règlement)');
+            ajouterOptionCheckbox('checkoutNewTab', 'Ouvrir la page de validation dans un nouvel onglet');
+            ajouterOptionCheckbox('checkoutButtonUp', 'Remonter le bouton "Demandez plus d’articles Amazon Vine" en début de page');
+            ajouterOptionCheckbox('checkoutRedirect', 'Rediriger le bouton "Demandez plus d’articles Amazon Vine" vers l\'onglet par défaut choisi dans le menu PickMe');
 
             ajouterSousTitre('Ronde');
             ajouterTexte('La ronde consiste à parcourir toutes les pages dans "Autres articles", afin de mettre à jour tous les produits localement mais aussi sur le serveur.');
@@ -7615,57 +7805,62 @@ ${isPlus && apiOk ? `
             return filteredHeaders[0];
         }
 
-        //Initialize the button
+        //Initialiser le bouton
         function addShareButton() {
             var discordBtn = `<button class="a-button-discord a-button" style="align-items: center;"></button>`;
-            var modalElems = getCorrectModal(); //ensuring the button gets added to the correct modal
-            modalElems[0].insertAdjacentHTML('afterbegin', discordBtn);
-            productDetailsModal = modalElems[1];
+            var modalElems = getCorrectModal();
 
-            //Add observer to check if the modal gets resized
+            if (!modalElems || !modalElems[0]) {
+                return;
+            }
+
+            modalElems[0].insertAdjacentHTML('afterbegin', discordBtn);
+            var productDetailsModal = modalElems[1] || modalElems[0]; //fallback si [1] n’existe pas
+
             const resizeObserver = new ResizeObserver(updateButtonPosition);
             resizeObserver.observe(productDetailsModal);
-
         }
 
         function updateButtonIcon(type) {
             var discordBtn = document.querySelector('.a-button-discord');
-            discordBtn.disabled = false;
-            discordBtn.classList.remove('a-button-disabled');
+            if (discordBtn) {
+                discordBtn.disabled = false;
+                discordBtn.classList.remove('a-button-disabled');
 
-            if (type == 0) { //default
-                discordBtn.innerHTML = `${btn_discordSvg}<span class="a-button-text">Partager sur discord</span>`;
-                discordBtn.style.cursor = 'pointer';
-            } else if (type == 1) { //submit button is clicked and waiting for API result
-                discordBtn.innerHTML = `${btn_loadingAnim}<span class="a-button-text">Envoi en cours...</span>`;
-                discordBtn.disabled = true;
-                discordBtn.style.cursor = 'no-drop';
-            } else if (type == 2) { //API: success
-                discordBtn.innerHTML = `${btn_checkmark}<span class="a-button-text">OK</span>`;
-                discordBtn.disabled = true;
-                discordBtn.classList.add('a-button-disabled');
-            } else if (type == 3) { //API: posting too quickly
-                discordBtn.innerHTML = `${btn_warning}<span class="a-button-text">Partage trop rapide !</span>`;
-                discordBtn.style.cursor = 'pointer';
-            } else if (type == 4) { //Item was already posted to Discord
-                discordBtn.innerHTML = `${btn_info}<span class="a-button-text">Déjà posté</span>`;
-                discordBtn.disabled = true;
-                discordBtn.classList.add('a-button-disabled');
-                discordBtn.style.cursor = 'no-drop';
-            } else if (type == 5) { //API: invalid token
-                discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Clé API invalide</span>`;
-                discordBtn.disabled = true;
-                discordBtn.classList.add('a-button-disabled');
-                discordBtn.style.cursor = 'no-drop';
-            } else if (type == 6) { //API: incorrect parameters
-                discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Erreur</span>`;
-                discordBtn.style.cursor = 'pointer';
-                //PickMe Edit
-            } else if (type == 7) { //API: incorrect parameters
-                discordBtn.innerHTML = `${btn_warning}<span class="a-button-text">Trop ancien</span>`;
-                discordBtn.disabled = true;
-                discordBtn.classList.add('a-button-disabled');
-                discordBtn.style.cursor = 'no-drop';
+                if (type == 0) { //Défaut
+                    discordBtn.innerHTML = `${btn_discordSvg}<span class="a-button-text">Partager sur discord</span>`;
+                    discordBtn.style.cursor = 'pointer';
+                } else if (type == 1) { //Bouton cliqué et attente du retour
+                    discordBtn.innerHTML = `${btn_loadingAnim}<span class="a-button-text">Envoi en cours...</span>`;
+                    discordBtn.disabled = true;
+                    discordBtn.style.cursor = 'no-drop';
+                } else if (type == 2) { //API: success
+                    discordBtn.innerHTML = `${btn_checkmark}<span class="a-button-text">OK</span>`;
+                    discordBtn.disabled = true;
+                    discordBtn.classList.add('a-button-disabled');
+                } else if (type == 3) { //API: trop rapide
+                    discordBtn.innerHTML = `${btn_warning}<span class="a-button-text">Partage trop rapide !</span>`;
+                    discordBtn.style.cursor = 'pointer';
+                } else if (type == 4) { //Déja posté
+                    discordBtn.innerHTML = `${btn_info}<span class="a-button-text">Déjà posté</span>`;
+                    discordBtn.disabled = true;
+                    discordBtn.classList.add('a-button-disabled');
+                    discordBtn.style.cursor = 'no-drop';
+                } else if (type == 5) { //API: clé invalide
+                    discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Clé API invalide</span>`;
+                    discordBtn.disabled = true;
+                    discordBtn.classList.add('a-button-disabled');
+                    discordBtn.style.cursor = 'no-drop';
+                } else if (type == 6) { //API: paramètres invalides
+                    discordBtn.innerHTML = `${btn_error}<span class="a-button-text">Erreur</span>`;
+                    discordBtn.style.cursor = 'pointer';
+                    //PickMe Edit
+                } else if (type == 7) { //API: paramètres invalides
+                    discordBtn.innerHTML = `${btn_warning}<span class="a-button-text">Trop ancien</span>`;
+                    discordBtn.disabled = true;
+                    discordBtn.classList.add('a-button-disabled');
+                    discordBtn.style.cursor = 'no-drop';
+                }
             }
             //End
 
@@ -7678,6 +7873,8 @@ ${isPlus && apiOk ? `
                 token: API_TOKEN,
                 page: valeurPage,
                 tab: valeurQueue,
+                pn: valeurPn,
+                cn: valeurCn,
                 asin: data.asin,
                 enrollment: data.enrollment,
                 seller: data.seller,
@@ -7957,6 +8154,105 @@ ${isPlus && apiOk ? `
             }
         }
 
+
+        //Pour trouver le status actuel du checkout, ancien ou nouveau
+        function getCheckoutStatus() {
+            const script = document.querySelector('script[data-a-state*="vvp-context"]');
+            if (script) {
+                try {
+                    const data = JSON.parse(script.textContent);
+                    if (data.isCheckoutEnabled) {
+                        checkoutEnabled = true;
+                    }
+                } catch (e) {
+                    console.error("Erreur getCheckoutStatus :", e);
+                }
+            }
+            if (apiOk && showCheckout) {
+                const container = document.getElementById('vvp-browse-nodes-container');
+                if (container) {
+                    // Injecter les styles si pas déjà présents
+                    if (!document.getElementById('checkout-style')) {
+                        const style = document.createElement('style');
+                        style.id = 'checkout-style';
+                        style.textContent = `
+					.checkout-status {
+						margin: 8px 0 12px;
+						padding: 6px 10px;
+						border-radius: 6px;
+						background-color: #f4f4f4;
+						font-size: 14px;
+						color: #333;
+						display: inline-block;
+						border: 1px solid #ddd;
+					}
+
+					.checkout-status .label {
+						font-weight: 500;
+						color: #555;
+						margin-right: 6px;
+					}
+
+					.checkout-status .value {
+						font-weight: bold;
+					}
+
+					.checkout-status .value.nouveau {
+						color: #007a3d;
+					}
+
+					.checkout-status .value.ancien {
+						color: #b35a00;
+					}
+                  `;
+                        document.head.appendChild(style);
+                    }
+
+                    // Créer le bloc "Processus de commande"
+                    const checkoutContainer = document.createElement('div');
+                    checkoutContainer.className = 'checkout-status';
+
+                    const label = document.createElement('span');
+                    label.className = 'label';
+                    label.textContent = 'Processus de commande :';
+
+                    const value = document.createElement('span');
+                    value.className = 'value ' + (checkoutEnabled ? 'nouveau' : 'ancien');
+                    value.textContent = checkoutEnabled ? 'Nouveau' : 'Ancien';
+
+                    checkoutContainer.appendChild(label);
+                    checkoutContainer.appendChild(value);
+
+                    // Insérer selon le contexte mobile / desktop
+                    if (mobileEnabled) {
+                        const content = container.querySelector('.vvp-browse-nodes-content');
+                        if (content) {
+                            content.prepend(checkoutContainer);
+                        }
+                    } else {
+                        const referenceNode = container.querySelector('p');
+                        if (referenceNode) {
+                            container.insertBefore(checkoutContainer, referenceNode);
+                        } else {
+                            container.appendChild(checkoutContainer);
+                        }
+                    }
+                }
+
+            }
+        }
+
+        //Check du status checkout
+        let checkoutEnabled = false;
+        if (document.readyState !== 'loading') {
+            getCheckoutStatus();
+        }
+        else {
+            document.addEventListener('DOMContentLoaded', function () {
+                getCheckoutStatus();
+            });
+        }
+
         if (apiOk && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
             //Appeler la fonction pour afficher les commandes
             if (ordersStatsEnabled || statsEnabled) {
@@ -8003,6 +8299,8 @@ ${isPlus && apiOk ? `
                 products: JSON.stringify(data),
                 queue: valeurQueue,
                 page: valeurPage,
+                pn: valeurPn,
+                cn: valeurCn,
             });
 
             return fetch("https://pickme.alwaysdata.net/shyrka/newproducts", {
@@ -9056,6 +9354,8 @@ ${isPlus && apiOk ? `
                     return "last_chance"; //AFA
                 case "VINE_FOR_ALL":
                     return "encore"; //AI
+                case "ALL_ITEMS":
+                    return "all_items"; //ALL
                 default:
                     return null;
             }
@@ -9074,7 +9374,8 @@ ${isPlus && apiOk ? `
 
                 //silencing console errors; a null error is inevitable with this arrangement; I might fix this in the future
                 try {
-                    document.querySelector("button.a-button-discord").style.display = 'none'; //hiding the button until the modal content loads
+                    const btn = document.querySelector("button.a-button-discord");
+                    btn.style.display = 'none'; //Cache le bouton le temps de charger
                 } catch (error) {
                 }
             });
@@ -9099,7 +9400,10 @@ ${isPlus && apiOk ? `
                     addShareButton();
                 }
 
-                document.querySelector("button.a-button-discord").style.display = 'inline-flex';
+                const btn = document.querySelector("button.a-button-discord");
+                if (btn) {
+                    btn.style.display = 'inline-flex';
+                }
 
                 //remove pre-existing event listener before creating a new one
                 document.querySelector("button.a-button-discord")?.removeEventListener("click", buttonHandler);
@@ -9113,7 +9417,10 @@ ${isPlus && apiOk ? `
 
                 if (hasError || queueType == null || queueType == "potluck" || window.location.href.includes('?search')) {
                     //Cacher le bouton si reco, reco ou autres
-                    document.querySelector("button.a-button-discord").style.display = 'none';
+                    const btn = document.querySelector("button.a-button-discord");
+                    if (btn) {
+                        btn.style.display = 'none';
+                    }
                 } else if (wasPosted === queueType) {
                     //Produit déjà posté
                     updateButtonIcon(4);
@@ -9121,7 +9428,10 @@ ${isPlus && apiOk ? `
                     updateButtonIcon(0);
                 }
                 if (fastCmdEnabled) {
-                    document.querySelector("button.a-button-discord").addEventListener("click", buttonHandler);
+                    const btn = document.querySelector("button.a-button-discord");
+                    if (btn) {
+                        btn.addEventListener("click", buttonHandler);
+                    }
                     focusButton('input.a-button-input[aria-labelledby="vvp-product-details-modal--request-btn-announce"]', 0);
                     //Mettre le focus sur le bouton "Envoyer à cette adresse"
                     observeShippingModal();
@@ -9205,6 +9515,13 @@ ${isPlus && apiOk ? `
 
         //Wheel Fix
         if (apiOk) {
+            window.addEventListener("message", (event) => {
+                if (event.data.type === "SET_CHECKOUT_VALUES") {
+                    GM_setValue("asinCheckout", event.data.asin);
+                    GM_setValue("asinParentCheckout", event.data.parent);
+                    GM_setValue("queueCheckout", event.data.queue);
+                }
+            });
             if (wheelfixEnabled || ordersEnabled) {
                 const script = document.createElement('script');
                 script.textContent = `
@@ -9292,77 +9609,91 @@ ${isPlus && apiOk ? `
                 const valeurQueue = ${JSON.stringify(valeurQueue)};
                 const ordersEnabled = ${JSON.stringify(ordersEnabled)};
                 const wheelfixEnabled = ${JSON.stringify(wheelfixEnabled)};
+                const oldCheckoutEnabled = ${JSON.stringify(oldCheckoutEnabled)};
+                const checkoutNewTab = ${JSON.stringify(checkoutNewTab)};
+                const checkoutEnabled = ${JSON.stringify(checkoutEnabled)};
                 const origFetch = window.fetch;
                 var lastParentVariant = null;
                 var responseData = {};
                 var postData = {};
+                var checkoutAsin = null;
+                var checkoutPromotionId = null;
+                var checkoutOfferListingId = null;
                 window.fetch = async (...args) => {
                     let response = await origFetch(...args);
                     let lastParent = lastParentVariant;
                     let regex = null;
 
                     const url = args[0] || "";
-                    if (ordersEnabled) {
-                        if (url.startsWith("api/voiceOrders")) {
-                            postData = JSON.parse(args[1].body);
-                            const asin = postData.itemAsin;
 
-                            try {
-                                responseData = await response.clone().json();
-                            } catch (e) {
-                                console.error(e);
-                            }
+					if (ordersEnabled) {
+						if (url.startsWith("api/voiceOrders")) {
+							postData = JSON.parse(args[1].body);
+							const asin = postData.itemAsin;
 
-                            if (lastParent != null) {
-                                regex = /^.+?#(.+?)#.+$/;
-                                lastParent = lastParentVariant.recommendationId.match(regex)[1];
-                            }
+							try {
+								responseData = await response.clone().json();
+							} catch (e) {
+								console.error(e);
 
-                            let formData = new URLSearchParams({
-                                version: version,
-                                token: API_TOKEN,
-                                parent_asin: lastParent,
-                                asin: asin,
-                                queue: valeurQueue,
-                                success: "success",
-                            });
-                            if (responseData.error !== null) {
-                                formData = new URLSearchParams({
-                                    version: version,
-                                    token: API_TOKEN,
-                                    parent_asin: lastParent,
-                                    asin: asin,
-                                    queue: valeurQueue,
-                                    success: "failed",
-                                    reason: responseData.error, //CROSS_BORDER_SHIPMENT, SCHEDULED_DELIVERY_REQUIRED, ITEM_NOT_IN_ENROLLMENT, ITEM_ALREADY_ORDERED
-                                });
-                                //Sélectionner tous les éléments avec la classe "a-alert-content"
-                                var alertContents = document.querySelectorAll('.a-alert-content');
+							}
 
-                                //Texte à ajouter en gras avec un retour à la ligne avant
-                                var texteAAjouter = "<br><strong>(PickMe) Code erreur : " + responseData.error + "</strong> (<a href='https://pickme.alwaysdata.net/wiki/doku.php?id=plugins:pickme:codes_erreur' target='_blank'>wiki des codes d'erreurs</a>)";
+							if (lastParent != null) {
+								regex = /^.+?#(.+?)#.+$/;
+								lastParent = lastParentVariant.recommendationId.match(regex)[1];
+							}
 
-                                //Parcourir tous les éléments sélectionnés
-                                alertContents.forEach(function(alertContent) {
-                                    //Ajouter le texte après le contenu actuel
-                                    alertContent.innerHTML += texteAAjouter;
-                                });
-                            }
+							let data = {
+								version: version,
+								token: API_TOKEN,
+								parent_asin: lastParent,
+								asin: asin,
+								queue: valeurQueue,
+							};
+							//On test si c'est réussi. Nouveau, offerListingId pas vide a la nouvelle fenetre. Ancien
+							if (responseData?.result?.offerListingId !== undefined && checkoutEnabled && !oldCheckoutEnabled) {
+								window.postMessage({
+  								  type: 'SET_CHECKOUT_VALUES',
+  								    asin: asin,
+ 									parent: lastParent,
+								    queue: valeurQueue
+								}, '*');
+								//data.offerListingId = responseData.result.offerListingId;
+							} else {
+								if (responseData.error !== null) {
+									data.success = "failed";
+									data.reason = responseData.error; //CROSS_BORDER_SHIPMENT, SCHEDULED_DELIVERY_REQUIRED, ITEM_NOT_IN_ENROLLMENT, ITEM_ALREADY_ORDERED
 
-                            fetch("https://pickme.alwaysdata.net/shyrka/order", {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/x-www-form-urlencoded"
-                                },
-                                body: formData.toString()
-                            });
+									const alertContents = document.querySelectorAll('.a-alert-content');
+									const texteAAjouter = "<br><strong>(PickMe) Code erreur : " + responseData.error + "</strong> (<a href='https://pickme.alwaysdata.net/wiki/doku.php?id=plugins:pickme:codes_erreur' target='_blank'>wiki des codes d'erreurs</a>)";
+									alertContents.forEach(function(alertContent) {
+										alertContent.innerHTML += texteAAjouter;
+									});
+								} else if (responseData?.result?.orderId) {
+									data.success = "success";
+								} else {
+									data.success = "failed";
+									data.reason = "NO_ORDERID";
+								}
+								//Envoi des données au serveur
+								const formData = new URLSearchParams(data);
+                                console.log(data);
 
-                            //Attendre 500ms après la commande pour laisser le temps au serveur de traiter avant la redirection.
-                            await new Promise((r) => setTimeout(r, 500));
+								fetch("https://pickme.alwaysdata.net/shyrka/order", {
+									method: "POST",
+									headers: {
+										"Content-Type": "application/x-www-form-urlencoded"
+									},
+									body: formData.toString()
+								});
 
-                            return response;
-                        }
-                    }
+							}
+
+							//Pause de 500 ms pour laisser le serveur traiter la requête
+							await new Promise((r) => setTimeout(r, 500));
+							return response;
+						}
+					}
 
                     regex = new RegExp("^api/recommendations/.*$");
                     if (url.startsWith("api/recommendations")) {
@@ -9377,6 +9708,22 @@ ${isPlus && apiOk ? `
                         if (result === null) {
                             return response;
                         }
+
+						if (checkoutNewTab && checkoutEnabled) {
+
+							//Tentative d'update pendant 3 secondes
+							let attempts = 0;
+							const maxAttempts = 60; //3 secondes a 50 ms
+							const interval = setInterval(() => {
+								const checkoutBuyNowForm = document.querySelector("#vvp-checkout-buy-now");
+								if (checkoutBuyNowForm) {
+									checkoutBuyNowForm.target = "_blank";
+									clearInterval(interval);
+								} else if (++attempts >= maxAttempts) {
+									clearInterval(interval);
+								}
+							}, 50);
+						}
 
                         if (result.variations !== undefined) {
                             //The item has variations and so is a parent, store it for later interceptions
@@ -9440,6 +9787,11 @@ ${isPlus && apiOk ? `
                                 });
                             }
                         }
+
+                        if (oldCheckoutEnabled && result?.asinTangoEligible !== undefined) {
+			                responseData.result.asinTangoEligible = false; //Force le checkout d'avant
+	                    }
+
                         if (wheelfixEnabled) {
                             let fixed = 0;
                             //Fix automatique du fix qu'on peut faire à la main
@@ -9677,7 +10029,7 @@ ${isPlus && apiOk ? `
                 const excludedKeys = [
                     'mobileEnabled', 'cssEnabled', 'fastCmdEnabled', 'onMobile',
                     'ordersEnabled', 'ordersStatsEnabled', 'ordersInfos',
-                    'lastVisit', 'hideBas', 'autoRefresh'
+                    'lastVisit', 'hideBas', 'autoRefresh', 'purchaseId'
                 ];
 
                 keys.forEach(key => {
@@ -10346,7 +10698,8 @@ ${isPlus && apiOk ? `
                     { label: 'Page actuelle', value: 'current' },
                     { label: 'Recommandé pour vous', value: 'potluck' },
                     { label: 'Disponible pour tous', value: 'last_chance' },
-                    { label: 'Autres articles', value: 'encore' }
+                    { label: 'Autres articles', value: 'encore' },
+                    { label: 'Tous les articles', value: 'all_items' },
                 ];
                 pages.forEach(page => {
                     const option = document.createElement('option');
@@ -10497,6 +10850,8 @@ ${isPlus && apiOk ? `
                             targetUrl += 'last-chance';
                         } else if (pageToRefresh === 'encore') {
                             targetUrl += 'encore';
+                        } else if (pageToRefresh === 'all_items') {
+                            targetUrl += 'all_items';
                         }
                         window.location.href = targetUrl;
                     } else {
@@ -10609,7 +10964,7 @@ ${isPlus && apiOk ? `
         }
 
         //Ronde
-        if (apiOk && rondeEnabled && window.location.href.includes("queue=encore")) {
+        if (apiOk && rondeEnabled && (window.location.href.includes("queue=encore") || window.location.href.includes("queue=all_items"))) {
             let timerId = null;
             let countdownIntervalId = null;
             let currentDelay = 0;
@@ -10877,10 +11232,10 @@ ${isPlus && apiOk ? `
                     pauseButton.innerHTML = `<img src="${pauseIconUrl}" alt="Pause" style="height:32px; width:auto;">`;
                     if (
                         rondeFirst &&
-                        window.location.href !== 'https://www.amazon.fr/vine/vine-items?queue=encore' &&
-                        window.location.href !== 'https://www.amazon.fr/vine/vine-items?queue=encore&pn=&cn=&page=1'
+                        window.location.href !== `https://www.amazon.fr/vine/vine-items?queue=${valeurQueue}` &&
+                        window.location.href !== `https://www.amazon.fr/vine/vine-items?queue=${valeurQueue}&pn=&cn=&page=1`
                     ) {
-                        window.location.href = 'https://www.amazon.fr/vine/vine-items?queue=encore&pn=&cn=&page=1';
+                        window.location.href = `https://www.amazon.fr/vine/vine-items?queue=${valeurQueue}&pn=&cn=&page=1`;
                         return;
                     }
                     rondeGo();
