@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.6.6
+// @version      2.6.7
 // @description  Plugin d'aide à la navigation pour les membres du discord Amazon Vine FR
 // @author       Créateur/Codeur principal : MegaMan / Codeur secondaire : Sulff / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -395,6 +395,10 @@ NOTES:
 
         let notepadEnabled = GM_getValue('notepadEnabled', true);
 
+
+        let notifVolumeEnabled = GM_getValue('notifVolumeEnabled', false);
+        let notifVolume = GM_getValue('notifVolume', "1");
+
         GM_setValue("notifEnabled", notifEnabled);
         GM_setValue("onMobile", onMobile);
         GM_setValue("shortcutNotif", shortcutNotif);
@@ -426,6 +430,9 @@ NOTES:
         GM_setValue("NSFWHide", NSFWHide);
 
         GM_setValue("notepadEnabled", notepadEnabled);
+
+        GM_setValue("notifVolumeEnabled", notifVolumeEnabled);
+        GM_setValue("notifVolume", notifVolume);
 
         //Convertir la date SQL en date lisible européenne
         function convertToEuropeanDate(mysqlDate) {
@@ -523,13 +530,29 @@ NOTES:
             }
         }
 
+        function playSound(url) {
+            const audio = new Audio(url);
+
+            if (notifVolumeEnabled) {
+                const volume = Math.max(0, Math.min(1, notifVolume));
+                audio.volume = volume;
+            }
+
+            audio.play().catch((err) => {
+                console.warn('Erreur lors de la lecture du son :', err);
+            });
+        }
+
         function soundNotif() {
             if (notifSound) {
                 var sound = new Audio(notifUrl);
-                /*if (/\.mp3$/i.test(callUrl)) {
-                sound = new Audio(callUrl);
-            }*/
-                sound.play();
+                if (notifVolumeEnabled) {
+                    const volume = Math.max(0, Math.min(1, notifVolume));
+                    sound.volume = volume;
+                }
+                sound.play().catch((err) => {
+                    console.warn('Erreur lors de la lecture du son :', err);
+                });
             }
         }
 
@@ -3428,6 +3451,11 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
   padding: 0.5px 0.25px !important;
 }
 
+/* Pour rabaisser le logo en mobile */
+#vvp-logo-link img {
+    margin-top: 10px;
+}
+
 /* RFY, AFA, AI */
 #vvp-items-button--recommended a,
 #vvp-items-button--all a,
@@ -4332,8 +4360,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 }
 
                 if (imgNew && apiOk && soundRecoEnabled && recoSoundUrl && valeurQueue == "potluck") {
-                    const audio = new Audio(recoSoundUrl);
-                    audio.play();
+                    playSound(recoSoundUrl);
                 }
 
                 //Durée maximale de l'ancienneté en millisecondes (ici: 1 jour)
@@ -5875,7 +5902,7 @@ ${isPlus && apiOk ? `
     <div class="checkbox-container">
     <u class="full-width"><b>Options :</u></b><br>
     ${createCheckbox('notifFav', 'Filtrer "Autres articles"/"Tous les articles"', 'Utilise les filtres (soit celui des favoris, soit celui pour exclure) pour ne remonter que les notifications favoris ou sans mots exclus et uniquement si c\'est un produit "Autres articles" ou "Tous les articles" (aucun filtre sur "Disponible pour tous"). La notification apparaitra tout de même dans le centre de notifications. Prend en compte le filtre, même si l\'option des filtres est désactivée')}
-    ${createCheckbox('notifSound', 'Jouer un son', 'Permet de jouer un son à réception d\'une notification. Astuce : pour personnaliser le son, il est possible d\'utiliser l\'option expérimentale pour saisir l\'URL du mp3 (uniquement) de votre choix')}
+    ${createCheckbox('notifSound', 'Jouer un son', 'Permet de jouer un son à réception d\'une notification. Astuce : pour personnaliser le son, rendez-vous dans les paramètres avancées pour saisir l\'URL du mp3 (uniquement) de votre choix')}
     <select id="filterOptions" ${notifFav ? '' : 'disabled'} style="margin-bottom: 10px;">
        <option value="notifFavOnly" ${filterOption === 'notifFavOnly' ? 'selected' : ''}>Ne voir que les produits avec mots-clés</option>
        <option value="notifExcludeHidden" ${filterOption === 'notifExcludeHidden' ? 'selected' : ''}>Tout voir sauf mots exclus</option>
@@ -6442,8 +6469,7 @@ ${isPlus && apiOk ? `
                         } else {
                             playButton.textContent = 'Jouer le son';
                             playButton.addEventListener('click', function() {
-                                const audio = new Audio(input.value);
-                                audio.play();
+                                playSound(input.value);
                             });
                         }
                         containerDiv.appendChild(playButton);
@@ -6880,8 +6906,8 @@ ${isPlus && apiOk ? `
 
                 ajouterSousTitre('Tri personnalisé des produits');
                 ajouterTexte('L\'ordre du tri définit la priorité des critères.\nAttention, les produits dont le prix ou l\'ETV n\'est pas connu seront exclus du tri par ces critères. De même que si vous n\'affichez pas ces informations, le tri pour ces critères sera ignoré.');
-                ajouterOptionCheckbox('menuSorting', 'Afficher le menu pour trier sur les pages');
-                ajouterOptionCheckbox('customSortingEnabled', 'Utiliser le tri personnalisé');
+                ajouterOptionCheckbox('menuSorting', 'Afficher le menu déroulant pour trier sur les pages');
+                ajouterOptionCheckbox('customSortingEnabled', 'Utiliser le tri personnalisé automatiquement à chaque rafraichissement d\'une page');
                 createSortMenu('customSorting');
 
                 ajouterSousTitre('Partage des recommandations');
@@ -6984,6 +7010,9 @@ ${isPlus && apiOk ? `
                 ajouterOptionCheckbox('isParentEnabled', 'Distinguer les produits ayant des variantes. Si c\'est le cas, cela ajoute l\'icone 🛍️ dans le texte du bouton des détails');
                 ajouterOptionCheckbox('notepadEnabled', 'Activer le Bloc-notes');
                 ajouterOptionTexte('sizeMobileCat', 'Tailles des boutons de catégories (RFY, AFA, AI) en affichage mobile', '54px');
+                ajouterSeparateur();
+                ajouterOptionCheckbox('notifVolumeEnabled', 'Contrôler le volume des notifications');
+                ajouterOptionTexte('notifVolume', 'Volume des notifications, valeur entre 0 et 1 (0 = muet, 1 = max)', '1');
                 ajouterSeparateur();
                 ajouterOptionTexte('favNew', 'Durée (en minutes) pendant laquelle un favori est marqué comme étant récent dans l\'onglet des favoris', '1');
                 ajouterOptionTexte('favOld', 'Durée (en heures) au delà de laquelle un favori est marqué comme étant obsolète dans l\'onglet des favoris', '12');
@@ -10805,28 +10834,57 @@ ${isPlus && apiOk ? `
                 button.id = 'share-main-button';
                 button.className = 'bouton-action';
                 button.textContent = copyShare;
-                button.style.marginLeft = '5px';
                 button.addEventListener('click', handleMainButtonClick);
 
-                const pResultats = document.querySelector('#vvp-items-grid-container > p');
-                if (pResultats) {
-                    let inserted = false;
-                    pResultats.childNodes.forEach(node => {
-                        if (!inserted && node.nodeType === Node.TEXT_NODE && node.textContent.includes("résultats")) {
-                            const pos = node.textContent.indexOf("résultats") + "résultats".length;
-                            const avant = node.textContent.substring(0, pos);
-                            const apres = node.textContent.substring(pos);
+                //Marge supplémentaire en mobile
+                if (isMobile()) {
+                    button.style.marginBottom = '5px';
+                    if (hideEnabled) {
+                        button.style.marginTop = '-10px';
+                    } else if (menuSorting) {
+                        button.style.marginTop = '5px';
+                    }
+                } else {
+                    button.style.marginLeft = '5px';
+                }
 
-                            const textAvant = document.createTextNode(avant);
-                            const textApres = document.createTextNode(apres);
+                const divCacherHaut = document.querySelector('#divCacherHaut');
 
-                            pResultats.replaceChild(textAvant, node);
-                            pResultats.insertBefore(button, textAvant.nextSibling);
-                            pResultats.insertBefore(textApres, button.nextSibling);
+                if (isMobile()) {
+                    if (hideEnabled && divCacherHaut) {
+                        divCacherHaut.insertAdjacentElement('afterend', button);
+                    } else {
+                        const resultats = document.querySelector('#vvp-items-grid-container > p');
+                        const vineGrid = document.querySelector('#vvp-items-grid');
 
-                            inserted = true;
+                        if (resultats) {
+                            resultats.after(button);
+                        } else if (vineGrid) {
+                            vineGrid.before(button);
                         }
-                    });
+                    }
+                } else {
+                    //Desktop
+                    const pResultats = document.querySelector('#vvp-items-grid-container > p');
+                    if (pResultats) {
+                        let inserted = false;
+                        pResultats.childNodes.forEach(node => {
+                            if (!inserted && node.nodeType === Node.TEXT_NODE && node.textContent.includes("résultats")) {
+                                const pos = node.textContent.indexOf("résultats") + "résultats".length;
+                                const avant = node.textContent.substring(0, pos);
+                                const apres = node.textContent.substring(pos);
+
+                                const textAvant = document.createTextNode(avant);
+                                const textApres = document.createTextNode(apres);
+
+                                pResultats.replaceChild(textAvant, node);
+                                pResultats.insertBefore(button, textAvant.nextSibling);
+                                pResultats.insertBefore(textApres, button.nextSibling);
+
+                                inserted = true;
+                            }
+                        });
+                    }
                 }
             }
 
