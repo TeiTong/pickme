@@ -2890,7 +2890,7 @@ NOTES:
             footer.nav-mobile.nav-ftr-batmobile {
               display: none !important;
             }
-            `
+         `
             document.head.appendChild(styleFooter);
 
             //Cacher le header ou non
@@ -3133,7 +3133,7 @@ NOTES:
                 var applyHeight = !(extendedEnabled && mobileEnabled);
 
                 mobileCss.textContent = `
-/*Pour gérer Avis/Commandes/Compte
+/*Pour gérer Avis/Commandes/Compte*/
 #vvp-header {
   display: flex !important;
   align-items: center; !important;
@@ -3143,13 +3143,18 @@ NOTES:
 
 #vvp-header a.a-link-normal {
   position: relative;
-  padding: 0 0.5em;
+  padding: 0 0.15em;
   text-decoration: none;
 }
 
-#vvp-header a.a-link-normal::after {
-  position: absolute;
-  right: -0.5em;
+/*Centrer le bouton des catégories*/
+#categories-sheet {
+    margin-right: 8px !important;
+        margin-left: -8px !important;
+}
+
+.vvp-items-button-scroll-container {
+    overflow: visible !important;
 }
 
 #vvp-header a.a-link-normal:last-of-type::after {
@@ -3749,6 +3754,16 @@ body {
                     var mobileCssRR = document.createElement('style');
 
                     mobileCssRR.textContent = `
+/*Centrer le bouton des catégories*/
+#categories-sheet {
+    margin-right: 8px !important;
+        margin-left: -8px !important;
+}
+
+.vvp-items-button-scroll-container {
+    overflow: visible !important;
+}
+
 /*Pour gérer Avis/Commandes/Compte*/
 #vvp-header {
   display: flex !important;
@@ -3759,13 +3774,8 @@ body {
 
 #vvp-header a.a-link-normal {
   position: relative;
-  padding: 0 0.5em;
+  padding: 0 0.15em;
   text-decoration: none;
-}
-
-#vvp-header a.a-link-normal::after {
-  position: absolute;
-  right: -0.5em;
 }
 
 #vvp-header a.a-link-normal:last-of-type::after {
