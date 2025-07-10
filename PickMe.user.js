@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PickMe
 // @namespace    http://tampermonkey.net/
-// @version      2.6.8
+// @version      2.6.9
 // @description  Plugin d'aide à la navigation pour les membres du discord Amazon Vine FR
 // @author       Créateur/Codeur principal : MegaMan / Codeur secondaire : Sulff / Testeurs : Louise, JohnnyBGoody, L'avocat du Diable et Popato (+ du code de lelouch_di_britannia, FMaz008 et Thorvarium)
 // @match        https://www.amazon.fr/vine/vine-items
@@ -465,26 +465,26 @@ NOTES:
                 body: formData.toString()
             })
                 .then(response => {
-                    if (response.status === 200) {
-                        return response.json().then(data => {
-                            const { date_last, title, linkText, linkUrl, main_image } = data;
-                            const date_last_eu = convertToEuropeanDate(date_last);
-                            return { date_last_eu, title, linkText, linkUrl, main_image };
-                        }).catch(error => {
-                            console.error("Erreur lors de l'analyse de la réponse JSON:", error);
-                            throw new Error("Erreur lors de l'analyse de la réponse JSON");
-                        });
-                    } else if (response.status === 201) {
-                        return response.text();
-                    } else {
-                        console.error("Erreur HTTP:", response.status, response.statusText);
-                        throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
-                    }
-                })
+                if (response.status === 200) {
+                    return response.json().then(data => {
+                        const { date_last, title, linkText, linkUrl, main_image } = data;
+                        const date_last_eu = convertToEuropeanDate(date_last);
+                        return { date_last_eu, title, linkText, linkUrl, main_image };
+                    }).catch(error => {
+                        console.error("Erreur lors de l'analyse de la réponse JSON:", error);
+                        throw new Error("Erreur lors de l'analyse de la réponse JSON");
+                    });
+                } else if (response.status === 201) {
+                    return response.text();
+                } else {
+                    console.error("Erreur HTTP:", response.status, response.statusText);
+                    throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                }
+            })
                 .catch(error => {
-                    console.error("Erreur de requête:", error);
-                    throw error;
-                });
+                console.error("Erreur de requête:", error);
+                throw error;
+            });
         }
 
         //Fonction pour demander la permission et afficher la notification
@@ -598,38 +598,38 @@ NOTES:
                 if (filterOption == "notifFavOnly") {
                     var favWordsTrimNotif = favWords.trim();
                     var favArrayNotif = favWordsTrimNotif.length > 0
-                        ? favWordsTrimNotif.split(',').map(pattern => {
-                            pattern = pattern.trim();
-                            if (pattern.length > 0) {
-                                try {
-                                    return new RegExp(pattern, 'i');
-                                } catch (e) {
-                                    console.error('Expression regex invalide :', pattern, e);
-                                    return null;
-                                }
-                            } else {
+                    ? favWordsTrimNotif.split(',').map(pattern => {
+                        pattern = pattern.trim();
+                        if (pattern.length > 0) {
+                            try {
+                                return new RegExp(pattern, 'i');
+                            } catch (e) {
+                                console.error('Expression regex invalide :', pattern, e);
                                 return null;
                             }
-                        }).filter(regex => regex != null)
-                        : [];
+                        } else {
+                            return null;
+                        }
+                    }).filter(regex => regex != null)
+                    : [];
 
                 } else if (filterOption == "notifExcludeHidden") {
                     var hiddenWordsTrimNotif = hideWords.trim();
                     var hiddenArrayNotif = hiddenWordsTrimNotif.length > 0
-                        ? hiddenWordsTrimNotif.split(',').map(pattern => {
-                            pattern = pattern.trim();
-                            if (pattern.length > 0) {
-                                try {
-                                    return new RegExp(pattern, 'i');
-                                } catch (e) {
-                                    console.error('Expression regex invalide :', pattern, e);
-                                    return null;
-                                }
-                            } else {
+                    ? hiddenWordsTrimNotif.split(',').map(pattern => {
+                        pattern = pattern.trim();
+                        if (pattern.length > 0) {
+                            try {
+                                return new RegExp(pattern, 'i');
+                            } catch (e) {
+                                console.error('Expression regex invalide :', pattern, e);
                                 return null;
                             }
-                        }).filter(regex => regex != null)
-                        : [];
+                        } else {
+                            return null;
+                        }
+                    }).filter(regex => regex != null)
+                    : [];
                 }
             }
             //Écouter les messages immédiatement
@@ -853,9 +853,9 @@ NOTES:
         function getProductAsin(produit) {
             return produit.getAttribute("data-asin") ||
                 (
-                    produit.querySelector(".vvp-details-btn input") ||
-                    produit.querySelector(".vvp-details-btn-mobile input")
-                )?.getAttribute("data-asin");
+                produit.querySelector(".vvp-details-btn input") ||
+                produit.querySelector(".vvp-details-btn-mobile input")
+            )?.getAttribute("data-asin");
         }
 
         function getStringDetailsBtnSelector() {
@@ -1480,7 +1480,7 @@ NOTES:
             let columnEnabled = GM_getValue('columnEnabled', false);
             let nbColumn = GM_getValue('nbColumn', '5');
 
-            let sizeMobileCat = GM_getValue('sizeMobileCat', '54px');
+            let sizeMobileCat = GM_getValue('sizeMobileCat', '32px');
 
             let customSortingEnabled = GM_getValue('customSortingEnabled', false);
             let customSorting = GM_getValue('customSorting', [{ type: 'firstproduct' }, { type: 'newproduct' }, { type: 'putproduct' }, { type: 'favproduct' }, { type: 'price', order: 'desc' }, { type: 'etv', order: 'asc' }]);
@@ -1734,19 +1734,19 @@ NOTES:
                     body: formData.toString()
                 })
                     .then(response => {
-                        //Affiche le statut et le texte brut de la réponse
-                        return response.text().then(text => {
-                            console.log(response.status, text);
-                            return {
-                                status: response.status,
-                                responseText: text
-                            };
-                        });
-                    })
-                    .catch(error => {
-                        console.error(error);
-                        throw error;
+                    //Affiche le statut et le texte brut de la réponse
+                    return response.text().then(text => {
+                        console.log(response.status, text);
+                        return {
+                            status: response.status,
+                            responseText: text
+                        };
                     });
+                })
+                    .catch(error => {
+                    console.error(error);
+                    throw error;
+                });
             }
 
             function askPage() {
@@ -2267,36 +2267,36 @@ NOTES:
 
                         //Conversion en regex
                         var favArray = favWordsTrim.length > 0
-                            ? favWordsTrim.split(',').map(pattern => {
-                                pattern = pattern.trim();
-                                if (pattern.length > 0) {
-                                    try {
-                                        return new RegExp(pattern, 'i');
-                                    } catch (e) {
-                                        console.error('Expression regex invalide :', pattern, e);
-                                        return null;
-                                    }
-                                } else {
+                        ? favWordsTrim.split(',').map(pattern => {
+                            pattern = pattern.trim();
+                            if (pattern.length > 0) {
+                                try {
+                                    return new RegExp(pattern, 'i');
+                                } catch (e) {
+                                    console.error('Expression regex invalide :', pattern, e);
                                     return null;
                                 }
-                            }).filter(regex => regex != null)
-                            : [];
+                            } else {
+                                return null;
+                            }
+                        }).filter(regex => regex != null)
+                        : [];
 
                         var hideArray = hideWordsTrim.length > 0
-                            ? hideWordsTrim.split(',').map(pattern => {
-                                pattern = pattern.trim();
-                                if (pattern.length > 0) {
-                                    try {
-                                        return new RegExp(pattern, 'i');
-                                    } catch (e) {
-                                        console.error('Expression regex invalide :', pattern, e);
-                                        return null;
-                                    }
-                                } else {
+                        ? hideWordsTrim.split(',').map(pattern => {
+                            pattern = pattern.trim();
+                            if (pattern.length > 0) {
+                                try {
+                                    return new RegExp(pattern, 'i');
+                                } catch (e) {
+                                    console.error('Expression regex invalide :', pattern, e);
                                     return null;
                                 }
-                            }).filter(regex => regex != null)
-                            : [];
+                            } else {
+                                return null;
+                            }
+                        }).filter(regex => regex != null)
+                        : [];
                     }
 
                     const itemTiles = document.querySelectorAll('.vvp-item-tile');
@@ -2948,10 +2948,19 @@ NOTES:
                 style.textContent = `
 		#vvp-product-details-modal--tax-value {
 			position: absolute !important;
-			top: 20px !important;
+			top: 0px !important;
 			z-index: 101;
 			left: 18px;
 		}
+        #product-details-sheet-tax-value {
+			position: absolute !important;
+			top: 0px !important;
+            width: auto;
+			z-index: 101;
+		}
+        .a-sheet-heading-container {
+            position: relative;
+        }
 		`;
                 //Ajout du style à la page
                 document.head.appendChild(style);
@@ -2974,7 +2983,6 @@ NOTES:
                 var styleCss = document.createElement('style');
 
                 styleCss.textContent = `
-
 //Catégories
 #vvp-browse-nodes-container .parent-node {
   background-color: transparent;
@@ -3133,6 +3141,13 @@ NOTES:
                 var applyHeight = !(extendedEnabled && mobileEnabled);
 
                 mobileCss.textContent = `
+#product-details-sheet-footer {
+    position: sticky;
+    bottom: 0;
+    padding: 1rem;
+    z-index: 10;
+}
+
 /*Pour gérer Avis/Commandes/Compte*/
 #vvp-header {
   display: flex !important;
@@ -3150,7 +3165,7 @@ NOTES:
 /*Centrer le bouton des catégories*/
 #categories-sheet {
     margin-right: 8px !important;
-        margin-left: -8px !important;
+    margin-left: -8px !important;
 }
 
 .vvp-items-button-scroll-container {
@@ -3757,7 +3772,7 @@ body {
 /*Centrer le bouton des catégories*/
 #categories-sheet {
     margin-right: 8px !important;
-        margin-left: -8px !important;
+    margin-left: -8px !important;
 }
 
 .vvp-items-button-scroll-container {
@@ -4163,6 +4178,29 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 });
             }
 
+            function waitForElement(parent, selector, timeout = 2000) {
+                return new Promise(resolve => {
+                    const existing = parent.querySelector(selector);
+                    if (existing) {
+                        resolve(existing);
+                        return;
+                    }
+                    const observer = new MutationObserver(() => {
+                        const el = parent.querySelector(selector);
+                        if (el) {
+                            observer.disconnect();
+                            clearTimeout(timer);
+                            resolve(el);
+                        }
+                    });
+                    observer.observe(parent, { childList: true, subtree: true });
+                    const timer = setTimeout(() => {
+                        observer.disconnect();
+                        resolve(null);
+                    }, timeout);
+                });
+            }
+
             //Tester si le produit est NSFW
             function NSFWTest(productUrl) {
                 const formData = new URLSearchParams({
@@ -4180,16 +4218,16 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                     body: formData.toString()
                 })
                     .then(response => {
-                        return response.text().then(text => {
-                            //Convertit la réponse en entier (0 ou 1)
-                            return text;
-                        });
-                    })
-                    .catch(error => {
-                        console.error(error);
-                        updateButtonIcon(6);
-                        throw error;
+                    return response.text().then(text => {
+                        //Convertit la réponse en entier (0 ou 1)
+                        return text;
                     });
+                })
+                    .catch(error => {
+                    console.error(error);
+                    updateButtonIcon(6);
+                    throw error;
+                });
             }
 
             const items = document.querySelectorAll('.vvp-item-tile');
@@ -4197,6 +4235,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
             const listElementsOrder = [];
 
             let elementsToPrepend = [];
+
             const processingPromises = Array.from(items).map(async element => {
                 //Récupérer le lien principal (desktop)
                 let linkElement = element.querySelector('.vvp-item-product-title-container > a.a-link-normal');
@@ -4209,9 +4248,18 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 if (btnMobile) {
                     //Cas mobile : on cherche le bouton à la place
                     asin = inputEl ? inputEl.getAttribute('data-asin') : null;
-                    const fullTextElement =
-                        element.querySelector('.a-truncate-full.a-offscreen') ||
-                        element.querySelector('.a-truncate-cut');
+                    let fullTextElement = element.querySelector('.a-truncate-full.a-offscreen');
+
+                    //On essaie de récupérer l'élément contenant le titre complet
+                    if (!fullTextElement) {
+                        fullTextElement = await waitForElement(element, '.a-truncate-full.a-offscreen');
+                    }
+                    //Sinon on récupère l'élément avec le texte tronqué
+                    if (!fullTextElement) {
+                        fullTextElement = element.querySelector('.a-truncate-cut');
+                    }
+
+                    //Même si l'élément à été récupéré, son texte peut être vide, on attend qu'il soit rempli
                     if (fullTextElement) {
                         title = await waitForNonEmptyText(fullTextElement);
                     }
@@ -4240,11 +4288,15 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         const match = productUrl.match(/\/dp\/([A-Z0-9]{10})/i);
                         asin = match ? match[1] : null;
                     } else {
-                        //Produit pré-release sans lien direct
+                        //Traitement pour fix produit pré-release sans lien direct (sur PC uniquement)
+
                         asin = inputEl ? inputEl.getAttribute('data-asin') : null;
+
+                        //On récupère le titre dans les mêmes éléments que sur mobile car le lien n'est pas présent
                         const fullTextElement =
-                            element.querySelector('.a-truncate-full.a-offscreen') ||
-                            element.querySelector('.a-truncate-cut');
+                              element.querySelector('.a-truncate-full.a-offscreen') ||
+                              element.querySelector('.a-truncate-cut');
+
                         if (fullTextElement) {
                             title = await waitForNonEmptyText(fullTextElement);
                         }
@@ -4424,38 +4476,38 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                         if (callUrlTypeFav == "callFavOnly") {
                             var favWordsTrim = favWords.trim();
                             var favArrayUrl = favWordsTrim.length > 0
-                                ? favWordsTrim.split(',').map(pattern => {
-                                    pattern = pattern.trim();
-                                    if (pattern.length > 0) {
-                                        try {
-                                            return new RegExp(pattern, 'i');
-                                        } catch (e) {
-                                            console.error('Expression regex invalide :', pattern, e);
-                                            return null;
-                                        }
-                                    } else {
+                            ? favWordsTrim.split(',').map(pattern => {
+                                pattern = pattern.trim();
+                                if (pattern.length > 0) {
+                                    try {
+                                        return new RegExp(pattern, 'i');
+                                    } catch (e) {
+                                        console.error('Expression regex invalide :', pattern, e);
                                         return null;
                                     }
-                                }).filter(regex => regex != null)
-                                : [];
+                                } else {
+                                    return null;
+                                }
+                            }).filter(regex => regex != null)
+                            : [];
 
                         } else if (callUrlTypeFav == "callExcludeHidden") {
                             var hiddenWordsTrim = hideWords.trim();
                             var hiddenArrayUrl = hiddenWordsTrim.length > 0
-                                ? hiddenWordsTrim.split(',').map(pattern => {
-                                    pattern = pattern.trim();
-                                    if (pattern.length > 0) {
-                                        try {
-                                            return new RegExp(pattern, 'i');
-                                        } catch (e) {
-                                            console.error('Expression regex invalide :', pattern, e);
-                                            return null;
-                                        }
-                                    } else {
+                            ? hiddenWordsTrim.split(',').map(pattern => {
+                                pattern = pattern.trim();
+                                if (pattern.length > 0) {
+                                    try {
+                                        return new RegExp(pattern, 'i');
+                                    } catch (e) {
+                                        console.error('Expression regex invalide :', pattern, e);
                                         return null;
                                     }
-                                }).filter(regex => regex != null)
-                                : [];
+                                } else {
+                                    return null;
+                                }
+                            }).filter(regex => regex != null)
+                            : [];
                         }
                         setTimeout(() => {
                             const newProducts = document.querySelectorAll('.newproduct');
@@ -4512,50 +4564,50 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                 if (listElements.length > 0 && !isPageCachedOld()) {
                     sendDatasToAPI(listElements)
                         .then(urlArray => {
-                            //Si aucune URL nouvelle, on sort
-                            if (!urlArray || urlArray.length === 0) return;
+                        //Si aucune URL nouvelle, on sort
+                        if (!urlArray || urlArray.length === 0) return;
 
-                            const imgFirstSeen = firstSeenUrl;
-                            const items = document.querySelectorAll('.vvp-item-tile');
+                        const imgFirstSeen = firstSeenUrl;
+                        const items = document.querySelectorAll('.vvp-item-tile');
 
-                            items.forEach(element => {
-                                //Récupère le lien produit
-                                const linkElement = element.querySelector('.vvp-item-product-title-container > a.a-link-normal');
-                                const productUrl = linkElement ? linkElement.href : null;
-                                //Si c'est une URL "first seen"
-                                if (productUrl && urlArray.includes(productUrl)) {
-                                    const asin = linkElement.href.split('/dp/')[1].split('/')[0];
-                                    storedProducts[asin].firstSeen = true;
-                                    if (apiOk && firstSeenEnabled) {
-                                        element.classList.add('firstproduct');
-                                        const imgElement = element.querySelector('img');
-                                        if (!imgElement) return;
-                                        const wrapper = imgElement.parentElement;
-                                        if (getComputedStyle(wrapper).position === 'static') {
-                                            wrapper.style.position = 'relative';
-                                        }
-
-                                        const overlay = document.createElement('img');
-                                        overlay.src = imgFirstSeen;
-                                        overlay.alt = "First seen";
-                                        Object.assign(overlay.style, {
-                                            position:'absolute',
-                                            top: mobileEnabled ? firstSeenVerticalMobile : firstSeenVertical,
-                                            left: mobileEnabled ? firstSeenHorizontalMobile : firstSeenHorizontal,
-                                            width: mobileEnabled ? firstSeenWidthMobile : firstSeenWidth,
-                                            height: mobileEnabled ? firstSeenHeightMobile : firstSeenHeight,
-                                            zIndex:'4'
-                                        });
-
-                                        wrapper.appendChild(overlay);
+                        items.forEach(element => {
+                            //Récupère le lien produit
+                            const linkElement = element.querySelector('.vvp-item-product-title-container > a.a-link-normal');
+                            const productUrl = linkElement ? linkElement.href : null;
+                            //Si c'est une URL "first seen"
+                            if (productUrl && urlArray.includes(productUrl)) {
+                                const asin = linkElement.href.split('/dp/')[1].split('/')[0];
+                                storedProducts[asin].firstSeen = true;
+                                if (apiOk && firstSeenEnabled) {
+                                    element.classList.add('firstproduct');
+                                    const imgElement = element.querySelector('img');
+                                    if (!imgElement) return;
+                                    const wrapper = imgElement.parentElement;
+                                    if (getComputedStyle(wrapper).position === 'static') {
+                                        wrapper.style.position = 'relative';
                                     }
+
+                                    const overlay = document.createElement('img');
+                                    overlay.src = imgFirstSeen;
+                                    overlay.alt = "First seen";
+                                    Object.assign(overlay.style, {
+                                        position:'absolute',
+                                        top: mobileEnabled ? firstSeenVerticalMobile : firstSeenVertical,
+                                        left: mobileEnabled ? firstSeenHorizontalMobile : firstSeenHorizontal,
+                                        width: mobileEnabled ? firstSeenWidthMobile : firstSeenWidth,
+                                        height: mobileEnabled ? firstSeenHeightMobile : firstSeenHeight,
+                                        zIndex:'4'
+                                    });
+
+                                    wrapper.appendChild(overlay);
                                 }
-                            });
-                            GM_setValue("storedProducts", JSON.stringify(storedProducts));
-                        })
-                        .catch(err => {
-                            console.error("Erreur API :", err);
+                            }
                         });
+                        GM_setValue("storedProducts", JSON.stringify(storedProducts));
+                    })
+                        .catch(err => {
+                        console.error("Erreur API :", err);
+                    });
 
                     if (ordersInfos && ordersEnabled && window.location.href.startsWith("https://www.amazon.fr/vine/vine-items?queue=")) {
                         ordersPost(listElementsOrder);
@@ -4718,7 +4770,7 @@ li.a-last a span.larr {      /* Cible le span larr dans les li a-last */
                                 }
                             } else {
                                 const elementCategorie = [...document.querySelectorAll('.parent-node')]
-                                    .find(el => el.querySelector('a')?.textContent.trim() === nom);
+                                .find(el => el.querySelector('a')?.textContent.trim() === nom);
                                 if (elementCategorie) {
                                     const span = document.createElement('span');
                                     span.textContent = ` (${difference > 0 ? '+' : ''}${difference})`;
@@ -5769,8 +5821,8 @@ ${isPlus && apiOk ? `
                 const helpSpanId = `help-span-${name}`;
 
                 const helpIcon = explanation
-                    ? `<span id="${helpSpanId}" style="cursor: help; color: ${color}; font-size: 16px;">?</span>`
-                    : '';
+                ? `<span id="${helpSpanId}" style="cursor: help; color: ${color}; font-size: 16px;">?</span>`
+                : '';
 
                 const checkboxHtml = `<label class="${isDisabled ? 'disabled' : ''}" style="display: flex; align-items: flex-start;">
         <div style="flex: 1;">
@@ -6159,67 +6211,91 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (response.status === 200) {
-                            return response.json();
-                        } else {
-                            throw new Error("Erreur lors de la récupération des thèmes");
-                        }
-                    })
+                    if (response.status === 200) {
+                        return response.json();
+                    } else {
+                        throw new Error("Erreur lors de la récupération des thèmes");
+                    }
+                })
                     .then(data => {
-                        const presetDropdown = document.getElementById('presetDropdown');
-                        presetDropdown.innerHTML = "";
-                        //Ajout des thèmes du serveur
-                        data.themes.forEach(theme => {
-                            const option = document.createElement('option');
-                            option.value = theme.name;
-                            option.textContent = theme.name;
-                            presetDropdown.appendChild(option);
-                        });
-                        //Ajout des thèmes personnalisés stockés localement
-                        const customThemes = GM_getValue('customThemes', {});
-                        Object.keys(customThemes).forEach(themeName => {
-                            const option = document.createElement('option');
-                            option.value = themeName;
-                            option.textContent = themeName + " (personnalisé)";
-                            presetDropdown.appendChild(option);
-                        });
-                        let deleteBtn = document.getElementById('deleteCustomTheme');
-                        if (!deleteBtn) {
-                            deleteBtn = document.createElement('button');
-                            deleteBtn.id = 'deleteCustomTheme';
-                            deleteBtn.textContent = 'Supprimer';
-                            deleteBtn.style.marginLeft = '5px';
-                            deleteBtn.style.display = 'none';
-                            presetDropdown.parentNode.insertBefore(deleteBtn, presetDropdown.nextSibling);
+                    const presetDropdown = document.getElementById('presetDropdown');
+                    presetDropdown.innerHTML = "";
+                    //Ajout des thèmes du serveur
+                    data.themes.forEach(theme => {
+                        const option = document.createElement('option');
+                        option.value = theme.name;
+                        option.textContent = theme.name;
+                        presetDropdown.appendChild(option);
+                    });
+                    //Ajout des thèmes personnalisés stockés localement
+                    const customThemes = GM_getValue('customThemes', {});
+                    Object.keys(customThemes).forEach(themeName => {
+                        const option = document.createElement('option');
+                        option.value = themeName;
+                        option.textContent = themeName + " (personnalisé)";
+                        presetDropdown.appendChild(option);
+                    });
+                    let deleteBtn = document.getElementById('deleteCustomTheme');
+                    if (!deleteBtn) {
+                        deleteBtn = document.createElement('button');
+                        deleteBtn.id = 'deleteCustomTheme';
+                        deleteBtn.textContent = 'Supprimer';
+                        deleteBtn.style.marginLeft = '5px';
+                        deleteBtn.style.display = 'none';
+                        presetDropdown.parentNode.insertBefore(deleteBtn, presetDropdown.nextSibling);
+                    }
+                    let addBtn = document.getElementById('addCustomTheme');
+                    if (!addBtn) {
+                        addBtn = document.createElement('button');
+                        addBtn.id = 'addCustomTheme';
+                        addBtn.textContent = 'Ajouter';
+                        addBtn.style.marginLeft = '10px';
+                        presetDropdown.parentNode.insertBefore(addBtn, deleteBtn);
+                    }
+                    const selectedThemeName = GM_getValue('imgTheme', 'Classique');
+                    if (selectedThemeName) {
+                        presetDropdown.value = selectedThemeName;
+                        if (customThemes.hasOwnProperty(selectedThemeName)) {
+                            deleteBtn.style.display = 'inline-block';
                         }
-                        let addBtn = document.getElementById('addCustomTheme');
-                        if (!addBtn) {
-                            addBtn = document.createElement('button');
-                            addBtn.id = 'addCustomTheme';
-                            addBtn.textContent = 'Ajouter';
-                            addBtn.style.marginLeft = '10px';
-                            presetDropdown.parentNode.insertBefore(addBtn, deleteBtn);
-                        }
-                        const selectedThemeName = GM_getValue('imgTheme', 'Classique');
-                        if (selectedThemeName) {
-                            presetDropdown.value = selectedThemeName;
-                            if (customThemes.hasOwnProperty(selectedThemeName)) {
-                                deleteBtn.style.display = 'inline-block';
-                            }
-                        }
+                    }
 
-                        //Lors du changement de thème dans le menu déroulant
-                        presetDropdown.addEventListener('change', (event) => {
-                            const selectedThemeName = event.target.value;
-                            const customThemes = GM_getValue('customThemes', {});
-                            if (customThemes.hasOwnProperty(selectedThemeName)) {
-                                //Thème personnalisé : mise à jour des champs depuis la configuration importée
-                                const config = customThemes[selectedThemeName];
+                    //Lors du changement de thème dans le menu déroulant
+                    presetDropdown.addEventListener('change', (event) => {
+                        const selectedThemeName = event.target.value;
+                        const customThemes = GM_getValue('customThemes', {});
+                        if (customThemes.hasOwnProperty(selectedThemeName)) {
+                            //Thème personnalisé : mise à jour des champs depuis la configuration importée
+                            const config = customThemes[selectedThemeName];
+                            dynamicFields.forEach(field => {
+                                if (config.hasOwnProperty(field)) {
+                                    const inputElem = document.getElementById('opt_' + field);
+                                    if (inputElem) {
+                                        inputElem.value = config[field];
+                                        const container = inputElem.closest('.advancedOption');
+                                        if (container) {
+                                            const defaultSpan = container.querySelector('.defaultValueSpan');
+                                            if (defaultSpan) {
+                                                defaultSpan.style.color = (inputElem.value.trim() === defaultSpan.textContent.trim()) ? '#888' : '#ff553e';
+                                            }
+                                        }
+                                    }
+                                    const previewElem = document.getElementById('preview_' + field);
+                                    if (previewElem) {
+                                        updateImagePreview('opt_' + field, 'preview_' + field);
+                                    }
+                                }
+                            });
+                            deleteBtn.style.display = 'inline-block';
+                        } else {
+                            //Thème du serveur : mise à jour dynamique sur la base de dynamicFields
+                            const selectedTheme = data.themes.find(theme => theme.name === selectedThemeName);
+                            if (selectedTheme) {
                                 dynamicFields.forEach(field => {
-                                    if (config.hasOwnProperty(field)) {
+                                    if (selectedTheme.hasOwnProperty(field)) {
                                         const inputElem = document.getElementById('opt_' + field);
                                         if (inputElem) {
-                                            inputElem.value = config[field];
+                                            inputElem.value = selectedTheme[field];
                                             const container = inputElem.closest('.advancedOption');
                                             if (container) {
                                                 const defaultSpan = container.querySelector('.defaultValueSpan');
@@ -6234,61 +6310,37 @@ ${isPlus && apiOk ? `
                                         }
                                     }
                                 });
-                                deleteBtn.style.display = 'inline-block';
-                            } else {
-                                //Thème du serveur : mise à jour dynamique sur la base de dynamicFields
-                                const selectedTheme = data.themes.find(theme => theme.name === selectedThemeName);
-                                if (selectedTheme) {
-                                    dynamicFields.forEach(field => {
-                                        if (selectedTheme.hasOwnProperty(field)) {
-                                            const inputElem = document.getElementById('opt_' + field);
-                                            if (inputElem) {
-                                                inputElem.value = selectedTheme[field];
-                                                const container = inputElem.closest('.advancedOption');
-                                                if (container) {
-                                                    const defaultSpan = container.querySelector('.defaultValueSpan');
-                                                    if (defaultSpan) {
-                                                        defaultSpan.style.color = (inputElem.value.trim() === defaultSpan.textContent.trim()) ? '#888' : '#ff553e';
-                                                    }
-                                                }
-                                            }
-                                            const previewElem = document.getElementById('preview_' + field);
-                                            if (previewElem) {
-                                                updateImagePreview('opt_' + field, 'preview_' + field);
-                                            }
-                                        }
-                                    });
+                            }
+                            deleteBtn.style.display = 'none';
+                        }
+                    });
+
+                    //Événement pour supprimer un thème personnalisé
+                    deleteBtn.addEventListener('click', function() {
+                        const selectedThemeName = presetDropdown.value;
+                        let customThemes = GM_getValue('customThemes', {});
+                        if (customThemes.hasOwnProperty(selectedThemeName)) {
+                            if (confirm("Voulez-vous supprimer le thème personnalisé \"" + selectedThemeName + "\" ?")) {
+                                delete customThemes[selectedThemeName];
+                                GM_setValue('customThemes', customThemes);
+                                const optionToRemove = presetDropdown.querySelector("option[value='" + selectedThemeName + "']");
+                                if (optionToRemove) {
+                                    optionToRemove.remove();
                                 }
+                                presetDropdown.selectedIndex = 0;
+                                presetDropdown.dispatchEvent(new Event('change'));
+                                GM_setValue('imgTheme', presetDropdown.value);
                                 deleteBtn.style.display = 'none';
                             }
-                        });
-
-                        //Événement pour supprimer un thème personnalisé
-                        deleteBtn.addEventListener('click', function() {
-                            const selectedThemeName = presetDropdown.value;
-                            let customThemes = GM_getValue('customThemes', {});
-                            if (customThemes.hasOwnProperty(selectedThemeName)) {
-                                if (confirm("Voulez-vous supprimer le thème personnalisé \"" + selectedThemeName + "\" ?")) {
-                                    delete customThemes[selectedThemeName];
-                                    GM_setValue('customThemes', customThemes);
-                                    const optionToRemove = presetDropdown.querySelector("option[value='" + selectedThemeName + "']");
-                                    if (optionToRemove) {
-                                        optionToRemove.remove();
-                                    }
-                                    presetDropdown.selectedIndex = 0;
-                                    presetDropdown.dispatchEvent(new Event('change'));
-                                    GM_setValue('imgTheme', presetDropdown.value);
-                                    deleteBtn.style.display = 'none';
-                                }
-                            }
-                        });
-                        addBtn.addEventListener('click', function() {
-                            saveTheme();
-                        });
-                    })
-                    .catch(error => {
-                        console.error(error);
+                        }
                     });
+                    addBtn.addEventListener('click', function() {
+                        saveTheme();
+                    });
+                })
+                    .catch(error => {
+                    console.error(error);
+                });
             }
 
             function saveTheme() {
@@ -6380,21 +6432,21 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (!response.ok) {
-                            throw new Error("Erreur réseau : " + response.status);
-                        }
-                        return response.text();
-                    })
+                    if (!response.ok) {
+                        throw new Error("Erreur réseau : " + response.status);
+                    }
+                    return response.text();
+                })
                     .then(responseText => {
-                        if (responseText.status === "200") {
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    })
+                    if (responseText.status === "200") {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                })
                     .catch(error => {
-                        console.error("Erreur lors de la requête :", error);
-                    });
+                    console.error("Erreur lors de la requête :", error);
+                });
             }
 
             let optionsElems = [];
@@ -7130,7 +7182,7 @@ ${isPlus && apiOk ? `
                 ajouterOptionCheckbox('taxValue', 'Remonter l\'affichage de la valeur fiscale estimée (et des variantes sur mobile)');
                 ajouterOptionCheckbox('isParentEnabled', 'Distinguer les produits ayant des variantes. Si c\'est le cas, cela ajoute l\'icone 🛍️ dans le texte du bouton des détails');
                 ajouterOptionCheckbox('notepadEnabled', 'Activer le Bloc-notes');
-                ajouterOptionTexte('sizeMobileCat', 'Tailles des boutons de catégories (RFY, AFA, AI) en affichage mobile', '54px');
+                ajouterOptionTexte('sizeMobileCat', 'Tailles des boutons de catégories (RFY, AFA, AI) en affichage mobile', '32px');
                 ajouterSeparateur();
                 ajouterOptionCheckbox('notifVolumeEnabled', 'Contrôler le volume des notifications');
                 ajouterOptionTexte('notifVolume', 'Volume des notifications, valeur entre 0 et 1 (0 = muet, 1 = max)', '1');
@@ -7371,16 +7423,16 @@ ${isPlus && apiOk ? `
                     optionsContainer
                         .querySelectorAll('[id^="sort_"]')
                         .forEach(sortMenuContainer => {
-                            const key = sortMenuContainer.id.slice(5); //enlève le "sort_"
-                            const customSorting = Array.from(sortMenuContainer.children).map(item => {
-                                const entry = { type: item.dataset.type };
-                                if (item.dataset.order) {
-                                    entry.order = item.dataset.order;
-                                }
-                                return entry;
-                            });
-                            GM_setValue(key, customSorting);
+                        const key = sortMenuContainer.id.slice(5); //enlève le "sort_"
+                        const customSorting = Array.from(sortMenuContainer.children).map(item => {
+                            const entry = { type: item.dataset.type };
+                            if (item.dataset.order) {
+                                entry.order = item.dataset.order;
+                            }
+                            return entry;
                         });
+                        GM_setValue(key, customSorting);
+                    });
                     popup.remove();
                 });
 
@@ -7409,29 +7461,29 @@ ${isPlus && apiOk ? `
                         body: formData.toString()
                     })
                         .then(response => {
-                            if (response.status === 200) {
-                                //On récupère le texte de la réponse
-                                return response.text().then(text => {
-                                    const syncButton = document.getElementById('syncFavConfig');
-                                    const originalText = syncButton.textContent;
-                                    syncButton.innerHTML = text;
-                                    setTimeout(() => {
-                                        syncButton.textContent = originalText;
-                                    }, 2000);
-                                    return {status: response.status, responseText: text};
-                                });
-                            } else if (response.status === 201) {
+                        if (response.status === 200) {
+                            //On récupère le texte de la réponse
+                            return response.text().then(text => {
                                 const syncButton = document.getElementById('syncFavConfig');
-                                syncButton.innerHTML = 'Non autorisé';
-                                syncButton.disabled = true;
-                                return "Non autorisé";
-                            } else {
-                                throw new Error("Erreur lors de la récupération de la dernière sauvegarde");
-                            }
-                        })
+                                const originalText = syncButton.textContent;
+                                syncButton.innerHTML = text;
+                                setTimeout(() => {
+                                    syncButton.textContent = originalText;
+                                }, 2000);
+                                return {status: response.status, responseText: text};
+                            });
+                        } else if (response.status === 201) {
+                            const syncButton = document.getElementById('syncFavConfig');
+                            syncButton.innerHTML = 'Non autorisé';
+                            syncButton.disabled = true;
+                            return "Non autorisé";
+                        } else {
+                            throw new Error("Erreur lors de la récupération de la dernière sauvegarde");
+                        }
+                    })
                         .catch(error => {
-                            throw new Error("Erreur lors de la récupération de la dernière sauvegarde : " + error);
-                        });
+                        throw new Error("Erreur lors de la récupération de la dernière sauvegarde : " + error);
+                    });
                 }
             }
 
@@ -7553,8 +7605,8 @@ ${isPlus && apiOk ? `
                     }
                     //Bouton pour produit unique ou avec variantes
                     const buttonText = (mobileEnabled || cssEnabled)
-                        ? (isParent ? '🚀' : '🚀')
-                        : (isParent ? '🚀 Commande rapide' : '🚀 Commande rapide');
+                    ? (isParent ? '🚀' : '🚀')
+                    : (isParent ? '🚀 Commande rapide' : '🚀 Commande rapide');
 
                     const paddingStyle = (mobileEnabled || cssEnabled) ? 'padding: 4px 8px;' : '';
 
@@ -7717,12 +7769,12 @@ ${isPlus && apiOk ? `
                     }
                 })
                     .then(response => response.text().then(text => {
-                        return {status: response.status, statusText: response.statusText, responseText: text};
-                    }))
+                    return {status: response.status, statusText: response.statusText, responseText: text};
+                }))
                     .catch(error => {
-                        console.error(error);
-                        throw error;
-                    });
+                    console.error(error);
+                    throw error;
+                });
             }
 
             async function verifyTokenPremiumPlus(token) {
@@ -7829,19 +7881,19 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`Error: ${response.status} ${response.statusText}`);
-                        }
-                        return response.json();
-                    })
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                     .then(varData => {
-                        const data = varData.data;
-                        GM_setValue("fastCmdVar", data);
-                        return { status: 200, responseText: JSON.stringify(varData) };
-                    })
+                    const data = varData.data;
+                    GM_setValue("fastCmdVar", data);
+                    return { status: 200, responseText: JSON.stringify(varData) };
+                })
                     .catch(error => {
-                        throw error;
-                    });
+                    throw error;
+                });
             }
 
             async function askForToken(reason) {
@@ -8253,16 +8305,16 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        return response.text().then(text => {
-                            console.log(response.status, text);
-                            return {status: response.status, statusText: response.statusText, responseText: text};
-                        });
-                    })
-                    .catch(error => {
-                        console.error(error);
-                        updateButtonIcon(6);
-                        throw error;
+                    return response.text().then(text => {
+                        console.log(response.status, text);
+                        return {status: response.status, statusText: response.statusText, responseText: text};
                     });
+                })
+                    .catch(error => {
+                    console.error(error);
+                    updateButtonIcon(6);
+                    throw error;
+                });
             }
 
             //PickMe add
@@ -8682,16 +8734,16 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (!response.ok) {
-                            //En cas d’erreur HTTP on récupère quand même le corps pour debug
-                            return response.text().then(txt => Promise.reject(new Error(txt)));
-                        }
-                        //Ici on s’attend à de l’JSON : le tableau des URL insérées
-                        return response.json();
-                    })
+                    if (!response.ok) {
+                        //En cas d’erreur HTTP on récupère quand même le corps pour debug
+                        return response.text().then(txt => Promise.reject(new Error(txt)));
+                    }
+                    //Ici on s’attend à de l’JSON : le tableau des URL insérées
+                    return response.json();
+                })
                     .catch(error => {
-                        throw error;
-                    });
+                    throw error;
+                });
             }
 
             function extractASIN(input) {
@@ -8857,23 +8909,23 @@ ${isPlus && apiOk ? `
                                 body: formDataCancel.toString()
                             })
                                 .then(response => {
-                                    if (!response.ok) {
-                                        throw new Error("Erreur réseau : " + response.status);
-                                    }
-                                    return response.text();
-                                })
+                                if (!response.ok) {
+                                    throw new Error("Erreur réseau : " + response.status);
+                                }
+                                return response.text();
+                            })
                                 .then(responseText => {
-                                    if (responseText === "true") {
-                                        cancelButton.textContent = 'Intégrer';
-                                        buttonDetails.style.background = '#dc3545';
-                                    } else {
-                                        cancelButton.textContent = 'Annuler';
-                                        buttonDetails.style.background = '#28a745';
-                                    }
-                                })
+                                if (responseText === "true") {
+                                    cancelButton.textContent = 'Intégrer';
+                                    buttonDetails.style.background = '#dc3545';
+                                } else {
+                                    cancelButton.textContent = 'Annuler';
+                                    buttonDetails.style.background = '#28a745';
+                                }
+                            })
                                 .catch(error => {
-                                    console.error("Erreur lors de la requête :", error);
-                                });
+                                console.error("Erreur lors de la requête :", error);
+                            });
 
                             cancelButton.addEventListener('click', (event) => {
                                 event.preventDefault();
@@ -8887,36 +8939,36 @@ ${isPlus && apiOk ? `
                                     body: formDataCancel.toString()
                                 })
                                     .then(response => {
-                                        //On vérifie le statut de la réponse
-                                        if (!response.ok) {
-                                            throw new Error(`Network response was not ok (status: ${response.status})`);
-                                        }
-                                        return response.text(); //ou response.json() si la réponse est au format JSON
-                                    })
+                                    //On vérifie le statut de la réponse
+                                    if (!response.ok) {
+                                        throw new Error(`Network response was not ok (status: ${response.status})`);
+                                    }
+                                    return response.text(); //ou response.json() si la réponse est au format JSON
+                                })
                                     .then(data => {
-                                        const greenCircle = row.querySelector('span:nth-of-type(1)');
-                                        let greenCount = parseInt(greenCircle.textContent);
+                                    const greenCircle = row.querySelector('span:nth-of-type(1)');
+                                    let greenCount = parseInt(greenCircle.textContent);
 
-                                        if (isCancelled) {
-                                            cancelButton.textContent = 'Annuler';
-                                            buttonDetails.style.background = '#28a745';
-                                            if (ordersInfos && Number.isInteger(greenCount)) {
-                                                greenCircle.textContent = greenCount + 1;
-                                            }
-                                        } else {
-                                            cancelButton.textContent = 'Intégrer';
-                                            buttonDetails.style.background = '#dc3545';
-                                            if (ordersInfos && Number.isInteger(greenCount) && greenCount > 0) {
-                                                greenCircle.textContent = greenCount - 1;
-                                            }
+                                    if (isCancelled) {
+                                        cancelButton.textContent = 'Annuler';
+                                        buttonDetails.style.background = '#28a745';
+                                        if (ordersInfos && Number.isInteger(greenCount)) {
+                                            greenCircle.textContent = greenCount + 1;
                                         }
+                                    } else {
+                                        cancelButton.textContent = 'Intégrer';
+                                        buttonDetails.style.background = '#dc3545';
+                                        if (ordersInfos && Number.isInteger(greenCount) && greenCount > 0) {
+                                            greenCircle.textContent = greenCount - 1;
+                                        }
+                                    }
 
-                                        //'data' contient le contenu de la réponse (si besoin)
-                                        //console.log(data);
-                                    })
+                                    //'data' contient le contenu de la réponse (si besoin)
+                                    //console.log(data);
+                                })
                                     .catch(error => {
-                                        console.error(error);
-                                    });
+                                    console.error(error);
+                                });
                             });
 
                             //Ajoute le bouton Annuler sous le bouton Détails
@@ -8933,17 +8985,17 @@ ${isPlus && apiOk ? `
                                     body: formData.toString()
                                 })
                                     .then(response => {
-                                        if (!response.ok) {
-                                            throw new Error("Erreur réseau " + response.status);
-                                        }
-                                        return response.text();
-                                    })
+                                    if (!response.ok) {
+                                        throw new Error("Erreur réseau " + response.status);
+                                    }
+                                    return response.text();
+                                })
                                     .then(data => {
-                                        console.log("Réponse du serveur :", data);
-                                    })
+                                    console.log("Réponse du serveur :", data);
+                                })
                                     .catch(error => {
-                                        console.error("Erreur lors de la requête :", error);
-                                    });
+                                    console.error("Erreur lors de la requête :", error);
+                                });
                             }
                         }
                     });
@@ -9052,25 +9104,25 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`Error: ${response.status} ${response.statusText}`);
-                        }
-                        return response.json();
-                    })
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                     .then(productsData => {
-                        showOrders(productsData);
-                        return productsData;
-                    })
+                    showOrders(productsData);
+                    return productsData;
+                })
                     .catch(error => {
-                        //console.error(error);
-                        throw error;
-                    })
+                    //console.error(error);
+                    throw error;
+                })
                     .finally(() => {
-                        //On signifie que le script a fini son action la plus "longue" pour les actions de fin
-                        if (!autohideEnabled) {
-                            allFinish = true;
-                        }
-                    });
+                    //On signifie que le script a fini son action la plus "longue" pour les actions de fin
+                    if (!autohideEnabled) {
+                        allFinish = true;
+                    }
+                });
             }
 
             function ordersPostCmd(data, tab = "orders") {
@@ -9093,18 +9145,18 @@ ${isPlus && apiOk ? `
                         body: formData.toString()
                     })
                         .then(response => {
-                            if (!response.ok) {
-                                throw new Error(`Error: ${response.status} ${response.statusText}`);
-                            }
-                            return response.json();
-                        })
+                        if (!response.ok) {
+                            throw new Error(`Error: ${response.status} ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
                         .then(productsData => {
-                            showOrdersCmd(productsData, tab);
-                            return productsData;
-                        })
+                        showOrdersCmd(productsData, tab);
+                        return productsData;
+                    })
                         .catch(error => {
-                            throw error;
-                        });
+                        throw error;
+                    });
                 }
 
             }
@@ -9124,18 +9176,18 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`Error: ${response.status} ${response.statusText}`);
-                        }
-                        return response.json();
-                    })
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                     .then(productsData => {
-                        showOrdersPercent(productsData);
-                        return productsData;
-                    })
+                    showOrdersPercent(productsData);
+                    return productsData;
+                })
                     .catch(error => {
-                        throw error;
-                    });
+                    throw error;
+                });
             }
 
             if (ordersInfos && flagEnabled) {
@@ -9209,8 +9261,8 @@ ${isPlus && apiOk ? `
 
                             //Calcul de la position horizontale :
                             const horizontalPos = type === 'success'
-                                ? `left: ${horPadding};`
-                                : `right: ${horPadding};`;
+                            ? `left: ${horPadding};`
+                            : `right: ${horPadding};`;
 
                             icon.style.cssText = `
                             position: absolute;
@@ -9603,32 +9655,32 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (response.status === 401) {
-                            alert("Clé API invalide ou membre non Premium+");
-                            return response;
-                        }
+                    if (response.status === 401) {
+                        alert("Clé API invalide ou membre non Premium+");
+                        return response;
+                    }
 
-                        if (!response.ok) {
-                            //Pour les autres statuts d'erreur
-                            console.error("Erreur HTTP:", response.status, response.statusText);
-                            throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
-                        }
+                    if (!response.ok) {
+                        //Pour les autres statuts d'erreur
+                        console.error("Erreur HTTP:", response.status, response.statusText);
+                        throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                    }
 
-                        //On tente de parser la réponse en JSON
-                        return response.json().catch(error => {
-                            console.error("Erreur lors du parsing JSON:", error);
-                            throw error;
-                        });
-                    })
-                    .then(productsData => {
-                        //Si on arrive ici, c'est qu'on a un code 2xx
-                        syncProductsData(productsData, askHide, hideAll, refresh);
-                        return productsData;
-                    })
-                    .catch(error => {
-                        console.error("Erreur de requête:", error);
+                    //On tente de parser la réponse en JSON
+                    return response.json().catch(error => {
+                        console.error("Erreur lors du parsing JSON:", error);
                         throw error;
                     });
+                })
+                    .then(productsData => {
+                    //Si on arrive ici, c'est qu'on a un code 2xx
+                    syncProductsData(productsData, askHide, hideAll, refresh);
+                    return productsData;
+                })
+                    .catch(error => {
+                    console.error("Erreur de requête:", error);
+                    throw error;
+                });
             }
 
             //Appel API pour la quantité de produits
@@ -9646,32 +9698,32 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (response.status === 401) {
-                            return response;
-                        }
+                    if (response.status === 401) {
+                        return response;
+                    }
 
-                        if (!response.ok) {
-                            //Erreur HTTP (ex: 404, 500, etc.)
-                            console.error("Erreur HTTP:", response.status, response.statusText);
-                            throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
-                        }
+                    if (!response.ok) {
+                        //Erreur HTTP (ex: 404, 500, etc.)
+                        console.error("Erreur HTTP:", response.status, response.statusText);
+                        throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                    }
 
-                        //Réponse 2xx, on essaie de parser le JSON
-                        return response.json().catch(error => {
-                            console.error("Erreur lors du parsing JSON:", error);
-                            throw error;
-                        });
-                    })
-                    .then(productsData => {
-                        //On a réussi à parser le JSON, on appelle qtyProductsData
-                        qtyProductsData(productsData);
-                        return productsData;
-                    })
-                    .catch(error => {
-                        //Erreur réseau ou de parsing déjà gérée ci-dessus
-                        console.error("Erreur de requête:", error);
+                    //Réponse 2xx, on essaie de parser le JSON
+                    return response.json().catch(error => {
+                        console.error("Erreur lors du parsing JSON:", error);
                         throw error;
                     });
+                })
+                    .then(productsData => {
+                    //On a réussi à parser le JSON, on appelle qtyProductsData
+                    qtyProductsData(productsData);
+                    return productsData;
+                })
+                    .catch(error => {
+                    //Erreur réseau ou de parsing déjà gérée ci-dessus
+                    console.error("Erreur de requête:", error);
+                    throw error;
+                });
             }
 
             //Affichage des données reçu par l'API, le délai est pour avoir le bon ordre d'affichage
@@ -9693,14 +9745,14 @@ ${isPlus && apiOk ? `
                 if (productsData[0].ai_recent !== '0') {
                     aiRecentHTML = catGras
                         ? `<span style="color: green;"><strong> (+${productsData[0].ai_recent})</strong></span>`
-                        : `<span style="color: green;"> (+${productsData[0].ai_recent})</span>`;
+                    : `<span style="color: green;"> (+${productsData[0].ai_recent})</span>`;
                 }
 
                 let afaRecentHTML = '';
                 if (productsData[0].afa_recent !== '0') {
                     afaRecentHTML = catGras
                         ? `<span style="color: green;"><strong> (+${productsData[0].afa_recent})</strong></span>`
-                        : `<span style="color: green;"> (+${productsData[0].afa_recent})</span>`;
+                    : `<span style="color: green;"> (+${productsData[0].afa_recent})</span>`;
                 }
 
                 let rfyRecentHTML = '';
@@ -9712,7 +9764,7 @@ ${isPlus && apiOk ? `
                 ) {
                     rfyRecentHTML = catGras
                         ? `<span style="color: green;"><strong> (+${productsData[0].rfy_recent})</strong></span>`
-                        : `<span style="color: green;"> (+${productsData[0].rfy_recent})</span>`;
+                    : `<span style="color: green;"> (+${productsData[0].rfy_recent})</span>`;
                 }
 
                 let recoHTML = '';
@@ -9757,32 +9809,32 @@ ${isPlus && apiOk ? `
                     body: formData.toString()
                 })
                     .then(response => {
-                        if (response.status === 401) {
-                            return response;
-                        }
+                    if (response.status === 401) {
+                        return response;
+                    }
 
-                        if (!response.ok) {
-                            //Erreur HTTP (ex: 404, 500, etc.)
-                            console.error("Erreur HTTP:", response.status, response.statusText);
-                            throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
-                        }
+                    if (!response.ok) {
+                        //Erreur HTTP (ex: 404, 500, etc.)
+                        console.error("Erreur HTTP:", response.status, response.statusText);
+                        throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                    }
 
-                        //Réponse 2xx, on essaie de parser le JSON
-                        return response.json().catch(error => {
-                            console.error("Erreur lors du parsing JSON:", error);
-                            throw error;
-                        });
-                    })
-                    .then(ordersData => {
-                        //On a réussi à parser le JSON, on appelle qtyOrdersData
-                        qtyOrdersData(ordersData);
-                        return ordersData;
-                    })
-                    .catch(error => {
-                        //Erreur réseau ou de parsing déjà gérée ci-dessus
-                        console.error("Erreur de requête:", error);
+                    //Réponse 2xx, on essaie de parser le JSON
+                    return response.json().catch(error => {
+                        console.error("Erreur lors du parsing JSON:", error);
                         throw error;
                     });
+                })
+                    .then(ordersData => {
+                    //On a réussi à parser le JSON, on appelle qtyOrdersData
+                    qtyOrdersData(ordersData);
+                    return ordersData;
+                })
+                    .catch(error => {
+                    //Erreur réseau ou de parsing déjà gérée ci-dessus
+                    console.error("Erreur de requête:", error);
+                    throw error;
+                });
             }
 
             function detectTier() {
@@ -9995,7 +10047,7 @@ ${isPlus && apiOk ? `
                 //Mutation observer fires every time the product title in the modal changes
                 observer = new MutationObserver(function (mutations) {
                     const prerelease = document.querySelector('#vvp-product-details-modal--product-title.prerelease-title') ||
-                                      document.querySelector('#product-details-sheet-title.prerelease-title');
+                          document.querySelector('#product-details-sheet-title.prerelease-title');
                     if (prerelease) {
                         prerelease.style.pointerEvents = 'auto';
                         prerelease.style.cursor = 'pointer';
@@ -11038,7 +11090,6 @@ ${isPlus && apiOk ? `
                 const choiceContainer = document.createElement('div');
                 choiceContainer.id = 'choice-container';
                 choiceContainer.style.display = 'inline-block';
-                choiceContainer.style.marginLeft = '10px';
 
                 //Bouton "Tout"
                 const btnTout = document.createElement('button');
@@ -11053,12 +11104,62 @@ ${isPlus && apiOk ? `
                 btnNouveaux.className = 'bouton-action';
                 btnNouveaux.addEventListener('click', handleNouveauxClick);
 
+                //Marge supplémentaire en mobile
+                if (isMobile()) {
+                    btnTout.style.marginBottom = '5px';
+                    btnNouveaux.style.marginBottom = '5px';
+                    if (hideEnabled) {
+                        btnTout.style.marginTop = '-10px';
+                        btnNouveaux.style.marginTop = '-10px';
+                    } else if (menuSorting) {
+                        btnTout.style.marginTop = '5px';
+                        btnNouveaux.style.marginTop = '5px';
+                    }
+                } else {
+                    btnTout.style.marginLeft = '5px';
+                    btnNouveaux.style.marginLeft = '5px';
+                }
+
                 choiceContainer.appendChild(btnTout);
                 choiceContainer.appendChild(btnNouveaux);
 
-                const pResultats = document.querySelector('#vvp-items-grid-container > p');
-                if (pResultats && mainBtn) {
-                    pResultats.insertBefore(choiceContainer, mainBtn.nextSibling);
+                const divCacherHaut = document.querySelector('#divCacherHaut');
+
+                if (isMobile()) {
+                    if (hideEnabled && divCacherHaut) {
+                        divCacherHaut.insertAdjacentElement('afterend', choiceContainer)
+                    } else {
+                        const resultats = document.querySelector('#vvp-items-grid-container > p');
+                        const vineGrid = document.querySelector('#vvp-items-grid');
+
+                        if (resultats) {
+                            resultats.after(choiceContainer);
+                        } else if (vineGrid) {
+                            vineGrid.before(choiceContainer);
+                        }
+                    }
+                } else {
+                    //Desktop
+                    const pResultats = document.querySelector('#vvp-items-grid-container > p');
+                    if (pResultats) {
+                        let inserted = false;
+                        pResultats.childNodes.forEach(node => {
+                            if (!inserted && node.nodeType === Node.TEXT_NODE && node.textContent.includes("résultats")) {
+                                const pos = node.textContent.indexOf("résultats") + "résultats".length;
+                                const avant = node.textContent.substring(0, pos);
+                                const apres = node.textContent.substring(pos);
+
+                                const textAvant = document.createTextNode(avant);
+                                const textApres = document.createTextNode(apres);
+
+                                pResultats.replaceChild(textAvant, node);
+                                pResultats.insertBefore(choiceContainer, textAvant.nextSibling);
+                                pResultats.insertBefore(textApres, choiceContainer.nextSibling);
+
+                                inserted = true;
+                            }
+                        });
+                    }
                 }
             }
 
@@ -11145,43 +11246,43 @@ ${isPlus && apiOk ? `
                     body: JSON.stringify(formData)
                 })
                     .then(response => {
-                        if (response.status === 201) {
-                            return response.text().then(message => {
-                                alert(message);
-                                throw new Error("Token invalide");
-                            });
-                        } else if (!response.ok) {
-                            throw new Error("Erreur lors de l'appel à l'API, status: " + response.status);
-                        }
-                        return response.json();
-                    })
+                    if (response.status === 201) {
+                        return response.text().then(message => {
+                            alert(message);
+                            throw new Error("Token invalide");
+                        });
+                    } else if (!response.ok) {
+                        throw new Error("Erreur lors de l'appel à l'API, status: " + response.status);
+                    }
+                    return response.json();
+                })
                     .then(data => {
-                        if (data.url) {
-                            //Construire le texte à copier dans le presse-papiers
-                            let pasteText = '[Recommandations](' + data.url + ")\n" + data.text;
-                            if (onlyNew) {
-                                pasteText = '[Recommandations Horaire/Nouvelles](' + data.url + ")\n" + data.text;
-                            }
-
-                            if (shareOnlyProduct) {
-                                pasteText = data.url;
-                            }
-                            navigator.clipboard.writeText(pasteText)
-                                .then(() => {
-                                    alert("Les produits sont copiés dans le presse-papiers, il ne reste plus qu'à coller sur discord");
-                                })
-                                .catch(err => {
-                                    console.error("Erreur lors de la copie dans le presse-papiers", err);
-                                    alert("Erreur lors de la copie dans le presse-papiers");
-                                });
-                        } else {
-                            alert("Erreur: réponse invalide de l'API");
+                    if (data.url) {
+                        //Construire le texte à copier dans le presse-papiers
+                        let pasteText = '[Recommandations](' + data.url + ")\n" + data.text;
+                        if (onlyNew) {
+                            pasteText = '[Recommandations Horaire/Nouvelles](' + data.url + ")\n" + data.text;
                         }
-                    })
+
+                        if (shareOnlyProduct) {
+                            pasteText = data.url;
+                        }
+                        navigator.clipboard.writeText(pasteText)
+                            .then(() => {
+                            alert("Les produits sont copiés dans le presse-papiers, il ne reste plus qu'à coller sur discord");
+                        })
+                            .catch(err => {
+                            console.error("Erreur lors de la copie dans le presse-papiers", err);
+                            alert("Erreur lors de la copie dans le presse-papiers");
+                        });
+                    } else {
+                        alert("Erreur: réponse invalide de l'API");
+                    }
+                })
                     .catch(err => {
-                        console.error("Erreur lors de l'appel à l'API", err);
-                        alert("Erreur lors de l'appel à l'API");
-                    });
+                    console.error("Erreur lors de l'appel à l'API", err);
+                    alert("Erreur lors de l'appel à l'API");
+                });
             }
 
             if (shareReco && apiOk && valeurQueue == "potluck") {
@@ -11536,8 +11637,8 @@ ${isPlus && apiOk ? `
                     const orderDiv = item.querySelector('.order-item');
                     if (!orderDiv) return Infinity;
                     const raw = (type === 'price')
-                        ? orderDiv.dataset.price
-                        : orderDiv.dataset.etv;
+                    ? orderDiv.dataset.price
+                    : orderDiv.dataset.etv;
                     const num = parseFloat(raw);
                     return isNaN(num) ? Infinity : num;
                 }
@@ -11659,7 +11760,7 @@ ${isPlus && apiOk ? `
                 //Si la ronde était en pause, on affiche l'icône "resume", sinon l'icône "pause"
                 pauseButton.innerHTML = isPaused
                     ? `<img src="${playIcon}" alt="Resume" style="height:32px; width:auto;">`
-                    : `<img src="${pauseIconUrl}" alt="Pause" style="height:32px; width:auto;">`;
+                : `<img src="${pauseIconUrl}" alt="Pause" style="height:32px; width:auto;">`;
                 pauseButton.addEventListener('mouseover', () => {
                     pauseButton.style.boxShadow = '0 0 10px rgba(0,0,0,0.3)';
                 });
@@ -11757,7 +11858,7 @@ ${isPlus && apiOk ? `
                     const finishFormatted = `${pad(finishTime.getHours())}:${pad(finishTime.getMinutes())}:${pad(finishTime.getSeconds())}`;
 
                     const getMessage = title =>
-                        `${title} !\nTemps écoulé : ${elapsedFormatted}\nLancement : ${startFormatted}\nFin : ${finishFormatted}\nPages parcourues : ${pageCount}`;
+                    `${title} !\nTemps écoulé : ${elapsedFormatted}\nLancement : ${startFormatted}\nFin : ${finishFormatted}\nPages parcourues : ${pageCount}`;
 
                     const baseTitle = isVoluntary ? 'Ronde stoppée' : 'Ronde effectuée';
 
