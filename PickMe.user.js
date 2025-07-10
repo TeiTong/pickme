@@ -2944,14 +2944,8 @@ NOTES:
             if (taxValue && apiOk) {
                 //Créez une balise <style>
                 var style = document.createElement('style');
-                //Assurez-vous que le style s'applique correctement en utilisant textContent
-                style.textContent = `
-		#vvp-product-details-modal--tax-value {
-			position: absolute !important;
-			top: 0px !important;
-			z-index: 101;
-			left: 18px;
-		}
+                if (isMobile()) {
+                    style.textContent = `
         #product-details-sheet-tax-value {
 			position: absolute !important;
 			top: 0px !important;
@@ -2962,6 +2956,16 @@ NOTES:
             position: relative;
         }
 		`;
+                } else {
+                    style.textContent = `
+		#vvp-product-details-modal--tax-value {
+			position: absolute !important;
+			top: 20px !important;
+			z-index: 101;
+			left: 18px;
+		}
+		`;
+                }
                 //Ajout du style à la page
                 document.head.appendChild(style);
                 //Remonter les variantes dans les détails
